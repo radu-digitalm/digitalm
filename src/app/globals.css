@@ -1,0 +1,250 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #0a0e16;
+  --surface: #12161f;
+  --line: #232a38;
+  --accent-orange: #f15a24;
+  --accent: #ee355e;
+  --accent-magenta: #ed1e79;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 6rem;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--ink);
+    color: #c5cddb;
+    font-family: var(--font-inter), ui-sans-serif, sans-serif;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1, h2, h3, h4 {
+    color: #f4f6fa;
+    font-family: var(--font-space-grotesk), ui-sans-serif, sans-serif;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    line-height: 1.12;
+  }
+
+  ::selection {
+    background-color: rgba(237, 30, 121, 0.28);
+    color: #ffffff;
+  }
+
+  /* Visible keyboard focus everywhere. */
+  :focus-visible {
+    outline: 2px solid var(--accent-magenta);
+    outline-offset: 3px;
+    border-radius: 3px;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: none;
+  }
+}
+
+@layer components {
+  .container-x {
+    width: 100%;
+    max-width: 1180px;
+    margin-inline: auto;
+    padding-inline: 1.5rem;
+  }
+
+  .gradient-text {
+    background: linear-gradient(115deg, #f15a24 0%, #ee355e 52%, #ed1e79 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .eyebrow {
+    font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #8b94a4;
+  }
+
+  .hairline {
+    border-color: rgba(255, 255, 255, 0.07);
+  }
+
+  .card {
+    background-color: #12161f;
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 14px;
+  }
+
+  .link-accent {
+    color: #f58fac;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+  .link-accent:hover {
+    color: #ed1e79;
+  }
+
+  .card-hover {
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.22s ease, box-shadow 0.22s ease;
+  }
+  .card-hover:active {
+    transform: translateY(-1px);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .card-hover:hover {
+      transform: translateY(-3px);
+      border-color: rgba(237, 30, 121, 0.28);
+      box-shadow: 0 8px 30px -12px rgba(237, 30, 121, 0.25);
+    }
+  }
+
+  .display-tight {
+    font-weight: 700;
+    letter-spacing: -0.04em;
+  }
+
+  .btn-primary {
+    background-image: linear-gradient(115deg, #f15a24 0%, #ee355e 52%, #ed1e79 100%);
+    color: #0a0e16;
+    font-weight: 500;
+    border-radius: 0.5rem;
+    transition: transform 0.2s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.2s ease;
+  }
+  .btn-primary:active {
+    transform: translateY(0);
+    box-shadow: none;
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px -6px rgba(237, 30, 121, 0.45);
+    }
+  }
+
+  .btn-ghost {
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #f4f6fa;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+  }
+  .btn-ghost:active {
+    background-color: rgba(255, 255, 255, 0.1);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .btn-ghost:hover {
+      background-color: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.3);
+    }
+  }
+
+  .seam {
+    height: 1px;
+    border: 0;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(237, 30, 121, 0.28),
+      transparent
+    );
+  }
+
+  /* 1px gradient border via masked ::before — for the lead pillar card. */
+  .gradient-border::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    padding: 1px;
+    background: linear-gradient(115deg, #f15a24, #ee355e 52%, #ed1e79);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+}
+
+/* Scroll-reveal — progressive enhancement only. Content is fully visible
+   unless the browser supports scroll-driven animations AND motion is allowed. */
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* The signal node travels its arc only when motion is allowed; otherwise it
+   parks at offset-distance: 50% (set inline on the element). */
+@keyframes node-travel {
+  0% {
+    offset-distance: 8%;
+    opacity: 0.7;
+  }
+  50% {
+    offset-distance: 92%;
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 8%;
+    opacity: 0.7;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal {
+      animation: reveal-in linear both;
+      animation-timeline: view();
+      animation-range: entry 5% cover 25%;
+    }
+    .reveal:nth-child(2) {
+      animation-range: entry 9% cover 29%;
+    }
+    .reveal:nth-child(3) {
+      animation-range: entry 13% cover 33%;
+    }
+    .reveal:nth-child(4) {
+      animation-range: entry 17% cover 37%;
+    }
+  }
+  .node-travel {
+    animation: node-travel 7s ease-in-out infinite;
+  }
+}
+
+/* Below-the-fold sections skip render work until near the viewport. */
+.cv-auto {
+  content-visibility: auto;
+  contain-intrinsic-size: auto 600px;
+}
+
+/* Honour reduced-motion: kill non-essential animation and smooth scroll. */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

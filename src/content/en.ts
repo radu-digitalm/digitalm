@@ -1,0 +1,610 @@
+import type { SiteContent } from "./types";
+
+export const en = {
+  meta: {
+    home: {
+      title: "Digital M — AI for commerce, grounded in real delivery",
+      description:
+        "Digital M helps retail and e-commerce teams put AI to work — backed by 15+ years delivering e-commerce and Salesforce CRM for major retail and optical brands.",
+    },
+    services: {
+      title: "Services — AI adoption, e-commerce & CRM delivery | Digital M",
+      description:
+        "AI adoption and integration for retail, backed by e-commerce engineering and Salesforce Service & Marketing Cloud delivery.",
+    },
+    work: {
+      title: "Work — 15+ years of retail commerce & CRM delivery | Digital M",
+      description:
+        "Selected delivery for Vision Direct, EssilorLuxottica, Liz Earle, Misguided, In The Style and APP Wholesale — e-commerce, Salesforce and secure commerce.",
+    },
+    contact: {
+      title: "Contact | Digital M",
+      description:
+        "Talk to Digital M about putting AI to work in your retail or e-commerce business. Email contact@digitalm.eu.",
+    },
+    pme: {
+      title: "Pricing — AI & websites for TPE/PME | Digital M",
+      description:
+        "Fixed-scope websites, AI and security audits for French small businesses — from €500, priced up front.",
+    },
+    legalNotice: {
+      title: "Legal notice | Digital M",
+      description: "Legal information for Digital M.",
+    },
+    privacy: {
+      title: "Privacy policy | Digital M",
+      description: "How Digital M handles personal data, in line with the GDPR.",
+    },
+  },
+
+  nav: {
+    links: [
+      { label: "Services", href: "/services" },
+      { label: "Work", href: "/work" },
+      { label: "Contact", href: "/contact" },
+    ],
+    cta: "Tell us what you need",
+  },
+
+  smb: {
+    eyebrow: "For smaller businesses (France)",
+    title: "Smaller business? Same engineering, sized to fit.",
+    body: "The same delivery we bring to large retail, packaged for French micro and small businesses — a fast, well-built website and AI that handles the repetitive work, at a price that fits a smaller budget. Same standards, right-sized scope.",
+    points: [
+      "A modern website, built to perform and easy to run",
+      "AI for the repetitive work — quotes, replies, content, scheduling",
+      "Clear fixed scope and pricing, agreed up front",
+    ],
+    proof:
+      "Built by the team behind delivery for Vision Direct, EssilorLuxottica and Liz Earle.",
+    priceChip: "Sites from €500 · AI from €500/day · fixed scope",
+    cta: "See packages & pricing",
+  },
+
+  pricing: {
+    hero: {
+      eyebrow: "TPE & PME",
+      title: "Affordable AI and websites, priced up front.",
+      sub: "Real fixed-scope packages for French micro and small businesses — built by the team behind delivery for Vision Direct, EssilorLuxottica and Liz Earle.",
+    },
+    rateNote:
+      "Day rate from €500 — a preferential rate for small businesses. Fixed scope, agreed up front.",
+    discountTag: "Intro rate",
+    recommendedBadge: "Recommended",
+    packages: [
+      {
+        name: "Site essentiel",
+        price: "from €500",
+        timeline: "1–2 days",
+        outcome: "A fast, well-built website, live in days.",
+        includes: [
+          "Modern, responsive site",
+          "Performance and SEO basics",
+          "Simple to run and update",
+          "Fixed scope, agreed up front",
+        ],
+      },
+      {
+        name: "AI on your site",
+        price: "from €500",
+        timeline: "1–3 days",
+        outcome: "AI that takes on the repetitive work.",
+        includes: [
+          "AI added to your existing site",
+          "Quotes, replies, content, scheduling",
+          "Integrated with the tools you use",
+          "Measured on real outcomes",
+        ],
+      },
+      {
+        name: "Site + AI",
+        price: "from €2,500",
+        timeline: "about 1 week",
+        outcome: "A modern site with AI built in.",
+        includes: [
+          "Everything in Site essentiel",
+          "AI integrated from day one",
+          "Content and automation set up",
+          "Fixed scope and timeline",
+        ],
+        lead: true,
+      },
+      {
+        name: "Security audit",
+        price: "from €500/day",
+        timeline: "by scope",
+        outcome: "Know where your site or store is exposed.",
+        includes: [
+          "Vulnerability assessment of your site or store",
+          "Prioritised findings and fixes",
+          "Payment and customer-data focus",
+          "A re-test after the fixes",
+        ],
+      },
+    ],
+    note: "The day rate applies once we have the access and information to start. Prices are starting points — we confirm scope and a fixed quote up front.",
+    cta: "Tell us what you need",
+  },
+
+  process: {
+    eyebrow: "How we work",
+    title: "From idea to shipped, in four steps.",
+    steps: [
+      {
+        title: "Map where AI fits",
+        detail: "We find the workflows where AI pays off — and rule out the ones where it doesn't.",
+      },
+      {
+        title: "Integrate, don't bolt on",
+        detail: "We build into the systems you already run — commerce, CRM, support.",
+      },
+      {
+        title: "Ship measurable improvement",
+        detail: "We deliver against real outcomes: time saved, conversion, response times.",
+      },
+      {
+        title: "Support and iterate",
+        detail: "We stay on to measure, tune and keep it running.",
+      },
+    ],
+  },
+
+  faq: {
+    eyebrow: "FAQ",
+    title: "Questions we get asked.",
+    items: [
+      {
+        q: "How long does a project take?",
+        a: "Small sites and AI add-ons land in days; a site with AI built in is about a week; larger commerce and CRM work is scoped up front. We agree a fixed scope and timeline before we start.",
+      },
+      {
+        q: "Do you work with our existing systems?",
+        a: "Yes — we integrate into the commerce platform, CRM and tools you already run rather than replacing them, unless replacing is the right call.",
+      },
+      {
+        q: "How do you handle data and security?",
+        a: "Payment and customer data are handled with care, and we can run a security audit of your site or store. We only ever audit with your written authorisation.",
+      },
+      {
+        q: "What does it cost?",
+        a: "For small businesses we publish fixed-scope packages from €500 — see /pme. Larger commerce and CRM work is quoted up front against a clear scope.",
+      },
+      {
+        q: "Do I own what you build?",
+        a: "Yes. The website, code and content are yours.",
+      },
+    ],
+  },
+
+  testimonialsHeading: {
+    eyebrow: "On the record",
+    title: "What clients and colleagues say.",
+  },
+  testimonials: [
+    {
+      quote:
+        "I had the pleasure of working with Radu on a very significant project to completely re-platform the business into the Salesforce ecosystem. He provided a clear and strong voice across the project, making sure the right approaches were taken to critical development decisions.",
+      name: "Damian Hall",
+      role: "Senior Director, Global Consumer Experience, SharkNinja",
+    },
+    {
+      quote:
+        "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
+      name: "George Pantila",
+      role: "Technical Architect & Salesforce Developer",
+    },
+    {
+      quote:
+        "Not only a highly skilled developer, but someone with real architectural insight and great judgement as to the best way to do things. Highly recommended.",
+      name: "Michael Kraftman",
+      role: "CEO",
+    },
+    {
+      quote:
+        "Radu is engaged and dedicated to get things done. He has been key in strengthening our Salesforce environment for our customer service.",
+      name: "Sébastien Gayat",
+      role: "CIO",
+    },
+    {
+      quote:
+        "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
+      name: "Federico Ciccotti",
+      role: "Solution Manager IT, Vision Direct",
+    },
+    {
+      quote:
+        "An excellent development manager and a great organising force, ensuring all aspects of quality delivery — a strong balance of technical expertise and management ability.",
+      name: "Paul Joy",
+      role: "Director of Technology",
+    },
+  ],
+  caseStudy: {
+    challengeLabel: "The challenge",
+    approachLabel: "What we did",
+    resultsLabel: "Outcome",
+    back: "All work",
+  },
+
+  footer: {
+    tagline:
+      "AI brought into commerce — grounded in 15 years building the systems retail runs on.",
+    contactHeading: "Contact",
+    email: "contact@digitalm.eu",
+    whatsappText: "Message us on WhatsApp",
+    whatsappUrl: "https://wa.me/447939856838",
+    legalHeading: "Legal",
+    legalLinks: [
+      { label: "Legal notice", href: "/legal/mentions-legales" },
+      { label: "Privacy policy", href: "/legal/confidentialite" },
+    ],
+    rights: "Digital M. All rights reserved.",
+    note: "Digital M is a trading name of Digital Management Ltd, registered in England and Wales (company no. 09457882).",
+  },
+
+  home: {
+    hero: {
+      eyebrow: "AI for retail & e-commerce",
+      titleLines: ["AI in commerce,"],
+      titleAccent: "grounded in real delivery.",
+      sub: "Digital M helps retail and e-commerce teams put AI to work — backed by 15+ years building the e-commerce and Salesforce CRM systems that brands like Vision Direct, EssilorLuxottica and Liz Earle run on.",
+      ctaPrimary: "Tell us what you need",
+      ctaSecondary: "See the work",
+    },
+    proofLabel: "Selected work",
+    clients: [
+      "Vision Direct",
+      "EssilorLuxottica",
+      "Liz Earle",
+      "Misguided",
+      "In The Style",
+      "APP Wholesale",
+    ],
+    pillarsHeading: {
+      eyebrow: "What we do",
+      title: "AI first — proven by what's underneath.",
+      intro:
+        "AI is the lead. The reason it works is the delivery underneath it.",
+    },
+    pillars: [
+      {
+        id: "ai",
+        kicker: "01 / AI",
+        title: "AI adoption & integration",
+        lead: true,
+        summary:
+          "Putting AI to work where it earns its place in retail — customer experience, operations, and the repetitive work that slows teams down.",
+        points: [
+          "Find the workflows where AI pays off — and the ones where it doesn't",
+          "Integrate models and automation into existing commerce and CRM systems",
+          "Ship measurable improvements, not demos",
+        ],
+        proof: "Grounded in systems we've already built for retail.",
+      },
+      {
+        id: "ecommerce",
+        kicker: "02 / Commerce",
+        title: "E-commerce engineering",
+        lead: false,
+        summary:
+          "Commerce-platform work — built, integrated and maintained for stores that handle real volume.",
+        points: [
+          "Platform build, integration and performance",
+          "Storefront, checkout and payment flows",
+          "Integrations with ERP, PIM and fulfilment",
+        ],
+        proof: "Delivered for Vision Direct, Liz Earle, Misguided and more.",
+      },
+      {
+        id: "crm",
+        kicker: "03 / CRM",
+        title: "CRM delivery",
+        lead: false,
+        summary:
+          "Salesforce Service and Marketing Cloud — set up and run so customer data and journeys actually work.",
+        points: [
+          "Salesforce Service & Marketing Cloud delivery",
+          "Customer journeys, segmentation and automation",
+          "Data flows between commerce, CRM and support",
+        ],
+        proof: "Delivered inside a global optical group.",
+      },
+    ],
+    grounding: {
+      eyebrow: "Why it holds up",
+      title: "The AI claim is backed by 15 years of shipping.",
+      body: "Digital M is an AI-forward company, but the difference is what sits underneath. We've spent 15+ years delivering e-commerce and CRM for major retail and optical brands — the systems that take orders, move data and serve customers every day. That's what makes our AI work practical: we put it into systems we already know how to build, integrate and keep running. Security comes with the territory, with payment and customer data handled carefully.",
+      stats: [
+        { value: "15+ yrs", label: "delivering e-commerce & CRM" },
+        { value: "100+", label: "projects delivered" },
+        { value: "5×", label: "checkout throughput at Vision Direct" },
+        { value: "£55k+/yr", label: "saved re-platforming Mr Central Heating" },
+      ],
+    },
+    cta: {
+      title: "Bring AI into your commerce stack.",
+      body: "Tell us where retail is slowing you down. We'll tell you, honestly, where AI helps and where it doesn't.",
+      button: "Tell us what you need",
+    },
+  },
+
+  services: {
+    hero: {
+      eyebrow: "Services",
+      title: "AI adoption, backed by delivery that ships.",
+      sub: "Three pillars. AI leads; commerce and CRM engineering prove we can build, not just advise.",
+    },
+    pillars: [
+      {
+        id: "ai",
+        kicker: "01 / AI",
+        title: "AI adoption & integration",
+        lead: true,
+        summary:
+          "Our lead offer. We help retail and e-commerce teams adopt AI where it earns its place — and integrate it into the systems they already run, rather than bolting on something separate.",
+        points: [
+          "Map the workflows where AI pays off — customer service, content, search, merchandising, operations — and rule out the ones where it doesn't",
+          "Integrate models and automation into existing commerce platforms, CRM and support tools",
+          "Build with the data and security realities of retail in mind",
+          "Measure against real outcomes — time saved, conversion, response times — not demos",
+        ],
+        proof:
+          "We put AI into systems we already know how to build and run. That's what keeps it practical.",
+      },
+      {
+        id: "ecommerce",
+        kicker: "02 / Commerce",
+        title: "E-commerce engineering & delivery",
+        lead: false,
+        summary:
+          "Commerce-platform work, built and maintained for stores that handle real volume. This is the engineering that proves we can ship.",
+        points: [
+          "Platform build, integration, performance and long-term maintenance",
+          "Storefront, checkout and payment flows",
+          "Integrations with ERP, PIM, fulfilment and marketing tools",
+          "Payment and customer-data security handled with care",
+        ],
+        proof:
+          "Delivered for Vision Direct, Liz Earle, Misguided, In The Style and APP Wholesale.",
+      },
+      {
+        id: "crm",
+        kicker: "03 / CRM",
+        title: "CRM delivery",
+        lead: false,
+        summary:
+          "Salesforce Service and Marketing Cloud, set up and run so customer data and journeys actually do their job.",
+        points: [
+          "Salesforce Service & Marketing Cloud delivery and consulting",
+          "Customer journeys, segmentation and lifecycle automation",
+          "Data flows between commerce, CRM and support",
+          "Delivery management across teams and vendors",
+        ],
+        proof: "Delivered and managed inside a global optical group.",
+      },
+    ],
+    cta: {
+      title: "Not sure where AI fits?",
+      body: "That's the right question. We'll help you find the workflows where it earns its place — and skip the ones where it doesn't.",
+      button: "Tell us what you need",
+    },
+  },
+
+  work: {
+    hero: {
+      eyebrow: "Work",
+      title: "15 years of commerce people actually use.",
+      sub: "Selected delivery across retail and optical, presented as Digital M's track record — the proof behind the AI offer.",
+    },
+    itemsLabel: "Selected delivery",
+    items: [
+      {
+        client: "Vision Direct",
+        scope: "E-commerce, development & AI",
+        slug: "vision-direct",
+        headline: "Checkout throughput from 50 to 250+ orders a minute",
+        detail:
+          "E-commerce delivery, ongoing development and AI work for one of Europe's largest online contact-lens retailers.",
+        challenge:
+          "Vision Direct — one of Europe's largest online contact-lens retailers — needed a checkout that held up under heavy, spiky demand without dropping orders.",
+        approach:
+          "We optimised the checkout and order pipeline, hardened the commerce platform, and supported the move into the Salesforce ecosystem — engineering for throughput and reliability under load.",
+        results: [
+          { value: "50 → 250+", label: "orders per minute through checkout" },
+          { value: "5×", label: "checkout throughput" },
+        ],
+        tags: ["E-commerce", "Development", "AI", "Optical"],
+      },
+      {
+        client: "EssilorLuxottica",
+        scope: "CRM & senior consulting",
+        slug: "essilorluxottica",
+        headline: "A multi-cloud Salesforce re-platform for a global eyewear group",
+        detail:
+          "Salesforce Service & Marketing Cloud delivery and senior consulting inside a global eyewear group.",
+        challenge:
+          "EssilorLuxottica set out to re-platform the business into the Salesforce ecosystem — across commerce, service and marketing — for a single view of the customer.",
+        approach:
+          "We delivered and managed the Service & Marketing Cloud streams of a multi-cloud Customer 360 programme, coordinating on- and offshore teams and keeping business and technical risk in check.",
+        results: [
+          { value: "Customer 360", label: "multi-cloud Salesforce programme" },
+          { value: "Service + Marketing Cloud", label: "delivered & managed" },
+        ],
+        tags: ["Salesforce", "Service Cloud", "Marketing Cloud"],
+      },
+      {
+        client: "Mr Central Heating",
+        scope: "E-commerce re-platforming",
+        slug: "mr-central-heating",
+        headline: "£55k+ saved a year by re-platforming off enterprise licensing",
+        detail:
+          "Re-platformed the store and moved it off an enterprise commerce licence it no longer needed.",
+        challenge:
+          "Mr Central Heating was carrying the cost and overhead of an enterprise commerce licence its business no longer needed.",
+        approach:
+          "We re-platformed the store and moved it from the enterprise edition down to the community edition — re-engineering what the licence had provided so nothing was lost.",
+        results: [{ value: "£55k+/yr", label: "licensing cost saved" }],
+        tags: ["E-commerce", "Re-platforming"],
+      },
+      {
+        client: "Misguided",
+        scope: "E-commerce delivery",
+        slug: "misguided",
+        headline: "Tiered payments, loyalty, and record French flash sales",
+        detail:
+          "Payment, loyalty and high-traffic campaign engineering for the high-volume fashion retailer.",
+        challenge:
+          "Misguided needed deeper payment options, a loyalty programme, and the ability to run aggressive flash-sale campaigns at scale.",
+        approach:
+          "We integrated tiered payment methods and loyalty programmes, and engineered the store to handle the traffic spikes of major French flash-sale campaigns.",
+        results: [
+          { value: "Flash sales", label: "engineered for peak French campaigns" },
+          { value: "Payments + loyalty", label: "integrated" },
+        ],
+        tags: ["E-commerce", "Fashion"],
+      },
+      {
+        client: "In The Style",
+        scope: "E-commerce delivery",
+        slug: "in-the-style",
+        headline: "New international markets, launched",
+        detail: "International expansion for the fashion brand.",
+        challenge:
+          "In The Style wanted to grow beyond its home market into new territories.",
+        approach:
+          "We built and launched new international markets, extending the commerce platform for multi-market trading.",
+        results: [{ value: "New markets", label: "international expansion delivered" }],
+        tags: ["E-commerce", "Fashion"],
+      },
+      {
+        client: "Liz Earle",
+        scope: "E-commerce engineering",
+        detail: "E-commerce build for the beauty brand's online store.",
+        tags: ["E-commerce", "Beauty"],
+      },
+      {
+        client: "APP Wholesale",
+        scope: "Senior e-commerce engineering",
+        detail:
+          "Senior e-commerce development for the wholesale business over several years.",
+        tags: ["E-commerce", "Wholesale"],
+      },
+    ],
+    capabilitiesHeading: "What we bring",
+    capabilities: [
+      {
+        title: "Salesforce",
+        detail: "Service & Marketing Cloud — delivery and senior consulting.",
+      },
+      {
+        title: "E-commerce",
+        detail: "Build, integration, performance and long-term maintenance of commerce platforms.",
+      },
+      {
+        title: "AI integration",
+        detail: "Putting models and automation into live commerce and CRM systems.",
+      },
+      {
+        title: "Security-aware",
+        detail: "Payment and customer-data competence relevant to commerce.",
+      },
+    ],
+    cta: {
+      title: "Want the detail?",
+      body: "Happy to walk through any of this — the systems, the constraints, and what we'd do differently now.",
+      button: "Get in touch",
+    },
+  },
+
+  contact: {
+    hero: {
+      eyebrow: "Contact",
+      title: "Tell us what you need.",
+      sub: "Tell us about your retail or e-commerce business and where you think AI might help. We'll reply with a straight answer.",
+    },
+    directHeading: "Reach us directly",
+    emailLabel: "Email",
+    whatsappLabel: "WhatsApp",
+    whatsappText: "Send us a message",
+    email: "contact@digitalm.eu",
+    whatsappUrl: "https://wa.me/447939856838",
+    form: {
+      heading: "Send a message",
+      name: "Name",
+      emailField: "Email",
+      phone: "Phone (optional)",
+      company: "Company (optional)",
+      message: "How can we help?",
+      submit: "Send message",
+      sending: "Sending…",
+      success: "Thanks — your message is on its way. We'll be in touch.",
+      error: "Something went wrong. Please email us directly at",
+      required: "Please fill in the required fields.",
+      responsePromise: "We reply within one business day with an honest read.",
+    },
+  },
+
+  legal: {
+    notice: {
+      title: "Legal notice",
+      updated: "Last updated: June 2026",
+      placeholderNote: "",
+      sections: [
+        {
+          heading: "Publisher",
+          body: "This website is published by Digital M, a trading name of Digital Management Ltd, a company registered in England and Wales under company number 09457882, with its registered office at 67 Meridian Centre, Havant, Hampshire, PO9 1UN, United Kingdom.",
+        },
+        {
+          heading: "Contact",
+          body: "Email: contact@digitalm.eu",
+        },
+        {
+          heading: "Hosting",
+          body: "This website is hosted by OVH SAS, 2 rue Kellermann, 59100 Roubaix, France (ovhcloud.com).",
+        },
+        {
+          heading: "Intellectual property",
+          body: "Unless otherwise stated, the content, design, brand and logos on this site are the property of Digital Management Ltd and may not be reproduced or reused without prior written permission.",
+        },
+        {
+          heading: "Liability",
+          body: "We take care to keep the information on this site accurate and up to date, but cannot guarantee it is free of errors or omissions. The site may link to third-party sites over which we have no control and for which we accept no responsibility.",
+        },
+      ],
+    },
+    privacy: {
+      title: "Privacy policy",
+      updated: "Last updated: June 2026",
+      placeholderNote: "",
+      sections: [
+        {
+          heading: "Who we are",
+          body: "Digital M (a trading name of Digital Management Ltd), 67 Meridian Centre, Havant, Hampshire, PO9 1UN, United Kingdom, is the data controller for personal data collected through this site. For any data request, contact contact@digitalm.eu.",
+        },
+        {
+          heading: "What we collect and why",
+          body: "If you contact us through the form or by email, we process the details you provide — typically your name, email, company and message — only to respond to you. We do not use them for marketing without your consent.",
+        },
+        {
+          heading: "Cookies and consent",
+          body: "This site uses a single functional cookie to remember your chosen language, which is strictly necessary for the site to work. We do not use advertising or tracking cookies. Any non-essential cookies or analytics would only be set with your consent, which you can give or refuse through the cookie banner.",
+        },
+        {
+          heading: "AI assistant",
+          body: "If you use the on-site assistant, the messages you send are processed by a third-party AI provider to generate a response. Please do not share sensitive personal information in the chat.",
+        },
+        {
+          heading: "Sharing",
+          body: "We share personal data only with the service providers that help us operate — our email provider, our hosting provider (OVH), and our AI provider for the assistant — and only as needed. We do not sell personal data.",
+        },
+        {
+          heading: "Retention",
+          body: "We keep contact messages only as long as needed to handle your enquiry and any follow-up, then delete them.",
+        },
+        {
+          heading: "Your rights",
+          body: "Under the UK GDPR and the EU GDPR you can ask to access, correct, delete or restrict the processing of your personal data, and object to it. Email contact@digitalm.eu. You can also complain to the UK Information Commissioner's Office (ico.org.uk) or, in the EU, your local data protection authority (in France, the CNIL).",
+        },
+      ],
+    },
+  },
+} satisfies SiteContent;
