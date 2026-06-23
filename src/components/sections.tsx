@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getContent } from "@/content";
 import type { Locale } from "@/lib/i18n";
 import type { Pillar, Smb, Testimonial } from "@/content/types";
 import { Signature } from "./Signature";
@@ -62,13 +63,13 @@ export function CtaBand({
   locale,
   title,
   body,
-  button,
 }: {
   locale: Locale;
   title: string;
   body: string;
   button: string;
 }) {
+  const c = getContent(locale);
   return (
     <section className="container-x py-20">
       <div className="card relative overflow-hidden p-8 md:p-14">
@@ -84,11 +85,14 @@ export function CtaBand({
           <h2 className="display-tight text-display-l">{title}</h2>
           <p className="mt-4 text-fg-muted">{body}</p>
           <Link
-            href={`/${locale}/contact`}
+            href={`/${locale}/book`}
             className="btn-primary mt-7 inline-flex px-5 py-3 text-sm"
           >
-            {button}
+            {c.nav.cta}
           </Link>
+          <p className="mt-4 font-mono text-xs text-fg-faint">
+            {c.contact.form.responsePromise}
+          </p>
         </div>
       </div>
     </section>

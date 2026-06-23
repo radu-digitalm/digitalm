@@ -173,8 +173,9 @@ export default function ChatPanel({
     <aside
       role="dialog"
       aria-label={s.title}
-      className="fixed inset-x-3 bottom-24 z-40 flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-2xl border border-white/10 bg-surface shadow-2xl sm:inset-x-auto sm:right-6 sm:w-[calc(100vw-3rem)] sm:max-w-sm"
+      className="fixed inset-x-3 bottom-24 z-40 flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-2xl border border-white/15 bg-surface-3 shadow-2xl ring-1 ring-accent/20 sm:inset-x-auto sm:right-6 sm:w-[calc(100vw-3rem)] sm:max-w-sm"
     >
+      <div className="h-1 bg-brand-gradient" aria-hidden="true" />
       <header className="flex items-center justify-between border-b border-white/10 px-4 py-3">
         <span className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-brand-gradient" aria-hidden="true" />
@@ -215,8 +216,8 @@ export default function ChatPanel({
             key={m.id}
             className={
               m.role === "user"
-                ? "ml-6 rounded-2xl bg-surface-2 px-3 py-2 text-fg"
-                : "mr-2 rounded-2xl bg-white/[0.04] px-3 py-2 text-fg"
+                ? "ml-auto w-fit max-w-[85%] break-words rounded-2xl bg-surface-2 px-3 py-2 text-fg"
+                : "mr-auto w-fit max-w-[85%] break-words rounded-2xl bg-white/[0.04] px-3 py-2 text-fg"
             }
           >
             {m.parts.map((part, i) =>
@@ -250,13 +251,13 @@ export default function ChatPanel({
           type="text"
           placeholder={s.placeholder}
           autoComplete="off"
-          className="flex-1 rounded-full border border-white/10 bg-surface-2 px-4 py-2 text-sm text-fg-heading placeholder:text-fg-faint focus:border-accent focus:outline-none"
+          className="min-w-0 flex-1 rounded-full border border-white/10 bg-surface-2 px-4 py-2 text-base text-fg-heading placeholder:text-fg-faint focus:border-accent focus:outline-none"
           required
         />
         <button
           type="submit"
           disabled={isPending}
-          className="rounded-full bg-brand-gradient px-4 py-2 text-xs font-medium text-ink transition-opacity hover:opacity-90 disabled:opacity-60"
+          className="shrink-0 rounded-full bg-brand-gradient px-4 py-2 text-xs font-medium text-ink transition-opacity hover:opacity-90 disabled:opacity-60"
         >
           {s.send}
         </button>

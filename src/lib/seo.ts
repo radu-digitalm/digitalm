@@ -15,6 +15,7 @@ type PageKey =
   | "services"
   | "work"
   | "contact"
+  | "book"
   | "pme"
   | "legalNotice"
   | "privacy";

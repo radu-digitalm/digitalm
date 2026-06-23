@@ -15,12 +15,17 @@ export const fr = {
     work: {
       title: "Réalisations — 15+ ans de e-commerce & CRM retail | Digital M",
       description:
-        "Réalisations pour Vision Direct, EssilorLuxottica, Liz Earle, Misguided, In The Style et APP Wholesale — e-commerce, Salesforce et commerce sécurisé.",
+        "Réalisations pour Vision Direct, EssilorLuxottica, Liz Earle, Missguided, In The Style et APP Wholesale — e-commerce, Salesforce et commerce sécurisé.",
     },
     contact: {
       title: "Contact | Digital M",
       description:
         "Parlez à Digital M de la mise au travail de l'IA dans votre activité retail ou e-commerce. Écrivez à contact@digitalm.eu.",
+    },
+    book: {
+      title: "Réserver un appel | Digital M",
+      description:
+        "Réservez un appel de 30 minutes avec Digital M — IA, e-commerce, CRM et sécurité pour le retail et les petites entreprises.",
     },
     pme: {
       title: "Tarifs — IA & sites pour TPE/PME | Digital M",
@@ -42,9 +47,10 @@ export const fr = {
     links: [
       { label: "Services", href: "/services" },
       { label: "Réalisations", href: "/work" },
+      { label: "Tarifs", href: "/pme" },
       { label: "Contact", href: "/contact" },
     ],
-    cta: "Parlez-nous de votre besoin",
+    cta: "Réserver un appel",
   },
 
   smb: {
@@ -69,13 +75,23 @@ export const fr = {
       sub: "De vrais forfaits à périmètre fixe pour les TPE et PME françaises — par l'équipe derrière les livraisons pour Vision Direct, EssilorLuxottica et Liz Earle.",
     },
     rateNote:
-      "Tarif journalier à partir de 500 € — tarif préférentiel pour les petites entreprises. Périmètre fixe, défini à l'avance.",
-    discountTag: "Tarif de lancement",
+      "Tarif journalier à partir de 500 € — contre 750 € en tarif standard, un tarif préférentiel pour les petites entreprises. Périmètre fixe, défini à l'avance.",
+    discountTag: "Tarif préférentiel",
     recommendedBadge: "Recommandé",
+    guarantee:
+      "Prix fixe, défini à l'avance — aucune facture surprise. Nous ajustons le périmètre jusqu'à votre validation.",
+    diagnostic: {
+      eyebrow: "Gratuit, sans engagement",
+      title: "Audit express gratuit sous 48 h",
+      body: "Parlez-nous de votre site ou boutique et nous vous renvoyons 2 à 3 recommandations concrètes et priorisées sous deux jours ouvrés — gratuit, sans engagement.",
+      cta: "Obtenir mon audit gratuit",
+    },
+    cardReassurance: "Devis fixe à l'avance · sans engagement",
     packages: [
       {
         name: "Site essentiel",
         price: "à partir de 500 €",
+        originalPrice: "à partir de 750 €",
         timeline: "1–2 jours",
         outcome: "Un site rapide et bien construit, en ligne en quelques jours.",
         includes: [
@@ -84,10 +100,12 @@ export const fr = {
           "Simple à gérer et à mettre à jour",
           "Périmètre fixe, défini à l'avance",
         ],
+        cta: "Démarrer mon site",
       },
       {
         name: "L'IA sur votre site",
         price: "à partir de 500 €",
+        originalPrice: "à partir de 750 €",
         timeline: "1–3 jours",
         outcome: "Une IA qui prend en charge le répétitif.",
         includes: [
@@ -96,10 +114,12 @@ export const fr = {
           "Intégrée aux outils que vous utilisez",
           "Mesurée sur des résultats réels",
         ],
+        cta: "Ajouter l'IA",
       },
       {
         name: "Site + IA",
         price: "à partir de 2 500 €",
+        originalPrice: "à partir de 3 750 €",
         timeline: "environ 1 semaine",
         outcome: "Un site moderne avec l'IA intégrée.",
         includes: [
@@ -109,10 +129,12 @@ export const fr = {
           "Périmètre et délai fixes",
         ],
         lead: true,
+        cta: "Lancer site + IA",
       },
       {
         name: "Audit de sécurité",
         price: "à partir de 500 €/jour",
+        originalPrice: "à partir de 750 €/jour",
         timeline: "selon le périmètre",
         outcome: "Sachez où votre site ou boutique est exposé.",
         includes: [
@@ -121,6 +143,7 @@ export const fr = {
           "Focus paiement et données clients",
           "Nouveau test après les corrections",
         ],
+        cta: "Demander un audit",
       },
     ],
     note: "Le tarif journalier s'applique une fois que nous avons les accès et les informations pour démarrer. Les prix sont des points de départ — nous confirmons le périmètre et un devis fixe à l'avance.",
@@ -171,6 +194,10 @@ export const fr = {
         a: "Pour les petites entreprises, nous publions des forfaits à périmètre fixe à partir de 500 € — voir /pme. Les projets commerce et CRM plus larges sont devisés à l'avance sur un périmètre clair.",
       },
       {
+        q: "Comment commencer gratuitement ?",
+        a: "Nous proposons un audit express gratuit sous 48 h : parlez-nous de votre site ou boutique et nous renvoyons deux à trois recommandations concrètes et priorisées sous deux jours ouvrés, sans engagement. Les prestations payantes sont toujours à prix fixe, défini à l'avance.",
+      },
+      {
         q: "Suis-je propriétaire de ce que vous construisez ?",
         a: "Oui. Le site, le code et le contenu vous appartiennent.",
       },
@@ -185,37 +212,37 @@ export const fr = {
     {
       quote:
         "I had the pleasure of working with Radu on a very significant project to completely re-platform the business into the Salesforce ecosystem. He provided a clear and strong voice across the project, making sure the right approaches were taken to critical development decisions.",
-      name: "Damian Hall",
+      name: "Damian H.",
       role: "Senior Director, Global Consumer Experience, SharkNinja",
     },
     {
       quote:
         "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
-      name: "George Pantila",
+      name: "George P.",
       role: "Technical Architect & Salesforce Developer",
     },
     {
       quote:
         "Not only a highly skilled developer, but someone with real architectural insight and great judgement as to the best way to do things. Highly recommended.",
-      name: "Michael Kraftman",
+      name: "Michael K.",
       role: "CEO",
     },
     {
       quote:
         "Radu is engaged and dedicated to get things done. He has been key in strengthening our Salesforce environment for our customer service.",
-      name: "Sébastien Gayat",
+      name: "Sébastien G.",
       role: "CIO",
     },
     {
       quote:
         "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
-      name: "Federico Ciccotti",
+      name: "Federico C.",
       role: "Solution Manager IT, Vision Direct",
     },
     {
       quote:
         "An excellent development manager and a great organising force, ensuring all aspects of quality delivery — a strong balance of technical expertise and management ability.",
-      name: "Paul Joy",
+      name: "Paul J.",
       role: "Director of Technology",
     },
   ],
@@ -248,15 +275,17 @@ export const fr = {
       titleLines: ["L'IA dans le commerce,"],
       titleAccent: "ancrée dans le concret.",
       sub: "Digital M aide les équipes retail et e-commerce à mettre l'IA au travail — fort de plus de 15 ans à bâtir les systèmes e-commerce et CRM Salesforce sur lesquels s'appuient des marques comme Vision Direct, EssilorLuxottica et Liz Earle.",
-      ctaPrimary: "Parlez-nous de votre besoin",
+      ctaPrimary: "Réserver un appel",
       ctaSecondary: "Voir les réalisations",
     },
     proofLabel: "Réalisations choisies",
+    proofBreadth:
+      "Une expérience à travers l'optique, la mode, la beauté et le B2B de gros — des enseignes grand public à un groupe optique mondial.",
     clients: [
       "Vision Direct",
       "EssilorLuxottica",
       "Liz Earle",
-      "Misguided",
+      "Missguided",
       "In The Style",
       "APP Wholesale",
     ],
@@ -293,7 +322,7 @@ export const fr = {
           "Vitrine, tunnel d'achat et flux de paiement",
           "Intégrations ERP, PIM et logistique",
         ],
-        proof: "Livré pour Vision Direct, Liz Earle, Misguided et d'autres.",
+        proof: "Livré pour Vision Direct, Liz Earle, Missguided et d'autres.",
       },
       {
         id: "crm",
@@ -365,7 +394,7 @@ export const fr = {
           "Sécurité des paiements et des données clients traitée avec soin",
         ],
         proof:
-          "Livré pour Vision Direct, Liz Earle, Misguided, In The Style et APP Wholesale.",
+          "Livré pour Vision Direct, Liz Earle, Missguided, In The Style et APP Wholesale.",
       },
       {
         id: "crm",
@@ -408,11 +437,17 @@ export const fr = {
         challenge:
           "Vision Direct — l'un des plus grands distributeurs de lentilles de contact en ligne d'Europe — avait besoin d'un tunnel d'achat capable de tenir une demande forte et irrégulière sans perdre de commandes.",
         approach:
-          "Nous avons optimisé le tunnel d'achat et le pipeline de commandes, fiabilisé la plateforme commerce et accompagné la bascule vers l'écosystème Salesforce — en concevant pour le débit et la fiabilité sous charge.",
+          "Nous avons optimisé le tunnel d'achat et la base de données qui le sous-tend, développé des API REST sur mesure et des fonctionnalités comme la recommande par SMS, fiabilisé la plateforme face aux pics de demande et accompagné la bascule vers l'écosystème Salesforce — en concevant pour le débit et la fiabilité sous charge.",
         results: [
           { value: "50 → 250+", label: "commandes par minute au paiement" },
           { value: "5×", label: "débit du tunnel d'achat" },
         ],
+        testimonial: {
+          quote:
+            "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
+          name: "Federico C.",
+          role: "Solution Manager IT, Vision Direct",
+        },
         tags: ["E-commerce", "Développement", "IA", "Optique"],
       },
       {
@@ -431,6 +466,12 @@ export const fr = {
           { value: "Customer 360", label: "programme Salesforce multi-cloud" },
           { value: "Service + Marketing Cloud", label: "livrés & pilotés" },
         ],
+        testimonial: {
+          quote:
+            "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
+          name: "George P.",
+          role: "Technical Architect & Salesforce Developer",
+        },
         tags: ["Salesforce", "Service Cloud", "Marketing Cloud"],
       },
       {
@@ -443,53 +484,58 @@ export const fr = {
         challenge:
           "Mr Central Heating supportait le coût et la lourdeur d'une licence commerce entreprise dont l'activité n'avait plus besoin.",
         approach:
-          "Nous avons re-platformé la boutique et l'avons fait passer de l'édition entreprise à l'édition communautaire — en ré-implémentant ce que la licence apportait, sans rien perdre.",
-        results: [{ value: "55k£+/an", label: "de licence économisés" }],
+          "Nous avons fait passer la boutique de l'édition entreprise à l'édition communautaire de Magento — en ré-implémentant ce que la licence apportait, sans rien perdre — dans le cadre d'une migration de Magento 1 vers 2, et mis en place la gestion de versions et une stratégie de branches pour une livraison continue sûre.",
+        results: [
+          { value: "55k£+/an", label: "de licence économisés" },
+          { value: "Entreprise → Community", label: "passage d'édition, sans rien perdre" },
+        ],
         tags: ["E-commerce", "Re-platforming"],
       },
       {
-        client: "Misguided",
+        client: "Missguided",
         scope: "Livraison e-commerce",
-        slug: "misguided",
-        headline:
-          "Paiements à plusieurs niveaux, fidélité et ventes flash françaises record",
+        slug: "missguided",
+        headline: "Des intégrations de tunnel d'achat pour 4,5 M de visiteurs/mois",
         detail:
-          "Ingénierie paiement, fidélité et campagnes à fort trafic pour l'enseigne de mode à fort volume.",
+          "Tunnel d'achat, intégrations et ingénierie de campagnes à fort trafic pour l'enseigne de mode à fort volume.",
         challenge:
-          "Misguided avait besoin de davantage d'options de paiement, d'un programme de fidélité et de la capacité à mener des ventes flash agressives à grande échelle.",
+          "Missguided — l'une des plus grandes enseignes de fast-fashion britanniques, avec plus de 4,5 M de visiteurs/mois sur 11 marchés — avait besoin de nouvelles intégrations dans le tunnel d'achat et de pouvoir mener des campagnes de ventes flash françaises agressives à grande échelle.",
         approach:
-          "Nous avons intégré des moyens de paiement à plusieurs niveaux et des programmes de fidélité, et conçu la boutique pour absorber les pics de trafic des grandes campagnes de ventes flash françaises.",
+          "Nous avons développé une nouvelle API de tunnel d'achat intégrant des plateformes de réductions étudiantes (NUS, Student Beans) et le SPC canadien, ajouté l'API de reciblage Criteo et le Click & Collect, et aidé à structurer la nouvelle boutique de ventes flash françaises — conçue pour tenir sous les pics de trafic des campagnes.",
         results: [
-          { value: "Ventes flash", label: "conçues pour les pics des campagnes françaises" },
-          { value: "Paiement + fidélité", label: "intégrés" },
+          { value: "4,5 M+/mois", label: "visiteurs servis à grande échelle" },
+          { value: "NUS · Criteo · Click & Collect", label: "intégrations tunnel d'achat & marketing" },
         ],
-        tags: ["E-commerce", "Mode"],
+        tags: ["E-commerce", "Mode", "Intégrations"],
       },
       {
         client: "In The Style",
         scope: "Livraison e-commerce",
         slug: "in-the-style",
-        headline: "De nouveaux marchés internationaux, lancés",
-        detail: "Expansion internationale pour la marque de mode.",
+        headline: "Boutiques US, australienne et européennes, lancées",
+        detail: "Expansion internationale pour la marque de fast-fashion.",
         challenge:
-          "In The Style souhaitait se développer au-delà de son marché d'origine, vers de nouveaux territoires.",
+          "In The Style — marque de mode britannique en forte croissance, soutenue par un investissement d'environ 40 M£ pour se développer à l'international — avait besoin de nouvelles boutiques lancées rapidement.",
         approach:
-          "Nous avons construit et lancé de nouveaux marchés internationaux, en étendant la plateforme commerce au commerce multi-marchés.",
-        results: [{ value: "Nouveaux marchés", label: "expansion internationale livrée" }],
+          "Nous avons automatisé le déploiement de leurs boutiques américaine, australienne et européennes — structure, catalogues et réglages — les avons lancées, et intégré des plateformes marketing et de personnalisation (Exponea, Criteo).",
+        results: [
+          { value: "US · AU · UE", label: "boutiques construites & lancées" },
+          { value: "Déploiement automatisé", label: "structure, catalogue & réglages" },
+        ],
         tags: ["E-commerce", "Mode"],
       },
       {
         client: "Liz Earle",
         scope: "Ingénierie e-commerce",
         detail:
-          "Réalisation e-commerce pour la boutique en ligne de la marque de beauté.",
+          "Mise à niveau d'un cœur Magento fortement personnalisé pour la marque de soins, et développement d'une API bidirectionnelle le reliant à leur CRM interne.",
         tags: ["E-commerce", "Beauté"],
       },
       {
         client: "APP Wholesale",
         scope: "Ingénierie e-commerce senior",
         detail:
-          "Développement e-commerce senior pour l'activité de gros, sur plusieurs années.",
+          "Des années de développement Magento senior sur les 10+ boutiques en ligne d'un groupe de plomberie et chauffage (~280 M£ de CA) — nouvelles fonctionnalités métier et migration de Magento 1 vers 2.",
         tags: ["E-commerce", "Gros"],
       },
     ],
@@ -536,7 +582,7 @@ export const fr = {
       heading: "Envoyer un message",
       name: "Nom",
       emailField: "E-mail",
-      phone: "Téléphone (facultatif)",
+      phone: "Téléphone",
       company: "Société (facultatif)",
       message: "Comment pouvons-nous aider ?",
       submit: "Envoyer le message",
@@ -546,6 +592,28 @@ export const fr = {
       required: "Merci de remplir les champs obligatoires.",
       responsePromise: "Nous répondons sous un jour ouvré, avec un avis honnête.",
     },
+  },
+
+  booking: {
+    eyebrow: "Réserver un appel",
+    title: "Réservez un créneau de 30 minutes",
+    sub: "Choisissez un horaire qui vous convient — vous recevrez aussitôt une invitation par e-mail.",
+    pickHint: "Horaires affichés dans votre fuseau.",
+    noSlots:
+      "Aucun créneau libre sous deux semaines — écrivez à contact@digitalm.eu et nous trouverons un moment.",
+    name: "Nom",
+    email: "E-mail",
+    phone: "Téléphone",
+    company: "Société (facultatif)",
+    needs: "À quel sujet ? (facultatif)",
+    preferred: "Créneaux souhaités",
+    submit: "Confirmer la réservation",
+    request: "Demander un appel",
+    submitting: "Envoi…",
+    change: "Changer d'horaire",
+    successBooked: "C'est réservé — une invitation arrive dans votre boîte mail.",
+    successRequested: "Merci — nous vous confirmerons un horaire par e-mail très vite.",
+    error: "Une erreur est survenue. Écrivez à contact@digitalm.eu.",
   },
 
   legal: {

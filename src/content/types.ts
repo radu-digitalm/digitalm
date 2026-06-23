@@ -24,6 +24,7 @@ export type WorkItem = {
   challenge?: string;
   approach?: string;
   results?: CaseResult[];
+  testimonial?: { quote: string; name: string; role: string };
 };
 
 export type Testimonial = {
@@ -48,10 +49,13 @@ export type Smb = {
 export type Package = {
   name: string;
   price: string;
+  /** Struck-through standard-rate reference shown before the discounted price. */
+  originalPrice?: string;
   timeline: string;
   outcome: string;
   includes: string[];
   lead?: boolean;
+  cta?: string;
 };
 
 export type SiteContent = {
@@ -60,6 +64,7 @@ export type SiteContent = {
     services: Meta;
     work: Meta;
     contact: Meta;
+    book: Meta;
     pme: Meta;
     legalNotice: Meta;
     privacy: Meta;
@@ -69,6 +74,9 @@ export type SiteContent = {
     rateNote: string;
     discountTag: string;
     recommendedBadge: string;
+    guarantee: string;
+    diagnostic: { eyebrow: string; title: string; body: string; cta: string };
+    cardReassurance: string;
     packages: Package[];
     note: string;
     cta: string;
@@ -109,6 +117,7 @@ export type SiteContent = {
       ctaSecondary: string;
     };
     proofLabel: string;
+    proofBreadth: string;
     clients: string[];
     pillarsHeading: { eyebrow: string; title: string; intro: string };
     pillars: Pillar[];
@@ -155,6 +164,26 @@ export type SiteContent = {
       required: string;
       responsePromise: string;
     };
+  };
+  booking: {
+    eyebrow: string;
+    title: string;
+    sub: string;
+    pickHint: string;
+    noSlots: string;
+    name: string;
+    email: string;
+    phone: string;
+    company: string;
+    needs: string;
+    preferred: string;
+    submit: string;
+    request: string;
+    submitting: string;
+    change: string;
+    successBooked: string;
+    successRequested: string;
+    error: string;
   };
   legal: {
     notice: {

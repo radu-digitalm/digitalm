@@ -46,6 +46,12 @@ export default async function ContactPage({
                 </dd>
               </div>
               <div className="flex gap-3">
+                <dt className="w-20 shrink-0 text-fg-faint">{locale === "fr" ? "Téléphone" : "Phone"}</dt>
+                <dd>
+                  <a className="link-accent" href="tel:+33412120909">04 12 12 09 09</a>
+                </dd>
+              </div>
+              <div className="flex gap-3">
                 <dt className="w-20 shrink-0 text-fg-faint">{c.contact.whatsappLabel}</dt>
                 <dd>
                   <a
@@ -55,6 +61,19 @@ export default async function ContactPage({
                     rel="noopener noreferrer"
                   >
                     {c.contact.whatsappText}
+                  </a>
+                </dd>
+              </div>
+              <div className="flex gap-3">
+                <dt className="w-20 shrink-0 text-fg-faint">{locale === "fr" ? "Avis" : "Reviews"}</dt>
+                <dd>
+                  <a
+                    className="link-accent"
+                    href="https://search.google.com/local/writereview?placeid=ChIJmUI3_37cJSER3JTMmPxBzYs"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {locale === "fr" ? "Laisser un avis Google" : "Leave a Google review"}
                   </a>
                 </dd>
               </div>

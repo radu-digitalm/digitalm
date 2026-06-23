@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { SiteContent } from "@/content/types";
+import { PhoneField } from "./PhoneField";
 
 type FormText = SiteContent["contact"]["form"];
 type Status = "idle" | "sending" | "success" | "error";
@@ -29,6 +30,9 @@ export function ContactForm({
       string,
       string
     >;
+    data.phone = data.phoneNumber
+      ? `${data.dialcode || ""} ${data.phoneNumber}`.trim()
+      : "";
 
     // Build a prefilled mailto as a fallback in case server delivery is down.
     const subject = `Digital M — ${data.name || ""}`.trim();
@@ -99,24 +103,22 @@ export function ContactForm({
         </div>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
-        <div>
-          <label htmlFor="phone" className={labelClass}>
-            {text.phone}
-          </label>
-          <input id="phone" name="phone" type="tel" className={fieldClass} autoComplete="tel" />
-        </div>
-        <div>
-          <label htmlFor="company" className={labelClass}>
-            {text.company}
-          </label>
-          <input
-            id="company"
-            name="company"
-            className={fieldClass}
-            autoComplete="organization"
-          />
-        </div>
+      <PhoneField
+        label={text.phone}
+        defaultDial={locale === "fr" ? "+33" : "+44"}
+        fieldClass={fieldClass}
+        labelClass={labelClass}
+      />
+      <div>
+        <label htmlFor="company" className={labelClass}>
+          {text.company}
+        </label>
+        <input
+          id="company"
+          name="company"
+          className={fieldClass}
+          autoComplete="organization"
+        />
       </div>
 
       <div>

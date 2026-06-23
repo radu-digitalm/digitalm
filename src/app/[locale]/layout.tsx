@@ -47,9 +47,10 @@ export default async function LocaleLayout({
         image: `${SITE_URL}/icon.png`,
         description: getContent(loc).meta.home.description,
         email: "contact@digitalm.eu",
-        telephone: "+44 7939 856838",
+        telephone: "+33 4 12 12 09 09",
         sameAs: [
-          "https://www.linkedin.com/company/digital-management-ltd",
+          "https://www.linkedin.com/company/digitalm-eu",
+          "https://www.crunchbase.com/organization/digital-m-b9e4",
           "https://find-and-update.company-information.service.gov.uk/company/09457882",
         ],
         areaServed: ["GB", "FR", "EU"],

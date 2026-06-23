@@ -56,13 +56,16 @@ export default async function HomePage({
             </p>
             <p className="mt-6 font-mono text-xs text-fg-faint">{proofLine}</p>
             <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link href={`/${locale}/contact`} className="btn-primary px-5 py-3 text-sm">
+              <Link href={`/${locale}/book`} className="btn-primary px-5 py-3 text-sm">
                 {hero.ctaPrimary}
               </Link>
               <Link href={`/${locale}/work`} className="btn-ghost px-5 py-3 text-sm">
                 {hero.ctaSecondary}
               </Link>
             </div>
+            <p className="mt-3 font-mono text-xs text-fg-faint">
+              {c.contact.form.responsePromise}
+            </p>
           </div>
           <div className="hidden justify-center md:flex">
             <Signature className="w-[290px] lg:w-[330px]" />
@@ -71,13 +74,16 @@ export default async function HomePage({
 
         {/* Proof strip */}
         <div className="relative border-y border-white/[0.07] bg-surface/40">
-          <div className="container-x flex flex-col gap-3 py-5 md:flex-row md:items-center md:gap-8">
-            <span className="eyebrow shrink-0">{c.home.proofLabel}</span>
-            <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-fg">
-              {c.home.clients.map((client) => (
-                <li key={client}>{client}</li>
-              ))}
-            </ul>
+          <div className="container-x py-5">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:gap-8">
+              <span className="eyebrow shrink-0">{c.home.proofLabel}</span>
+              <ul className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-fg">
+                {c.home.clients.map((client) => (
+                  <li key={client}>{client}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="mt-3 text-sm text-fg-muted">{c.home.proofBreadth}</p>
           </div>
         </div>
       </section>

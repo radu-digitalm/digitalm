@@ -32,12 +32,27 @@ export default async function ServicesPage({
       acceptedAnswer: { "@type": "Answer", text: it.a },
     })),
   };
+  const howToJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: c.process.title,
+    step: c.process.steps.map((s, i) => ({
+      "@type": "HowToStep",
+      position: i + 1,
+      name: s.title,
+      text: s.detail,
+    })),
+  };
 
   return (
     <>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(howToJsonLd) }}
       />
       <section className="container-x py-16 md:py-20">
         <div className="max-w-3xl">

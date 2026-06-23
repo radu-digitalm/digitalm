@@ -8,6 +8,7 @@ import {
 } from "ai";
 import { z } from "zod";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -20,7 +21,7 @@ ABOUT DIGITAL M
 - An AI-forward technology company. Trading name of Digital Management Ltd (UK, company no. 09457882).
 - What we do: help retail and e-commerce businesses adopt and integrate AI — grounded in 15+ years of real e-commerce and CRM delivery (100+ projects). AI is the lead offer, backed by proven delivery, not hype.
 - Services: (1) AI adoption & integration; (2) e-commerce engineering & delivery; (3) Salesforce Service & Marketing Cloud (CRM); (4) for smaller businesses (TPE/PME): affordable websites + AI, and security audits.
-- Selected work: Vision Direct (checkout 50→250+ orders/min), EssilorLuxottica (multi-cloud Salesforce Customer 360), Mr Central Heating (£55k+/yr saved re-platforming), Misguided, In The Style, Liz Earle, APP Wholesale.
+- Selected work: Vision Direct (checkout 50→250+ orders/min), EssilorLuxottica (multi-cloud Salesforce Customer 360), Mr Central Heating (£55k+/yr saved re-platforming), Missguided (checkout integrations, French flash sales), In The Style (US/AU/EU storefronts), Liz Earle, APP Wholesale.
 - Contact: email contact@digitalm.eu; WhatsApp https://wa.me/447939856838.
 - Pages you can point to by writing the path (the site links them): / , /services , /work , /contact , /pme .
 
@@ -47,6 +48,9 @@ const MAX_MESSAGES = 24;
 export async function POST(req: Request) {
   if (!process.env.OPENAI_API_KEY) {
     return new Response("Chat is not configured.", { status: 503 });
+  }
+  if (!rateLimit(`chat:${clientIp(req)}`, 24, 10 * 60_000)) {
+    return new Response("Too many requests", { status: 429 });
   }
 
   let body: { messages?: UIMessage[] };

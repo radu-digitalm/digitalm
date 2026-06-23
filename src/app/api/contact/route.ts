@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,6 +9,9 @@ const oneLine = (value: unknown) =>
   String(value ?? "").replace(/[\r\n]+/g, " ").trim();
 
 export async function POST(req: NextRequest) {
+  if (!rateLimit(`contact:${clientIp(req)}`, 5, 10 * 60_000)) {
+    return NextResponse.json({ ok: false, error: "rate" }, { status: 429 });
+  }
   let body: Record<string, unknown>;
   try {
     body = await req.json();
@@ -27,7 +31,7 @@ export async function POST(req: NextRequest) {
   const locale = oneLine(body.locale) || "en";
   const message = String(body.message ?? "").trim();
 
-  if (!name || !email || !message) {
+  if (!name || !email || !message || !phone) {
     return NextResponse.json({ ok: false, error: "missing" }, { status: 422 });
   }
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {

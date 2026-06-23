@@ -12,7 +12,7 @@ const config: Config = {
           DEFAULT: "#C5CDDB",
           heading: "#F4F6FA",
           muted: "#8B94A4",
-          faint: "#737E8F",
+          faint: "#868F9F",
         },
         accent: {
           DEFAULT: "#EE355E",

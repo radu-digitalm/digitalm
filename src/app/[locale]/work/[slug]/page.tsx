@@ -66,6 +66,15 @@ export default async function CaseStudyPage({
     author: { "@type": "Organization", name: "Digital M", "@id": `${SITE_URL}/#org` },
     publisher: { "@id": `${SITE_URL}/#org` },
     mainEntityOfPage: url,
+    ...(item.testimonial
+      ? {
+          review: {
+            "@type": "Review",
+            reviewBody: item.testimonial.quote,
+            author: { "@type": "Person", name: item.testimonial.name },
+          },
+        }
+      : {}),
   };
   const breadcrumb = {
     "@context": "https://schema.org",
@@ -134,6 +143,17 @@ export default async function CaseStudyPage({
             </div>
           ) : null}
         </div>
+
+        {item.testimonial ? (
+          <figure className="mt-10 max-w-3xl rounded-2xl border border-white/10 bg-surface p-6 md:p-8">
+            <blockquote className="border-l-2 border-accent/50 pl-4 text-base leading-relaxed text-fg md:text-lg">
+              {item.testimonial.quote}
+            </blockquote>
+            <figcaption className="mt-4 pl-4 font-mono text-xs text-fg-faint">
+              {item.testimonial.name} · {item.testimonial.role}
+            </figcaption>
+          </figure>
+        ) : null}
 
         <ul className="mt-10 flex flex-wrap gap-2">
           {item.tags.map((tag) => (

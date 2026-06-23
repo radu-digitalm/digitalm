@@ -15,12 +15,17 @@ export const en = {
     work: {
       title: "Work — 15+ years of retail commerce & CRM delivery | Digital M",
       description:
-        "Selected delivery for Vision Direct, EssilorLuxottica, Liz Earle, Misguided, In The Style and APP Wholesale — e-commerce, Salesforce and secure commerce.",
+        "Selected delivery for Vision Direct, EssilorLuxottica, Liz Earle, Missguided, In The Style and APP Wholesale — e-commerce, Salesforce and secure commerce.",
     },
     contact: {
       title: "Contact | Digital M",
       description:
         "Talk to Digital M about putting AI to work in your retail or e-commerce business. Email contact@digitalm.eu.",
+    },
+    book: {
+      title: "Book a call | Digital M",
+      description:
+        "Book a 30-minute call with Digital M — AI, e-commerce, CRM and security for retail and small businesses.",
     },
     pme: {
       title: "Pricing — AI & websites for TPE/PME | Digital M",
@@ -41,9 +46,10 @@ export const en = {
     links: [
       { label: "Services", href: "/services" },
       { label: "Work", href: "/work" },
+      { label: "Pricing", href: "/pme" },
       { label: "Contact", href: "/contact" },
     ],
-    cta: "Tell us what you need",
+    cta: "Book a call",
   },
 
   smb: {
@@ -68,13 +74,23 @@ export const en = {
       sub: "Real fixed-scope packages for French micro and small businesses — built by the team behind delivery for Vision Direct, EssilorLuxottica and Liz Earle.",
     },
     rateNote:
-      "Day rate from €500 — a preferential rate for small businesses. Fixed scope, agreed up front.",
-    discountTag: "Intro rate",
+      "Day rate from €500 — down from a standard €750, a preferential rate for small businesses. Fixed scope, agreed up front.",
+    discountTag: "Preferential rate",
     recommendedBadge: "Recommended",
+    guarantee:
+      "Fixed price, agreed up front — no surprise invoices. We refine the scope until you're happy to sign off.",
+    diagnostic: {
+      eyebrow: "Free, no commitment",
+      title: "Free 48-hour express audit",
+      body: "Tell us about your site or store and we'll send back 2–3 concrete, prioritised recommendations within two business days — free, no obligation.",
+      cta: "Get my free audit",
+    },
+    cardReassurance: "Fixed quote up front · no obligation",
     packages: [
       {
         name: "Site essentiel",
         price: "from €500",
+        originalPrice: "from €750",
         timeline: "1–2 days",
         outcome: "A fast, well-built website, live in days.",
         includes: [
@@ -83,10 +99,12 @@ export const en = {
           "Simple to run and update",
           "Fixed scope, agreed up front",
         ],
+        cta: "Start my site",
       },
       {
         name: "AI on your site",
         price: "from €500",
+        originalPrice: "from €750",
         timeline: "1–3 days",
         outcome: "AI that takes on the repetitive work.",
         includes: [
@@ -95,10 +113,12 @@ export const en = {
           "Integrated with the tools you use",
           "Measured on real outcomes",
         ],
+        cta: "Add AI to my site",
       },
       {
         name: "Site + AI",
         price: "from €2,500",
+        originalPrice: "from €3,750",
         timeline: "about 1 week",
         outcome: "A modern site with AI built in.",
         includes: [
@@ -108,10 +128,12 @@ export const en = {
           "Fixed scope and timeline",
         ],
         lead: true,
+        cta: "Build site + AI",
       },
       {
         name: "Security audit",
         price: "from €500/day",
+        originalPrice: "from €750/day",
         timeline: "by scope",
         outcome: "Know where your site or store is exposed.",
         includes: [
@@ -120,6 +142,7 @@ export const en = {
           "Payment and customer-data focus",
           "A re-test after the fixes",
         ],
+        cta: "Request an audit",
       },
     ],
     note: "The day rate applies once we have the access and information to start. Prices are starting points — we confirm scope and a fixed quote up front.",
@@ -170,6 +193,10 @@ export const en = {
         a: "For small businesses we publish fixed-scope packages from €500 — see /pme. Larger commerce and CRM work is quoted up front against a clear scope.",
       },
       {
+        q: "Is there a free way to start?",
+        a: "Yes — we offer a free 48-hour express audit: tell us about your site or store and we'll send back two or three concrete, prioritised recommendations within two business days, no obligation. Paid work is always fixed-price and agreed up front.",
+      },
+      {
         q: "Do I own what you build?",
         a: "Yes. The website, code and content are yours.",
       },
@@ -184,37 +211,37 @@ export const en = {
     {
       quote:
         "I had the pleasure of working with Radu on a very significant project to completely re-platform the business into the Salesforce ecosystem. He provided a clear and strong voice across the project, making sure the right approaches were taken to critical development decisions.",
-      name: "Damian Hall",
+      name: "Damian H.",
       role: "Senior Director, Global Consumer Experience, SharkNinja",
     },
     {
       quote:
         "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
-      name: "George Pantila",
+      name: "George P.",
       role: "Technical Architect & Salesforce Developer",
     },
     {
       quote:
         "Not only a highly skilled developer, but someone with real architectural insight and great judgement as to the best way to do things. Highly recommended.",
-      name: "Michael Kraftman",
+      name: "Michael K.",
       role: "CEO",
     },
     {
       quote:
         "Radu is engaged and dedicated to get things done. He has been key in strengthening our Salesforce environment for our customer service.",
-      name: "Sébastien Gayat",
+      name: "Sébastien G.",
       role: "CIO",
     },
     {
       quote:
         "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
-      name: "Federico Ciccotti",
+      name: "Federico C.",
       role: "Solution Manager IT, Vision Direct",
     },
     {
       quote:
         "An excellent development manager and a great organising force, ensuring all aspects of quality delivery — a strong balance of technical expertise and management ability.",
-      name: "Paul Joy",
+      name: "Paul J.",
       role: "Director of Technology",
     },
   ],
@@ -247,15 +274,17 @@ export const en = {
       titleLines: ["AI in commerce,"],
       titleAccent: "grounded in real delivery.",
       sub: "Digital M helps retail and e-commerce teams put AI to work — backed by 15+ years building the e-commerce and Salesforce CRM systems that brands like Vision Direct, EssilorLuxottica and Liz Earle run on.",
-      ctaPrimary: "Tell us what you need",
+      ctaPrimary: "Book a call",
       ctaSecondary: "See the work",
     },
     proofLabel: "Selected work",
+    proofBreadth:
+      "Experience across optical, fashion, beauty and B2B wholesale — from high-street brands to a global eyewear group.",
     clients: [
       "Vision Direct",
       "EssilorLuxottica",
       "Liz Earle",
-      "Misguided",
+      "Missguided",
       "In The Style",
       "APP Wholesale",
     ],
@@ -292,7 +321,7 @@ export const en = {
           "Storefront, checkout and payment flows",
           "Integrations with ERP, PIM and fulfilment",
         ],
-        proof: "Delivered for Vision Direct, Liz Earle, Misguided and more.",
+        proof: "Delivered for Vision Direct, Liz Earle, Missguided and more.",
       },
       {
         id: "crm",
@@ -364,7 +393,7 @@ export const en = {
           "Payment and customer-data security handled with care",
         ],
         proof:
-          "Delivered for Vision Direct, Liz Earle, Misguided, In The Style and APP Wholesale.",
+          "Delivered for Vision Direct, Liz Earle, Missguided, In The Style and APP Wholesale.",
       },
       {
         id: "crm",
@@ -407,11 +436,17 @@ export const en = {
         challenge:
           "Vision Direct — one of Europe's largest online contact-lens retailers — needed a checkout that held up under heavy, spiky demand without dropping orders.",
         approach:
-          "We optimised the checkout and order pipeline, hardened the commerce platform, and supported the move into the Salesforce ecosystem — engineering for throughput and reliability under load.",
+          "We optimised the checkout and the database behind it, built custom REST APIs and features like SMS reorder, hardened the platform against spiky demand, and supported the move into the Salesforce ecosystem — engineering for throughput and reliability under load.",
         results: [
           { value: "50 → 250+", label: "orders per minute through checkout" },
           { value: "5×", label: "checkout throughput" },
         ],
+        testimonial: {
+          quote:
+            "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
+          name: "Federico C.",
+          role: "Solution Manager IT, Vision Direct",
+        },
         tags: ["E-commerce", "Development", "AI", "Optical"],
       },
       {
@@ -429,6 +464,12 @@ export const en = {
           { value: "Customer 360", label: "multi-cloud Salesforce programme" },
           { value: "Service + Marketing Cloud", label: "delivered & managed" },
         ],
+        testimonial: {
+          quote:
+            "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
+          name: "George P.",
+          role: "Technical Architect & Salesforce Developer",
+        },
         tags: ["Salesforce", "Service Cloud", "Marketing Cloud"],
       },
       {
@@ -441,51 +482,58 @@ export const en = {
         challenge:
           "Mr Central Heating was carrying the cost and overhead of an enterprise commerce licence its business no longer needed.",
         approach:
-          "We re-platformed the store and moved it from the enterprise edition down to the community edition — re-engineering what the licence had provided so nothing was lost.",
-        results: [{ value: "£55k+/yr", label: "licensing cost saved" }],
+          "We moved the store from Magento's enterprise edition down to the community edition — re-engineering what the licence had provided so nothing was lost — as part of a Magento 1→2 migration, and put version control and a branching strategy in place for safe ongoing delivery.",
+        results: [
+          { value: "£55k+/yr", label: "licensing cost saved" },
+          { value: "Enterprise → Community", label: "edition downgrade, nothing lost" },
+        ],
         tags: ["E-commerce", "Re-platforming"],
       },
       {
-        client: "Misguided",
+        client: "Missguided",
         scope: "E-commerce delivery",
-        slug: "misguided",
-        headline: "Tiered payments, loyalty, and record French flash sales",
+        slug: "missguided",
+        headline: "Checkout integrations built for 4.5M monthly shoppers",
         detail:
-          "Payment, loyalty and high-traffic campaign engineering for the high-volume fashion retailer.",
+          "Checkout, integrations and high-traffic campaign engineering for the high-volume fashion retailer.",
         challenge:
-          "Misguided needed deeper payment options, a loyalty programme, and the ability to run aggressive flash-sale campaigns at scale.",
+          "Missguided — one of the UK's biggest fast-fashion retailers, with 4.5M+ monthly visitors across 11 markets — needed new checkout integrations and the ability to run aggressive French flash-sale campaigns at scale.",
         approach:
-          "We integrated tiered payment methods and loyalty programmes, and engineered the store to handle the traffic spikes of major French flash-sale campaigns.",
+          "We built a new checkout API integrating student-discount platforms (NUS, Student Beans) and Canada's SPC, added the Criteo retargeting API and Click & Collect, and helped structure the new French flash-sale storefront — engineered to hold up under peak campaign traffic.",
         results: [
-          { value: "Flash sales", label: "engineered for peak French campaigns" },
-          { value: "Payments + loyalty", label: "integrated" },
+          { value: "4.5M+/mo", label: "shoppers served at scale" },
+          { value: "NUS · Criteo · Click & Collect", label: "checkout & marketing integrations" },
         ],
-        tags: ["E-commerce", "Fashion"],
+        tags: ["E-commerce", "Fashion", "Integrations"],
       },
       {
         client: "In The Style",
         scope: "E-commerce delivery",
         slug: "in-the-style",
-        headline: "New international markets, launched",
-        detail: "International expansion for the fashion brand.",
+        headline: "US, Australian and European storefronts, launched",
+        detail: "International expansion for the fast-fashion brand.",
         challenge:
-          "In The Style wanted to grow beyond its home market into new territories.",
+          "In The Style — a fast-growing UK fashion brand backed by a ~£40M investment to expand abroad — needed new international storefronts built and launched quickly.",
         approach:
-          "We built and launched new international markets, extending the commerce platform for multi-market trading.",
-        results: [{ value: "New markets", label: "international expansion delivered" }],
+          "We automated the rollout of their US, Australian and European storefronts — structure, catalogues and settings — launched them, and integrated marketing and personalisation platforms (Exponea, Criteo).",
+        results: [
+          { value: "US · AU · EU", label: "storefronts built & launched" },
+          { value: "Automated rollout", label: "store structure, catalogue & settings" },
+        ],
         tags: ["E-commerce", "Fashion"],
       },
       {
         client: "Liz Earle",
         scope: "E-commerce engineering",
-        detail: "E-commerce build for the beauty brand's online store.",
+        detail:
+          "Upgraded a heavily customised Magento core for the skincare brand and built a two-way API linking it to their in-house CRM.",
         tags: ["E-commerce", "Beauty"],
       },
       {
         client: "APP Wholesale",
         scope: "Senior e-commerce engineering",
         detail:
-          "Senior e-commerce development for the wholesale business over several years.",
+          "Years of senior Magento development across a ~£280M plumbing & heating group's 10+ online stores — new business features and the Magento 1→2 migration.",
         tags: ["E-commerce", "Wholesale"],
       },
     ],
@@ -531,7 +579,7 @@ export const en = {
       heading: "Send a message",
       name: "Name",
       emailField: "Email",
-      phone: "Phone (optional)",
+      phone: "Phone",
       company: "Company (optional)",
       message: "How can we help?",
       submit: "Send message",
@@ -541,6 +589,28 @@ export const en = {
       required: "Please fill in the required fields.",
       responsePromise: "We reply within one business day with an honest read.",
     },
+  },
+
+  booking: {
+    eyebrow: "Book a call",
+    title: "Grab a 30-minute slot",
+    sub: "Pick a time that suits you — you'll get a calendar invite by email straight away.",
+    pickHint: "Times shown in your local timezone.",
+    noSlots:
+      "No free slots in the next two weeks — email contact@digitalm.eu and we'll find a time.",
+    name: "Name",
+    email: "Email",
+    phone: "Phone",
+    company: "Company (optional)",
+    needs: "What's it about? (optional)",
+    preferred: "Preferred times",
+    submit: "Confirm booking",
+    request: "Request a call",
+    submitting: "Sending…",
+    change: "Change time",
+    successBooked: "You're booked — a calendar invite is on its way to your inbox.",
+    successRequested: "Thanks — we'll confirm a time with you by email shortly.",
+    error: "Something went wrong. Please email contact@digitalm.eu.",
   },
 
   legal: {
