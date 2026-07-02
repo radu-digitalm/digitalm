@@ -596,8 +596,16 @@ export const fr = {
 
   booking: {
     eyebrow: "Réserver un appel",
-    title: "Réservez un créneau de 30 minutes",
-    sub: "Choisissez un horaire qui vous convient — vous recevrez aussitôt une invitation par e-mail.",
+    title: "30 minutes pour voir ce que l'IA peut automatiser chez vous",
+    sub: "Vous racontez votre quotidien, on repère ce qui vous fait perdre du temps.",
+    benefits: [
+      "Vous repartez avec 2–3 idées concrètes — même si on ne travaille jamais ensemble",
+      "On vous dit honnêtement si l'IA n'apporte rien dans votre cas",
+    ],
+    trust: ["Gratuit", "Sans engagement", "Visio ou téléphone"],
+    step1: "1. Choisissez votre créneau",
+    step2: "2. Vos coordonnées",
+    pickFirst: "Choisissez d'abord un créneau ci-dessus",
     pickHint: "Horaires affichés dans votre fuseau.",
     noSlots:
       "Aucun créneau libre sous deux semaines — écrivez à contact@digitalm.eu et nous trouverons un moment.",

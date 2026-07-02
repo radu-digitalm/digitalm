@@ -8,6 +8,11 @@ type Copy = {
   eyebrow: string;
   title: string;
   sub: string;
+  benefits: string[];
+  trust: string[];
+  step1: string;
+  step2: string;
+  pickFirst: string;
   pickHint: string;
   noSlots: string;
   name: string;
@@ -85,6 +90,21 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
       <p className="eyebrow">{copy.eyebrow}</p>
       <h2 className="mt-3 text-display-m">{copy.title}</h2>
       <p className="mt-3 text-sm leading-relaxed text-fg-muted">{copy.sub}</p>
+      <ul className="mt-4 space-y-1.5">
+        {copy.benefits.map((b) => (
+          <li key={b} className="flex gap-2 text-sm leading-relaxed text-fg-muted">
+            <span aria-hidden className="mt-0.5 text-accent-soft">✓</span>
+            {b}
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex flex-wrap gap-2">
+        {copy.trust.map((t) => (
+          <span key={t} className="rounded-full border border-accent/30 bg-accent/10 px-3 py-1 text-xs font-medium text-accent-soft">
+            {t}
+          </span>
+        ))}
+      </div>
     </div>
   );
 
@@ -146,8 +166,9 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
       ) : liveNoSlots ? (
         <p className="mt-5 text-sm text-fg-muted">{copy.noSlots}</p>
       ) : configured ? (
-        <form onSubmit={submit} className="mt-5">
-          <p className="font-mono text-xs text-fg-faint">{copy.pickHint}</p>
+        <form onSubmit={submit} className="mt-6">
+          <p className="text-sm font-semibold text-fg-heading">{copy.step1}</p>
+          <p className="mt-1 font-mono text-xs text-fg-faint">{copy.pickHint}</p>
           <div className="mt-3 max-h-64 space-y-4 overflow-y-auto pr-1">
             {groups.map((g) => (
               <div key={g.label}>
@@ -173,12 +194,34 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
             ))}
           </div>
 
-          <div className="mt-5">{fields}</div>
+          <p className="mt-6 text-sm font-semibold text-fg-heading">{copy.step2}</p>
+          <div className="mt-3">{fields}</div>
+
+          {selected ? (
+            <p className="mt-4 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm capitalize text-fg-heading">
+              {new Date(selected).toLocaleString(tag, {
+                weekday: "long",
+                day: "numeric",
+                month: "long",
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+              <button
+                type="button"
+                onClick={() => setSelected(null)}
+                className="ml-3 text-xs normal-case text-fg-muted underline hover:text-fg-heading"
+              >
+                {copy.change}
+              </button>
+            </p>
+          ) : (
+            <p className="mt-4 text-sm text-fg-faint">{copy.pickFirst}</p>
+          )}
 
           <button
             type="submit"
             disabled={busy || !selected}
-            className="btn-primary mt-5 inline-flex w-full justify-center px-5 py-3 text-sm disabled:opacity-50"
+            className="btn-primary mt-4 inline-flex w-full justify-center px-5 py-3 text-sm disabled:opacity-50"
           >
             {busy ? copy.submitting : copy.submit}
           </button>

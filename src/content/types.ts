@@ -169,6 +169,11 @@ export type SiteContent = {
     eyebrow: string;
     title: string;
     sub: string;
+    benefits: string[];
+    trust: string[];
+    step1: string;
+    step2: string;
+    pickFirst: string;
     pickHint: string;
     noSlots: string;
     name: string;

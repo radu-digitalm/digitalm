@@ -593,8 +593,16 @@ export const en = {
 
   booking: {
     eyebrow: "Book a call",
-    title: "Grab a 30-minute slot",
-    sub: "Pick a time that suits you — you'll get a calendar invite by email straight away.",
+    title: "30 minutes to see what AI could automate in your business",
+    sub: "Tell us about your day-to-day and we'll spot what's eating your time.",
+    benefits: [
+      "You leave with 2–3 concrete ideas — even if we never work together",
+      "We'll tell you honestly if AI isn't worth it in your case",
+    ],
+    trust: ["Free", "No commitment", "Video or phone"],
+    step1: "1. Pick your time",
+    step2: "2. Your details",
+    pickFirst: "Pick a time above first",
     pickHint: "Times shown in your local timezone.",
     noSlots:
       "No free slots in the next two weeks — email contact@digitalm.eu and we'll find a time.",
