@@ -211,39 +211,39 @@ export const fr = {
   testimonials: [
     {
       quote:
-        "I had the pleasure of working with Radu on a very significant project to completely re-platform the business into the Salesforce ecosystem. He provided a clear and strong voice across the project, making sure the right approaches were taken to critical development decisions.",
+        "J'ai eu le plaisir de travailler avec Radu sur un projet d'envergure visant à replateformer entièrement l'entreprise dans l'écosystème Salesforce. Il a apporté une voix claire et affirmée tout au long du projet, en veillant à ce que les bonnes approches soient retenues sur les décisions techniques critiques.",
       name: "Damian H.",
-      role: "Senior Director, Global Consumer Experience, SharkNinja",
+      role: "Directeur senior, Expérience client mondiale, SharkNinja",
     },
     {
       quote:
-        "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
+        "Nous avons collaboré sur une implémentation Customer 360 s'appuyant sur Service, Marketing et Commerce Cloud, dans le cadre d'un programme Salesforce multi-cloud. Radu pilotait les volets Service et Marketing Cloud, toujours en lien avec le métier et en maîtrisant les risques techniques. Il sait mener n'importe quel projet.",
       name: "George P.",
-      role: "Technical Architect & Salesforce Developer",
+      role: "Architecte technique & développeur Salesforce",
     },
     {
       quote:
-        "Not only a highly skilled developer, but someone with real architectural insight and great judgement as to the best way to do things. Highly recommended.",
+        "Non seulement un développeur très compétent, mais aussi quelqu'un doté d'une vraie vision architecturale et d'un excellent jugement sur la meilleure façon de procéder. Vivement recommandé.",
       name: "Michael K.",
-      role: "CEO",
+      role: "PDG",
     },
     {
       quote:
-        "Radu is engaged and dedicated to get things done. He has been key in strengthening our Salesforce environment for our customer service.",
+        "Radu est impliqué et déterminé à faire aboutir les choses. Il a joué un rôle clé dans le renforcement de notre environnement Salesforce pour notre service client.",
       name: "Sébastien G.",
-      role: "CIO",
+      role: "DSI",
     },
     {
       quote:
-        "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
+        "Il a pris en charge la gestion de plusieurs équipes dans l'environnement Salesforce, les a organisées et a fait progresser leur productivité de façon spectaculaire. D'excellentes compétences en management d'équipe et de parties prenantes.",
       name: "Federico C.",
-      role: "Solution Manager IT, Vision Direct",
+      role: "Responsable solutions IT, Vision Direct",
     },
     {
       quote:
-        "An excellent development manager and a great organising force, ensuring all aspects of quality delivery — a strong balance of technical expertise and management ability.",
+        "Un excellent responsable de développement et une vraie force d'organisation, garant de tous les aspects d'une livraison de qualité — un bel équilibre entre expertise technique et capacité de management.",
       name: "Paul J.",
-      role: "Director of Technology",
+      role: "Directeur de la technologie",
     },
   ],
   caseStudy: {
@@ -444,9 +444,9 @@ export const fr = {
         ],
         testimonial: {
           quote:
-            "He took on the management of different teams in the Salesforce environment, organised them and increased the team's output drastically. Awesome people and stakeholder management skills.",
+            "Il a pris en charge la gestion de plusieurs équipes dans l'environnement Salesforce, les a organisées et a fait progresser leur productivité de façon spectaculaire. D'excellentes compétences en management d'équipe et de parties prenantes.",
           name: "Federico C.",
-          role: "Solution Manager IT, Vision Direct",
+          role: "Responsable solutions IT, Vision Direct",
         },
         tags: ["E-commerce", "Développement", "IA", "Optique"],
       },
@@ -468,9 +468,9 @@ export const fr = {
         ],
         testimonial: {
           quote:
-            "We worked together on a Customer 360 implementation leveraging Service, Marketing and Commerce Cloud for a multi-cloud Salesforce programme. Radu managed both the Service and Marketing Cloud streams, always in contact with the business and mitigating technical risks. He can drive any project.",
+            "Nous avons collaboré sur une implémentation Customer 360 s'appuyant sur Service, Marketing et Commerce Cloud, dans le cadre d'un programme Salesforce multi-cloud. Radu pilotait les volets Service et Marketing Cloud, toujours en lien avec le métier et en maîtrisant les risques techniques. Il sait mener n'importe quel projet.",
           name: "George P.",
-          role: "Technical Architect & Salesforce Developer",
+          role: "Architecte technique & développeur Salesforce",
         },
         tags: ["Salesforce", "Service Cloud", "Marketing Cloud"],
       },
@@ -659,7 +659,7 @@ export const fr = {
         },
         {
           heading: "Cookies et consentement",
-          body: "Ce site utilise un seul cookie fonctionnel pour mémoriser la langue choisie, strictement nécessaire au fonctionnement du site. Nous n'utilisons aucun cookie publicitaire ou de suivi. Tout cookie non essentiel ou outil de mesure d'audience ne serait déposé qu'avec votre consentement, que vous pouvez donner ou refuser via le bandeau cookies.",
+          body: "Ce site utilise un seul cookie fonctionnel pour mémoriser la langue choisie, strictement nécessaire au fonctionnement du site. Nous n'utilisons aucun cookie publicitaire ou de suivi. Pour la mesure d'audience, nous utilisons Umami, un outil auto-hébergé sans cookie qui ne collecte que des statistiques anonymes et agrégées (pages vues, pays, type d'appareil), sans identifier les visiteurs — il est de ce fait exempté de consentement (CNIL). Tout autre cookie non essentiel ne serait déposé qu'avec votre consentement, via le bandeau cookies.",
         },
         {
           heading: "Assistant IA",

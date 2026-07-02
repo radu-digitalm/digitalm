@@ -6,7 +6,7 @@ import type { Locale } from "@/lib/i18n";
 import { isLocale } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/seo";
 import { localPages } from "@/content/local";
-import { FR_NAP, localBusinessNode, LOCAL_LINKS, SERVED } from "@/lib/localBusiness";
+import { FR_NAP, LOCAL_LINKS, SERVED } from "@/lib/localBusiness";
 import { Eyebrow, CtaBand, Faq } from "./sections";
 import { KeyFigures, ServiceGrid } from "./LocalSections";
 import { BookingWidget } from "./BookingWidget";
@@ -56,7 +56,6 @@ export function LocalPage({ locale, slug }: { locale: Locale; slug: string }) {
   const graph = {
     "@context": "https://schema.org",
     "@graph": [
-      localBusinessNode(),
       { "@type": "Service", name: c.h1, provider: { "@id": `${SITE_URL}/#fr-local` }, areaServed: { "@type": "AdministrativeArea", name: "Ariège" }, url },
       { "@type": "FAQPage", mainEntity: c.faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
       {

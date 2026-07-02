@@ -9,6 +9,7 @@ import { SiteHeader } from "@/components/SiteHeader";
 import { SiteFooter } from "@/components/SiteFooter";
 import { CookieConsent } from "@/components/CookieConsent";
 import { ChatWidget } from "@/components/ChatWidget";
+import { localBusinessNode, FR_NAP_READY } from "@/lib/localBusiness";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -38,7 +39,7 @@ export default async function LocaleLayout({
     "@context": "https://schema.org",
     "@graph": [
       {
-        "@type": "ProfessionalService",
+        "@type": "Organization",
         "@id": `${SITE_URL}/#org`,
         name: "Digital M",
         legalName: "Digital Management Ltd",
@@ -47,7 +48,6 @@ export default async function LocaleLayout({
         image: `${SITE_URL}/icon.png`,
         description: getContent(loc).meta.home.description,
         email: "contact@digitalm.eu",
-        telephone: "+33 4 12 12 09 09",
         sameAs: [
           "https://www.linkedin.com/company/digitalm-eu",
           "https://www.crunchbase.com/organization/digital-m-b9e4",
@@ -79,6 +79,7 @@ export default async function LocaleLayout({
         inLanguage: ["en", "fr"],
         publisher: { "@id": `${SITE_URL}/#org` },
       },
+      ...(FR_NAP_READY ? [localBusinessNode()] : []),
     ],
   };
 

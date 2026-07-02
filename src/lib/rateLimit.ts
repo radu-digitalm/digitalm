@@ -20,7 +20,15 @@ export function rateLimit(key: string, limit: number, windowMs: number): boolean
 }
 
 export function clientIp(req: Request): string {
+  // nginx sets X-Real-IP from the actual socket address — spoof-proof.
+  // Never trust the first X-Forwarded-For entry (client-controlled).
+  const real = req.headers.get("x-real-ip");
+  if (real) return real.trim();
+  // Fallback: last XFF hop (appended by our proxy, not the client).
   const xff = req.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return req.headers.get("x-real-ip") || "unknown";
+  if (xff) {
+    const hops = xff.split(",");
+    return hops[hops.length - 1]!.trim();
+  }
+  return "unknown";
 }

@@ -5,7 +5,6 @@ import { getContent } from "@/content";
 import type { Locale } from "@/lib/i18n";
 import { isLocale } from "@/lib/i18n";
 import { SITE_URL } from "@/lib/seo";
-import { localBusinessNode } from "@/lib/localBusiness";
 import { communes, communeBy, communesByDept, DEPT_META, type Commune } from "@/content/communes";
 import { Eyebrow, CtaBand } from "./sections";
 import { KeyFigures, ServiceGrid } from "./LocalSections";
@@ -142,7 +141,6 @@ export function CommunePage({ locale, dept, commune }: { locale: Locale; dept: s
   const graph = {
     "@context": "https://schema.org",
     "@graph": [
-      localBusinessNode(),
       { "@type": "Service", name: `${t.agence} — ${c.nom}`, provider: { "@id": `${SITE_URL}/#fr-local` }, areaServed: { "@type": "Place", name: c.nom }, url },
       { "@type": "FAQPage", mainEntity: faq.map((f) => ({ "@type": "Question", name: f.q, acceptedAnswer: { "@type": "Answer", text: f.a } })) },
       {
@@ -321,6 +319,28 @@ export function AgenceIaIndex({ locale }: { locale: Locale }) {
               </Link>
             );
           })}
+        </div>
+        <div className="mt-12 border-t border-white/[0.07] pt-10">
+          <h2 className="eyebrow">{locale === "fr" ? "Toutes les villes desservies" : "All towns we serve"}</h2>
+          <div className="mt-6 space-y-7">
+            {depts.map((ds) => {
+              const d = DEPT_META[ds];
+              return (
+                <div key={ds}>
+                  <h3 className="text-sm text-fg-heading">
+                    <Link href={`/${locale}/agence-ia/${ds}`} className="hover:text-accent-soft">{d.name} ({d.code})</Link>
+                  </h3>
+                  <ul className="mt-3 flex flex-wrap gap-2">
+                    {communesByDept(ds).map((c) => (
+                      <li key={c.slug}>
+                        <Link href={hrefFor(c, locale)} className="inline-flex rounded-full border border-white/10 px-3 py-1.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{c.nom}</Link>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </section>
       <CtaBand locale={locale} title={t.ctaTitle} body={t.ctaBody} button={t.book} />

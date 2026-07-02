@@ -656,7 +656,7 @@ export const en = {
         },
         {
           heading: "Cookies and consent",
-          body: "This site uses a single functional cookie to remember your chosen language, which is strictly necessary for the site to work. We do not use advertising or tracking cookies. Any non-essential cookies or analytics would only be set with your consent, which you can give or refuse through the cookie banner.",
+          body: "This site uses a single functional cookie to remember your chosen language, which is strictly necessary for the site to work. We do not use advertising or tracking cookies. For audience measurement we use Umami, a self-hosted, cookieless tool that collects only anonymous, aggregated statistics (page views, country, device type) and cannot identify visitors — which is why it does not require consent. Any other non-essential cookies would only be set with your consent, via the cookie banner.",
         },
         {
           heading: "AI assistant",

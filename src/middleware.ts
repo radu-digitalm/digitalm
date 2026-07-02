@@ -29,6 +29,6 @@ export function middleware(req: NextRequest) {
 }
 
 export const config = {
-  // Skip Next internals, API routes, the /u Umami proxy, and any file with an extension.
-  matcher: ["/((?!_next|api|u|u/|.*\\..*).*)"],
+  // Skip Next internals, API routes, the /anal1t1c5 Umami proxy, and any file with an extension.
+  matcher: ["/((?!_next|api|anal1t1c5|anal1t1c5/|.*\\..*).*)"],
 };
