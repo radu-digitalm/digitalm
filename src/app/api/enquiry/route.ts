@@ -133,7 +133,9 @@ export async function POST(req: NextRequest) {
     rows.push(["Language", locale], ["IP", ip]);
 
     const body =
-      (triage ? `PROPOSAL DRAFT:\n${triage.noteForRadu}\n\n———\n` : "") +
+      (triage
+        ? `READY-TO-SEND REPLY (review, tweak, send):\n\n${triage.replyDraft}\n\n———\nSTRATEGY NOTE:\n${triage.noteForRadu}\n\n———\n`
+        : "") +
       detail.join("\n") +
       `\n\nRule scores: ${Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-"}${triage ? "" : "  (LLM triage unavailable — rules only)"}`;
 
