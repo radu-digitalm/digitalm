@@ -25,8 +25,11 @@ export function useTurnstile(active: boolean) {
       if (window.turnstile && container.current && !container.current.hasChildNodes()) {
         window.turnstile.render(container.current, {
           sitekey: key,
-          size: "invisible",
+          // "invisible" size was removed by Cloudflare; interaction-only keeps
+          // the widget hidden and only shows a challenge if one is needed.
+          appearance: "interaction-only",
           callback: (tok: string) => { token.current = tok; },
+          "refresh-expired": "auto",
         });
       }
     };

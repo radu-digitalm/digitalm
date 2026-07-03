@@ -7,6 +7,7 @@ import {
   type Question, type BranchKey,
 } from "@/content/diagnostic";
 import { score, RESULT_CARDS, SELF_SERVE, type Scoring, type ServiceLine } from "@/lib/diagnosticScoring";
+import { useTurnstile } from "@/lib/useTurnstile";
 
 type Answers = Record<string, string | string[]>;
 const DRAFT_KEY = "dm-enquiry-draft-v1";
@@ -16,10 +17,6 @@ const INPUT =
 declare global {
   interface Window {
     umami?: { track: (n: string, d?: Record<string, unknown>) => void };
-    turnstile?: {
-      render: (el: HTMLElement, opts: Record<string, unknown>) => string;
-      reset: (id?: string) => void;
-    };
   }
 }
 
@@ -40,8 +37,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [result, setResult] = useState<Scoring | null>(null);
   const [serverProposed, setServerProposed] = useState<ServiceLine[] | null>(null);
   const [rationale, setRationale] = useState<string | null>(null);
-  const tsToken = useRef<string>("");
-  const tsDiv = useRef<HTMLDivElement | null>(null);
+  const { token: tsToken, container: tsDiv } = useTurnstile(step === 6);
   const topRef = useRef<HTMLDivElement | null>(null);
 
   // ----- draft autosave / resume -----
@@ -105,29 +101,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     return typeof v === "string" && v.trim().length > 0;
   });
 
-  // ----- Turnstile (loads only on the contact step) -----
-  useEffect(() => {
-    if (step !== 6) return;
-    const key = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-    if (!key) return;
-    const render = () => {
-      if (window.turnstile && tsDiv.current && !tsDiv.current.hasChildNodes()) {
-        window.turnstile.render(tsDiv.current, {
-          sitekey: key,
-          size: "invisible",
-          callback: (tok: string) => { tsToken.current = tok; },
-        });
-      }
-    };
-    if (window.turnstile) render();
-    else {
-      const s = document.createElement("script");
-      s.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
-      s.async = true;
-      s.onload = render;
-      document.head.appendChild(s);
-    }
-  }, [step]);
+  // Turnstile is handled by the shared useTurnstile(step === 6) hook above.
 
   // ----- submit -----
   async function submit() {
