@@ -9,6 +9,7 @@ import {
 import { z } from "zod";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { verifyTurnstile, markVerified, isRecentlyVerified } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -49,11 +50,12 @@ export async function POST(req: Request) {
   if (!process.env.OPENAI_API_KEY) {
     return new Response("Chat is not configured.", { status: 503 });
   }
-  if (!rateLimit(`chat:${clientIp(req)}`, 24, 10 * 60_000)) {
+  const ip = clientIp(req);
+  if (!rateLimit(`chat:${ip}`, 24, 10 * 60_000)) {
     return new Response("Too many requests", { status: 429 });
   }
 
-  let body: { messages?: UIMessage[] };
+  let body: { messages?: UIMessage[]; turnstile?: string };
   try {
     body = await req.json();
   } catch {
@@ -65,6 +67,17 @@ export async function POST(req: Request) {
     : [];
   if (messages.length === 0) {
     return new Response("No messages", { status: 422 });
+  }
+
+  // Turnstile: verify once per IP session (the widget sends a token with the
+  // first message), then rely on the server-side allowance for follow-ups.
+  if (!isRecentlyVerified(ip)) {
+    const ts = await verifyTurnstile(String(body.turnstile ?? ""), ip);
+    if (ts === "bad") {
+      return Response.json({ ok: false, error: "verification" }, { status: 403 });
+    }
+    if (ts === "ok") markVerified(ip);
+    // "outage" / "skipped" -> proceed.
   }
 
   const result = streamText({

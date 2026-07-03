@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { SiteContent } from "@/content/types";
+import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
 
 type FormText = SiteContent["contact"]["form"];
@@ -22,6 +23,7 @@ export function ContactForm({
 }) {
   const [status, setStatus] = useState<Status>("idle");
   const [mailto, setMailto] = useState<string>(`mailto:${email}`);
+  const { token, container } = useTurnstile(true);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -50,7 +52,7 @@ export function ContactForm({
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...data, locale }),
+        body: JSON.stringify({ ...data, locale, turnstile: token.current }),
       });
       if (!res.ok) throw new Error("request failed");
       setStatus("success");
@@ -80,6 +82,9 @@ export function ContactForm({
           <input type="text" name="website" tabIndex={-1} autoComplete="off" />
         </label>
       </div>
+
+      {/* Invisible Turnstile widget — its token rides along with the POST. */}
+      <div ref={container} />
 
       <div className="grid gap-5 sm:grid-cols-2">
         <div>

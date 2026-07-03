@@ -4,6 +4,7 @@ import { useRef, useEffect, type ReactNode } from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import type { Locale } from "@/lib/i18n";
+import { useTurnstile } from "@/lib/useTurnstile";
 
 const PATH_LABELS: Record<Locale, Record<string, string>> = {
   en: {
@@ -160,10 +161,18 @@ export default function ChatPanel({
   const s = STRINGS[locale] ?? STRINGS.en;
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Invisible Turnstile — starts verifying as soon as the panel first opens,
+  // so a token is ready by the time the visitor sends their first message.
+  // The server verifies once per IP session; extra tokens are ignored.
+  const { token, container } = useTurnstile(true);
+
   const { messages, sendMessage, status } = useChat({
     transport: new DefaultChatTransport({ api: "/api/chat" }),
   });
   const isPending = status === "submitted" || status === "streaming";
+
+  const send = (text: string) =>
+    sendMessage({ text }, { body: { turnstile: token.current } });
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
@@ -202,7 +211,7 @@ export default function ChatPanel({
                 <button
                   key={q}
                   type="button"
-                  onClick={() => sendMessage({ text: q })}
+                  onClick={() => send(q)}
                   className="rounded-lg border border-white/10 bg-surface-2 px-3 py-2 text-left text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading"
                 >
                   {q}
@@ -241,7 +250,7 @@ export default function ChatPanel({
           const fd = new FormData(e.currentTarget);
           const text = String(fd.get("input") ?? "").trim();
           if (!text) return;
-          sendMessage({ text });
+          send(text);
           e.currentTarget.reset();
         }}
         className="flex gap-2 border-t border-white/10 p-3"
@@ -262,6 +271,7 @@ export default function ChatPanel({
           {s.send}
         </button>
       </form>
+      <div ref={container} />
     </aside>
   );
 }

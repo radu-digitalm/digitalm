@@ -5,6 +5,7 @@ import { calendarConfigured, createBooking, getBusy } from "@/lib/googleCalendar
 import { BOOKING, generateSlots } from "@/lib/booking";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -41,7 +42,8 @@ async function buildBrief(
 }
 
 export async function POST(req: Request) {
-  if (!rateLimit(`book:${clientIp(req)}`, 8, 10 * 60_000)) {
+  const ip = clientIp(req);
+  if (!rateLimit(`book:${ip}`, 8, 10 * 60_000)) {
     return NextResponse.json({ ok: false, error: "rate" }, { status: 429 });
   }
 
@@ -63,12 +65,21 @@ export async function POST(req: Request) {
   const company = str(body.company);
   const needs = str(body.needs);
   const start = str(body.start);
-  const proposed = str(body.proposed);
+  // The widget names this field "preferred"; keep reading "proposed" for compat.
+  const proposed = str(body.proposed ?? body.preferred);
   const locale = body.locale === "fr" ? "fr" : "en";
 
   if (!name || !EMAIL_RE.test(email) || !phone) {
     return NextResponse.json({ ok: false, error: "invalid" }, { status: 400 });
   }
+
+  // Turnstile: reject bad tokens, proceed (flagged) on Cloudflare outage or
+  // when the secret is unset (local dev).
+  const ts = await verifyTurnstile(String(body.turnstile ?? "").trim(), ip);
+  if (ts === "bad") {
+    return NextResponse.json({ ok: false, error: "verification" }, { status: 403 });
+  }
+  const flagged = ts === "outage";
 
   // Live calendar mode: create a real event with an invite + notify the team.
   if (calendarConfigured() && start) {
@@ -127,6 +138,7 @@ export async function POST(req: Request) {
       if (company) rows.push(["Company", company]);
       rows.push(["When", when]);
       rows.push(["Language", locale]);
+      if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);
       const { text, html } = renderNotification({
         source: "New appointment",
         rows,
@@ -157,6 +169,7 @@ export async function POST(req: Request) {
     if (company) rows.push(["Company", company]);
     if (proposed) rows.push(["Preferred times", proposed]);
     if (needs) rows.push(["Topic", needs]);
+    if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);
     const { text, html } = renderNotification({
       source: "Call request",
       rows,

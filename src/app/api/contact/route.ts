@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { verifyTurnstile } from "@/lib/turnstile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,7 +10,8 @@ const oneLine = (value: unknown) =>
   String(value ?? "").replace(/[\r\n]+/g, " ").trim();
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`contact:${clientIp(req)}`, 5, 10 * 60_000)) {
+  const ip = clientIp(req);
+  if (!rateLimit(`contact:${ip}`, 5, 10 * 60_000)) {
     return NextResponse.json({ ok: false, error: "rate" }, { status: 429 });
   }
   let body: Record<string, unknown>;
@@ -38,6 +40,14 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "email" }, { status: 422 });
   }
 
+  // Turnstile: reject bad tokens, proceed (flagged) on Cloudflare outage or
+  // when the secret is unset (local dev).
+  const ts = await verifyTurnstile(oneLine(body.turnstile), ip);
+  if (ts === "bad") {
+    return NextResponse.json({ ok: false, error: "verification" }, { status: 403 });
+  }
+  const flagged = ts === "outage";
+
   if (!mailConfigured()) {
     // No SMTP yet — tell the client to use the mailto fallback.
     return NextResponse.json({ ok: false, error: "unconfigured" }, { status: 503 });
@@ -50,6 +60,7 @@ export async function POST(req: NextRequest) {
   if (phone) rows.push(["Phone", phone]);
   if (company) rows.push(["Company", company]);
   rows.push(["Language", locale]);
+  if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);
 
   const { text, html } = renderNotification({
     source: "Contact form",

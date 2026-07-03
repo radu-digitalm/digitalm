@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
+import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
 
 type Copy = {
@@ -41,6 +42,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
   const [selected, setSelected] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<"booked" | "requested" | "error" | null>(null);
+  const { token, container } = useTurnstile(true);
 
   useEffect(() => {
     let alive = true;
@@ -74,6 +76,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
           website: fd.get("website"),
           start: selected ?? "",
           locale,
+          turnstile: token.current,
         }),
       });
       const json = await res.json();
@@ -160,6 +163,9 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
   return (
     <div id="book" className="card p-6 md:p-8">
       {Header}
+
+      {/* Invisible Turnstile widget — its token rides along with the POST. */}
+      <div ref={container} />
 
       {data === null ? (
         <p className="mt-5 text-sm text-fg-faint">…</p>
