@@ -303,10 +303,22 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   if (step === 7 && result) {
     const cards: readonly ServiceLine[] =
       serverProposed ?? (result.proposed.length ? result.proposed : (["AUTO"] as const));
+    // Pre-fill the booking form from what they just told us — one less form to retype.
+    const bookParams = new URLSearchParams();
+    if (typeof answers.firstName === "string" && answers.firstName) bookParams.set("name", answers.firstName as string);
+    if (typeof answers.email === "string" && answers.email) bookParams.set("email", answers.email as string);
+    if (typeof answers.phone === "string" && answers.phone) bookParams.set("phone", answers.phone as string);
+    if (reference) bookParams.set("ref", reference);
+    const bookHref = `/${L}/book?${bookParams.toString()}`;
     return (
       <div ref={topRef} className="card p-6 md:p-10">
         <p className="eyebrow">{t.introEyebrow}</p>
         <h1 className="display-tight mt-4 text-display-m">{t.resultsTitle}</h1>
+        {typeof answers.magic === "string" && answers.magic.trim() ? (
+          <blockquote className="mt-4 border-l-2 border-accent/60 pl-4 text-sm italic leading-relaxed text-fg-muted">
+            {t.youToldUs} <span className="text-fg-heading">« {(answers.magic as string).trim()} »</span>
+          </blockquote>
+        ) : null}
         {rationale ? (
           <p className="mt-4 rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
             {rationale}
@@ -334,7 +346,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
           </div>
         )}
         <p className="mt-6 text-sm text-fg-muted">{t.resultsReply}</p>
-        <a href={`/${L}/book`} className="btn-primary mt-4 inline-flex px-6 py-3 text-sm">{t.resultsBook}</a>
+        <a href={bookHref} className="btn-primary mt-4 inline-flex px-6 py-3 text-sm">{t.resultsBook}</a>
         {reference ? <p className="mt-6 text-xs text-fg-faint">{t.resultsRef(reference)}</p> : null}
       </div>
     );

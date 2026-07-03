@@ -67,6 +67,7 @@ export async function POST(req: Request) {
   const start = str(body.start);
   // The widget names this field "preferred"; keep reading "proposed" for compat.
   const proposed = str(body.proposed ?? body.preferred);
+  const ref = str(body.ref).slice(0, 20); // diagnostic hand-off reference (DM-XXXXX)
   const locale = body.locale === "fr" ? "fr" : "en";
 
   if (!name || !EMAIL_RE.test(email) || !phone) {
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
       ];
       if (company) rows.push(["Company", company]);
       rows.push(["When", when]);
+      if (ref) rows.push(["Diagnostic ref", ref]);
       rows.push(["Language", locale]);
       if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);
       const { text, html } = renderNotification({
@@ -169,6 +171,7 @@ export async function POST(req: Request) {
     if (company) rows.push(["Company", company]);
     if (proposed) rows.push(["Preferred times", proposed]);
     if (needs) rows.push(["Topic", needs]);
+    if (ref) rows.push(["Diagnostic ref", ref]);
     if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);
     const { text, html } = renderNotification({
       source: "Call request",

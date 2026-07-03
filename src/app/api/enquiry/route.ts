@@ -4,6 +4,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
 import { score } from "@/lib/diagnosticScoring";
 import { triageEnquiry } from "@/lib/diagnosticTriage";
+import { notifyTelegram } from "@/lib/notify";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
 
 export const runtime = "nodejs";
@@ -116,6 +117,16 @@ export async function POST(req: NextRequest) {
     console.error("enquiry db insert failed", e);
     return NextResponse.json({ ok: false, error: "server" }, { status: 500 });
   }
+
+  // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
+  const tgLines = [
+    `🔔 ${scoring.grade}${scoring.urgent ? " · URGENT" : ""} lead — ${reference}`,
+    `${firstName}${company ? ` · ${company}` : ""} · ${proposed.join("+") || "?"}`,
+    phone ? `📞 ${phone}` : null,
+    `✉️ ${email}`,
+    triage?.replyDraft ? `\n— ready reply —\n${triage.replyDraft}` : null,
+  ].filter(Boolean);
+  notifyTelegram(tgLines.join("\n"));
 
   // ---- Triage email to Radu (best-effort; the enquiry is already stored) ----
   if (mailConfigured()) {

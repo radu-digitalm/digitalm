@@ -44,6 +44,14 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
   const [result, setResult] = useState<"booked" | "requested" | "error" | null>(null);
   const { token, container } = useTurnstile(true);
 
+  // Pre-fill from the diagnostic hand-off (?name=&email=&phone=&ref=) so the
+  // lead doesn't retype what they just gave us. Read once on mount.
+  const [prefill, setPrefill] = useState<{ name?: string; email?: string; ref?: string }>({});
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search);
+    setPrefill({ name: p.get("name") ?? undefined, email: p.get("email") ?? undefined, ref: p.get("ref") ?? undefined });
+  }, []);
+
   useEffect(() => {
     let alive = true;
     fetch("/api/availability")
@@ -76,6 +84,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
           website: fd.get("website"),
           start: selected ?? "",
           locale,
+          ref: prefill.ref,
           turnstile: token.current,
         }),
       });
@@ -144,8 +153,8 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
         <input type="text" name="website" tabIndex={-1} autoComplete="off" />
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <input name="name" required placeholder={copy.name} aria-label={copy.name} className={INPUT} autoComplete="name" />
-        <input name="email" type="email" required placeholder={copy.email} aria-label={copy.email} className={INPUT} autoComplete="email" />
+        <input key={`n-${prefill.name ?? ""}`} name="name" required placeholder={copy.name} aria-label={copy.name} defaultValue={prefill.name} className={INPUT} autoComplete="name" />
+        <input key={`e-${prefill.email ?? ""}`} name="email" type="email" required placeholder={copy.email} aria-label={copy.email} defaultValue={prefill.email} className={INPUT} autoComplete="email" />
       </div>
       <div className="mt-3">
         <PhoneField
