@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
+import { sendMail, mailConfigured, renderNotification, renderClientEmail } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
 import { score } from "@/lib/diagnosticScoring";
+import { triageEnquiry } from "@/lib/diagnosticTriage";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
 
 export const runtime = "nodejs";
@@ -77,6 +78,24 @@ export async function POST(req: NextRequest) {
   const flagged = ts === "outage";
 
   const scoring = score(answers as Parameters<typeof score>[0]);
+
+  // Labeled answers (EN labels) — for the LLM triage and the email body.
+  const magic = String(answers.magic ?? "").trim();
+  const detail: string[] = [];
+  if (magic) detail.push(`MAGIC WAND (their own words):\n"${magic}"\n`);
+  for (const [id, v] of Object.entries(answers)) {
+    if (["firstName", "email", "company", "phone", "source", "magic"].includes(id)) continue;
+    const q = BY_ID.get(id.replace(/_other$/, ""));
+    if (!q) continue;
+    if (id.endsWith("_other")) { detail.push(`${q.en} (other): ${String(v)}`); continue; }
+    const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
+    detail.push(`${q.en}: ${vals}`);
+  }
+
+  // LLM triage — reads the free text the rules can't. Rule scoring is the fallback.
+  const triage = await triageEnquiry(detail.join("\n"), scoring, locale);
+  const proposed = triage?.proposed ?? scoring.proposed;
+
   const reference = newReference();
   const company = String(answers.company ?? "").trim().slice(0, 200);
   const phone = String(answers.phone ?? "").trim().slice(0, 50);
@@ -90,7 +109,7 @@ export async function POST(req: NextRequest) {
       )
       .run(
         reference, locale, JSON.stringify(answers), JSON.stringify(scoring.scores),
-        scoring.proposed.join("+") || "-", scoring.grade, scoring.urgent ? 1 : 0, flagged ? 1 : 0,
+        proposed.join("+") || "-", scoring.grade, scoring.urgent ? 1 : 0, flagged ? 1 : 0,
         firstName, email, company || null, phone || null, source || null, ip,
       );
   } catch (e) {
@@ -100,12 +119,10 @@ export async function POST(req: NextRequest) {
 
   // ---- Triage email to Radu (best-effort; the enquiry is already stored) ----
   if (mailConfigured()) {
-    const magic = String(answers.magic ?? "").trim();
     const rows: [string, string][] = [
       ["Reference", reference],
       ["Grade", `${scoring.grade}${scoring.urgent ? " · URGENT" : ""}${flagged ? " · FLAGGED (turnstile outage)" : ""}`],
-      ["Proposed", scoring.proposed.join(" + ") || "(none scored)"],
-      ["Scores", Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ")],
+      ["Proposed", proposed.join(" + ") || "(none scored)"],
       ["Urgency", `${scoring.urgency}/5`],
       ["Name", firstName],
       ["Email", email],
@@ -115,46 +132,65 @@ export async function POST(req: NextRequest) {
     if (source) rows.push(["Heard about us", labelFor(BY_ID.get("source")!, source)]);
     rows.push(["Language", locale], ["IP", ip]);
 
-    const detail: string[] = [];
-    if (magic) detail.push(`MAGIC WAND:\n"${magic}"\n`);
-    for (const [id, v] of Object.entries(answers)) {
-      if (["firstName", "email", "company", "phone", "source", "magic"].includes(id)) continue;
-      const q = BY_ID.get(id.replace(/_other$/, ""));
-      if (!q) continue;
-      if (id.endsWith("_other")) { detail.push(`${q.en} (other): ${String(v)}`); continue; }
-      const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
-      detail.push(`${q.en}: ${vals}`);
-    }
+    const body =
+      (triage ? `PROPOSAL DRAFT:\n${triage.noteForRadu}\n\n———\n` : "") +
+      detail.join("\n") +
+      `\n\nRule scores: ${Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-"}${triage ? "" : "  (LLM triage unavailable — rules only)"}`;
 
     const grade = `[${scoring.grade}]${scoring.urgent ? "[URGENT]" : ""}`;
-    const summary = `${firstName}${company ? `, ${company}` : ""} — ${scoring.proposed.join("+") || "?"} — ${String(answers.start ?? "?")}${answers.budget ? `, ${answers.budget}` : ""}`;
+    const summary =
+      triage?.subjectSummary ??
+      `${firstName}${company ? `, ${company}` : ""} — ${proposed.join("+") || "?"} — ${String(answers.start ?? "?")}${answers.budget ? `, ${answers.budget}` : ""}`;
     const { text, html } = renderNotification({
       source: "Digital check-up",
       rows,
-      body: detail.join("\n"),
+      body,
     });
     sendMail({
-      subject: `[${reference}] ${grade} Check-up — ${summary}`,
+      subject: `[${reference}] ${grade} ${summary}`,
       text,
       html,
       replyTo: email,
     }).catch((e) => console.error("enquiry mail failed", e));
 
-    // ---- Ack to the user, in their language ----
+    // ---- Ack to the user, in their language (branded HTML + text) ----
     const ack =
       locale === "fr"
         ? {
             subject: `Votre check-up numérique — ${reference}`,
-            text: `Bonjour ${firstName},\n\nMerci pour votre check-up ! Radu l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.\n\nEnvie d'aller plus vite ? Réservez un appel gratuit de 30 min : https://digitalm.eu/fr/book\n\nVotre référence : ${reference} (mentionnez-la si vous souhaitez que vos données soient supprimées).\n\nÀ très vite,\nDigital M — digitalm.eu`,
+            title: `Merci ${firstName} — votre check-up est entre de bonnes mains`,
+            paragraphs: [
+              "Notre équipe l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.",
+              "Envie d'aller plus vite ? Réservez directement un appel gratuit de 30 minutes :",
+            ],
+            cta: { label: "Réserver un appel gratuit", url: "https://digitalm.eu/fr/book" },
+            footnote: `Votre référence : ${reference} — mentionnez-la si vous souhaitez un jour que vos données soient supprimées.`,
+            text: `Bonjour ${firstName},\n\nMerci pour votre check-up ! Notre équipe l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.\n\nEnvie d'aller plus vite ? Réservez un appel gratuit de 30 min : https://digitalm.eu/fr/book\n\nVotre référence : ${reference} (mentionnez-la si vous souhaitez que vos données soient supprimées).\n\nÀ très vite,\nL'équipe Digital M — digitalm.eu`,
           }
         : {
             subject: `Your digital check-up — ${reference}`,
-            text: `Hi ${firstName},\n\nThanks for completing the check-up! Radu reviews it personally and will reply within 1 business day with concrete recommendations.\n\nWant to move faster? Book a free 30-min call: https://digitalm.eu/en/book\n\nYour reference: ${reference} (quote it if you ever want your data deleted).\n\nSpeak soon,\nDigital M — digitalm.eu`,
+            title: `Thanks ${firstName} — your check-up is in good hands`,
+            paragraphs: [
+              "Our team reviews it personally and will reply within 1 business day with concrete recommendations.",
+              "Want to move faster? Book a free 30-minute call directly:",
+            ],
+            cta: { label: "Book a free call", url: "https://digitalm.eu/en/book" },
+            footnote: `Your reference: ${reference} — quote it if you ever want your data deleted.`,
+            text: `Hi ${firstName},\n\nThanks for completing the check-up! Our team reviews it personally and will reply within 1 business day with concrete recommendations.\n\nWant to move faster? Book a free 30-min call: https://digitalm.eu/en/book\n\nYour reference: ${reference} (quote it if you ever want your data deleted).\n\nSpeak soon,\nThe Digital M team — digitalm.eu`,
           };
-    sendMail({ subject: ack.subject, text: ack.text, to: email }).catch((e) =>
-      console.error("enquiry ack failed", e),
-    );
+    sendMail({
+      subject: ack.subject,
+      text: ack.text,
+      html: renderClientEmail(ack),
+      to: email,
+    }).catch((e) => console.error("enquiry ack failed", e));
   }
 
-  return NextResponse.json({ ok: true, reference, grade: scoring.grade });
+  return NextResponse.json({
+    ok: true,
+    reference,
+    grade: scoring.grade,
+    proposed,
+    rationale: triage?.clientRationale ?? null,
+  });
 }

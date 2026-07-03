@@ -6,7 +6,7 @@ import {
   STEP1, ROUTER, BRANCHES, BRANCH_CORE, TOOLS, MAGIC, STEP5, CONTACT, UI,
   type Question, type BranchKey,
 } from "@/content/diagnostic";
-import { score, RESULT_CARDS, SELF_SERVE, type Scoring } from "@/lib/diagnosticScoring";
+import { score, RESULT_CARDS, SELF_SERVE, type Scoring, type ServiceLine } from "@/lib/diagnosticScoring";
 
 type Answers = Record<string, string | string[]>;
 const DRAFT_KEY = "dm-enquiry-draft-v1";
@@ -38,6 +38,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [error, setError] = useState(false);
   const [reference, setReference] = useState<string | null>(null);
   const [result, setResult] = useState<Scoring | null>(null);
+  const [serverProposed, setServerProposed] = useState<ServiceLine[] | null>(null);
+  const [rationale, setRationale] = useState<string | null>(null);
   const tsToken = useRef<string>("");
   const tsDiv = useRef<HTMLDivElement | null>(null);
   const topRef = useRef<HTMLDivElement | null>(null);
@@ -144,6 +146,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       if (!json.ok) throw new Error("rejected");
       setReference(json.reference);
       setResult(score(merged));
+      if (Array.isArray(json.proposed) && json.proposed.length) setServerProposed(json.proposed);
+      if (typeof json.rationale === "string" && json.rationale) setRationale(json.rationale);
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setStep(7);
       track("dm_submit", { grade: json.grade });
@@ -297,12 +301,18 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   }
 
   if (step === 7 && result) {
-    const cards = result.proposed.length ? result.proposed : (["AUTO"] as const);
+    const cards: readonly ServiceLine[] =
+      serverProposed ?? (result.proposed.length ? result.proposed : (["AUTO"] as const));
     return (
       <div ref={topRef} className="card p-6 md:p-10">
         <p className="eyebrow">{t.introEyebrow}</p>
         <h1 className="display-tight mt-4 text-display-m">{t.resultsTitle}</h1>
-        {result.grade === "C" ? (
+        {rationale ? (
+          <p className="mt-4 rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
+            {rationale}
+          </p>
+        ) : null}
+        {result.grade === "C" && !serverProposed ? (
           <div className="mt-6">
             <p className="text-sm font-semibold text-fg-heading">{t.selfServeTitle}</p>
             <ul className="mt-3 space-y-2">

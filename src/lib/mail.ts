@@ -1,8 +1,10 @@
 import nodemailer from "nodemailer";
 
 const TO = process.env.CONTACT_FORM_TO || "contact@digitalm.eu";
-const FROM =
+const FROM_ADDR =
   process.env.CONTACT_FORM_FROM || process.env.SMTP_USER || "contact@digitalm.eu";
+// Display name so inboxes show "Digital M", not a bare "contact".
+const FROM = FROM_ADDR.includes("<") ? FROM_ADDR : `"Digital M" <${FROM_ADDR}>`;
 
 /** True when SMTP credentials are present so mail can actually be sent. */
 export function mailConfigured(): boolean {
@@ -95,4 +97,33 @@ export function renderNotification(opts: {
 </div>`;
 
   return { text, html };
+}
+
+/** Client-facing branded email (ack, confirmations): message + optional CTA button. */
+export function renderClientEmail(opts: {
+  title: string;
+  paragraphs: string[];
+  cta?: { label: string; url: string };
+  footnote?: string;
+}): string {
+  const { title, paragraphs, cta, footnote } = opts;
+  const ps = paragraphs
+    .map((p) => `<p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#222;">${esc(p)}</p>`)
+    .join("");
+  return `<div style="background:#f4f5f7;padding:24px;font-family:Arial,Helvetica,sans-serif;">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e6e8ec;">
+    <div style="height:4px;background:linear-gradient(115deg,#F15A24,#EE355E 52%,#ED1E79);"></div>
+    <div style="padding:28px 28px 24px;">
+      <h1 style="margin:0 0 18px;font-size:20px;color:#0a0e16;font-weight:600;">${esc(title)}</h1>
+      ${ps}
+      ${
+        cta
+          ? `<p style="margin:22px 0;"><a href="${esc(cta.url)}" style="display:inline-block;background:linear-gradient(115deg,#F15A24,#EE355E 52%,#ED1E79);color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:13px 26px;border-radius:10px;">${esc(cta.label)}</a></p>`
+          : ""
+      }
+      ${footnote ? `<p style="margin:18px 0 0;font-size:12px;color:#9aa3b2;line-height:1.5;">${esc(footnote)}</p>` : ""}
+      <p style="margin:22px 0 0;font-size:12px;color:#9aa3b2;">Digital M · <a href="https://digitalm.eu" style="color:#9aa3b2;">digitalm.eu</a></p>
+    </div>
+  </div>
+</div>`;
 }
