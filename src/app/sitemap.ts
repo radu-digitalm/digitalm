@@ -14,6 +14,7 @@ const PATHS = [
   "/work",
   "/contact",
   "/book",
+  "/diagnostic",
   "/pme",
   "/agence-ia-ariege",
   "/agence-ia-foix",

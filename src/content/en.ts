@@ -676,7 +676,7 @@ export const en = {
         },
         {
           heading: "Retention",
-          body: "We keep contact messages only as long as needed to handle your enquiry and any follow-up, then delete them.",
+          body: "We keep contact messages only as long as needed to handle your enquiry and any follow-up, then delete them. Digital check-up (diagnostic form) answers are kept for at most 3 years after our last exchange, under a unique reference (e.g. DM-X4K7Q) you can quote to request deletion at any time. The associated IP address, collected under our legitimate interest (abuse prevention), is deleted within 12 months.",
         },
         {
           heading: "Your rights",

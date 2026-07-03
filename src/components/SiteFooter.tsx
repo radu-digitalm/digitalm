@@ -53,6 +53,11 @@ export function SiteFooter({ locale }: { locale: Locale }) {
                 LinkedIn
               </a>
             </li>
+            <li>
+              <Link className="link-accent" href={`${base}/diagnostic`}>
+                {locale === "fr" ? "Check-up numérique gratuit" : "Free digital check-up"}
+              </Link>
+            </li>
           </ul>
         </div>
 

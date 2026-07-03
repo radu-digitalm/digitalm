@@ -7,6 +7,8 @@ const nextConfig = {
     // Served behind nginx with no image optimizer; keep assets as-is.
     unoptimized: true,
   },
+  // better-sqlite3 is a native addon — must not be bundled.
+  serverExternalPackages: ["better-sqlite3"],
   // Self-hosted Umami analytics runs on 127.0.0.1:3002 under BASE_PATH=/anal1t1c5
   // (obscured path). Proxy it through this app so it's reachable at
   // https://digitalm.eu/anal1t1c5 (the tracking script posts same-origin to /anal1t1c5/api/send).
@@ -29,7 +31,7 @@ const nextConfig = {
           // CSP kept pragmatic for an SSG site with inline JSON-LD + Next hydration.
           {
             key: "Content-Security-Policy",
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://challenges.cloudflare.com; frame-src 'self' https://challenges.cloudflare.com; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
           },
         ],
       },

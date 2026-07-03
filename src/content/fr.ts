@@ -679,7 +679,7 @@ export const fr = {
         },
         {
           heading: "Conservation",
-          body: "Nous conservons les messages de contact uniquement le temps nécessaire au traitement de votre demande et à son suivi, puis nous les supprimons.",
+          body: "Nous conservons les messages de contact uniquement le temps nécessaire au traitement de votre demande et à son suivi, puis nous les supprimons. Les réponses au check-up numérique (formulaire de diagnostic) sont conservées au maximum 3 ans après notre dernier échange, avec une référence unique (ex. DM-X4K7Q) que vous pouvez mentionner pour demander leur suppression à tout moment. L'adresse IP associée, collectée au titre de notre intérêt légitime (prévention des abus), est supprimée sous 12 mois.",
         },
         {
           heading: "Vos droits",

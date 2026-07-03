@@ -15,6 +15,7 @@
     "@ai-sdk/openai": "^3.0.71",
     "@ai-sdk/react": "^3.0.207",
     "ai": "^6.0.205",
+    "better-sqlite3": "^12.11.1",
     "next": "16.2.6",
     "nodemailer": "^9.0.0",
     "react": "^19.0.0",
@@ -22,6 +23,7 @@
     "sharp": "^0.35.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.0.0",
