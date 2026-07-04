@@ -28,8 +28,8 @@ export default async function ContactPage({
 
   return (
     <section className="container-x py-16 md:py-20">
-      <div className="grid gap-12 md:grid-cols-[0.85fr_1.15fr] md:gap-16">
-        <div>
+      <div className="grid grid-cols-1 gap-12 md:grid-cols-[0.85fr_1.15fr] md:gap-16">
+        <div className="min-w-0">
           <Eyebrow>{hero.eyebrow}</Eyebrow>
           <h1 className="display-tight mt-6 text-display-l">{hero.title}</h1>
           <p className="mt-5 text-lg leading-relaxed text-fg-muted">{hero.sub}</p>

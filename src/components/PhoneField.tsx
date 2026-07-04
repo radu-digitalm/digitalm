@@ -69,7 +69,9 @@ export function PhoneField({
     };
     document.addEventListener("pointerdown", onDown);
     document.addEventListener("keydown", onEsc);
-    searchRef.current?.focus();
+    // Don't auto-focus the search on touch devices — it pops the keyboard over
+    // the country list. Fine-pointer (desktop) still gets focus for typing.
+    if (window.matchMedia("(pointer: fine)").matches) searchRef.current?.focus();
     return () => {
       document.removeEventListener("pointerdown", onDown);
       document.removeEventListener("keydown", onEsc);
@@ -138,7 +140,7 @@ export function PhoneField({
               }}
               placeholder="Search…"
               aria-label="Search countries"
-              className="w-full border-b border-white/10 bg-surface-2 px-3 py-2 text-sm text-fg-heading placeholder:text-fg-faint focus:outline-none"
+              className="w-full border-b border-white/10 bg-surface-2 px-3 py-2 text-base text-fg-heading placeholder:text-fg-faint focus:outline-none"
             />
             <ul role="listbox" className="max-h-56 overflow-y-auto py-1">
               {filtered.map((c) => (
@@ -146,7 +148,7 @@ export function PhoneField({
                   <button
                     type="button"
                     onClick={() => choose(c)}
-                    className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-heading"
+                    className="flex min-h-[2.75rem] w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-fg-muted transition-colors hover:bg-white/5 hover:text-fg-heading"
                   >
                     <span>{c.flag}</span>
                     <span className="flex-1 truncate">{c.name}</span>

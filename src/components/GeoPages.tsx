@@ -197,11 +197,11 @@ export function CommunePage({ locale, dept, commune }: { locale: Locale; dept: s
           <ul className="mt-4 flex flex-wrap gap-2">
             {nearby.map((n) => (
               <li key={n.slug}>
-                <Link href={hrefFor(n, locale)} className="inline-flex rounded-full border border-white/10 px-3 py-1.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{n.nom}</Link>
+                <Link href={hrefFor(n, locale)} className="inline-flex rounded-full border border-white/10 px-3.5 py-2.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{n.nom}</Link>
               </li>
             ))}
             <li>
-              <Link href={`/${locale}/agence-ia/${c.deptSlug}`} className="inline-flex rounded-full border border-accent/30 px-3 py-1.5 text-sm text-accent-soft transition-colors hover:bg-accent/10">{t.allTowns(g)}</Link>
+              <Link href={`/${locale}/agence-ia/${c.deptSlug}`} className="inline-flex rounded-full border border-accent/30 px-3.5 py-2.5 text-sm text-accent-soft transition-colors hover:bg-accent/10">{t.allTowns(g)}</Link>
             </li>
           </ul>
         </section>
@@ -273,7 +273,7 @@ export function DeptHub({ locale, dept }: { locale: Locale; dept: string }) {
       <ul className="mt-4 flex flex-wrap gap-2">
         {list.map((c) => (
           <li key={c.slug}>
-            <Link href={hrefFor(c, locale)} className="inline-flex rounded-full border border-white/10 px-3 py-1.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{c.nom}</Link>
+            <Link href={hrefFor(c, locale)} className="inline-flex rounded-full border border-white/10 px-3.5 py-2.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{c.nom}</Link>
           </li>
         ))}
       </ul>
@@ -333,7 +333,7 @@ export function AgenceIaIndex({ locale }: { locale: Locale }) {
                   <ul className="mt-3 flex flex-wrap gap-2">
                     {communesByDept(ds).map((c) => (
                       <li key={c.slug}>
-                        <Link href={hrefFor(c, locale)} className="inline-flex rounded-full border border-white/10 px-3 py-1.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{c.nom}</Link>
+                        <Link href={hrefFor(c, locale)} className="inline-flex rounded-full border border-white/10 px-3.5 py-2.5 text-sm text-fg-muted transition-colors hover:border-accent/40 hover:text-fg-heading">{c.nom}</Link>
                       </li>
                     ))}
                   </ul>

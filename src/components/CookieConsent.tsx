@@ -77,14 +77,14 @@ export function CookieConsent({ locale }: { locale: Locale }) {
             <button
               type="button"
               onClick={() => choose("essential")}
-              className="rounded-lg border border-white/15 px-4 py-2 text-sm font-medium text-fg-heading transition-colors hover:bg-white/5"
+              className="rounded-lg border border-white/15 px-4 py-3 text-sm font-medium text-fg-heading transition-colors hover:bg-white/5"
             >
               {copy.decline}
             </button>
             <button
               type="button"
               onClick={() => choose("all")}
-              className="rounded-lg bg-brand-gradient px-4 py-2 text-sm font-medium text-ink transition-opacity hover:opacity-90"
+              className="rounded-lg bg-brand-gradient px-4 py-3 text-sm font-medium text-ink transition-opacity hover:opacity-90"
             >
               {copy.accept}
             </button>

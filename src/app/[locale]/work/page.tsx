@@ -61,7 +61,7 @@ export default async function WorkPage({
                   {item.tags.map((tag) => (
                     <li
                       key={tag}
-                      className="rounded-full border border-white/10 px-2.5 py-1 font-mono text-[11px] text-fg-faint"
+                      className="rounded-full border border-white/10 px-2.5 py-1 font-mono text-xs text-fg-faint"
                     >
                       {tag}
                     </li>

@@ -76,7 +76,7 @@ export default async function ServicesPage({
               <div className="flex items-center gap-3">
                 <span className="font-mono text-xs text-fg-faint">{pillar.kicker}</span>
                 {pillar.lead && (
-                  <span className="rounded-full bg-brand-gradient px-2.5 py-0.5 font-mono text-[11px] font-medium text-ink">
+                  <span className="rounded-full bg-brand-gradient px-2.5 py-0.5 font-mono text-xs font-medium text-ink">
                     Lead offer
                   </span>
                 )}

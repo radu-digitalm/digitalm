@@ -109,7 +109,7 @@ export default async function PmePage({
               }`}
             >
               {pkg.lead ? (
-                <span className="absolute right-5 top-5 rounded-full bg-brand-gradient px-2.5 py-0.5 font-mono text-[11px] font-medium text-ink">
+                <span className="absolute right-5 top-5 rounded-full bg-brand-gradient px-2.5 py-0.5 font-mono text-xs font-medium text-ink">
                   {p.recommendedBadge}
                 </span>
               ) : null}
@@ -126,7 +126,7 @@ export default async function PmePage({
               </div>
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="font-mono text-xs text-fg-faint">{pkg.timeline}</span>
-                <span className="rounded border border-accent/30 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wide text-accent-soft">
+                <span className="rounded border border-accent/30 px-1.5 py-0.5 font-mono text-xs uppercase tracking-wide text-accent-soft">
                   {p.discountTag}
                 </span>
               </div>
@@ -144,11 +144,11 @@ export default async function PmePage({
               </ul>
               <Link
                 href={`/${locale}/book`}
-                className="btn-primary mt-6 inline-flex justify-center px-4 py-2.5 text-sm"
+                className="btn-primary mt-6 inline-flex justify-center px-4 py-3 text-sm"
               >
                 {pkg.cta ?? p.cta}
               </Link>
-              <p className="mt-2 text-center font-mono text-[11px] text-fg-faint">
+              <p className="mt-2 text-center font-mono text-xs text-fg-faint">
                 {p.cardReassurance}
               </p>
             </article>
@@ -182,7 +182,7 @@ export default async function PmePage({
             {p.care.tiers.map((tier) => (
               <article key={tier.name} className={`card card-hover relative flex flex-col p-6 ${tier.lead ? "gradient-border" : ""}`}>
                 {tier.lead ? (
-                  <span className="absolute right-5 top-5 rounded-full bg-brand-gradient px-2.5 py-0.5 font-mono text-[11px] font-medium text-ink">
+                  <span className="absolute right-5 top-5 rounded-full bg-brand-gradient px-2.5 py-0.5 font-mono text-xs font-medium text-ink">
                     {p.recommendedBadge}
                   </span>
                 ) : null}
@@ -200,10 +200,10 @@ export default async function PmePage({
                     </li>
                   ))}
                 </ul>
-                <Link href={`/${locale}/book`} className="btn-primary mt-6 inline-flex justify-center px-4 py-2.5 text-sm">
+                <Link href={`/${locale}/book`} className="btn-primary mt-6 inline-flex justify-center px-4 py-3 text-sm">
                   {tier.cta ?? p.cta}
                 </Link>
-                <p className="mt-2 text-center font-mono text-[11px] text-fg-faint">{p.care.mechanics}</p>
+                <p className="mt-2 text-center font-mono text-xs text-fg-faint">{p.care.mechanics}</p>
               </article>
             ))}
           </div>

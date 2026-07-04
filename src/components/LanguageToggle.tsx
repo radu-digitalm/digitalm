@@ -31,7 +31,7 @@ export function LanguageToggle({
             <span
               key={l}
               aria-current="true"
-              className="bg-brand-gradient px-3 py-1 font-medium text-ink"
+              className="bg-brand-gradient px-3.5 py-2.5 font-medium text-ink"
             >
               {l.toUpperCase()}
             </span>
@@ -42,7 +42,7 @@ export function LanguageToggle({
             key={l}
             href={`/${l}${rest || ""}`}
             onClick={() => persist(l)}
-            className="px-3 py-1 text-fg-muted transition-colors hover:text-fg-heading"
+            className="px-3.5 py-2.5 text-fg-muted transition-colors hover:text-fg-heading"
           >
             {l.toUpperCase()}
           </Link>

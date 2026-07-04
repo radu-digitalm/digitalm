@@ -143,7 +143,7 @@ export function SmbBand({ locale, smb }: { locale: Locale; smb: Smb }) {
             <p className="mt-4 max-w-[48ch] leading-relaxed text-fg-muted">{smb.body}</p>
             <p className="mt-4 font-mono text-xs leading-relaxed text-fg-faint">{smb.proof}</p>
             <p className="mt-5">
-              <span className="inline-flex rounded-full border border-white/10 bg-surface-2 px-3 py-1 font-mono text-[11px] text-accent-soft">
+              <span className="inline-flex rounded-lg border border-white/10 bg-surface-2 px-3 py-1.5 font-mono text-xs leading-relaxed text-accent-soft">
                 {smb.priceChip}
               </span>
             </p>
@@ -183,21 +183,36 @@ export function ProcessBand({
 }) {
   return (
     <section className="cv-auto container-x py-16 md:py-20">
-      <div className="max-w-2xl">
+      <div className="reveal max-w-2xl">
         <Eyebrow>{process.eyebrow}</Eyebrow>
         <h2 className="mt-5 text-display-l">{process.title}</h2>
       </div>
-      <ol className="mt-10 grid gap-6 md:grid-cols-4">
-        {process.steps.map((step, i) => (
-          <li key={i}>
-            <span className="font-display text-4xl font-light leading-none text-fg-faint/40">
-              {String(i + 1).padStart(2, "0")}
-            </span>
-            <h3 className="mt-3 text-base text-fg-heading">{step.title}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-fg-muted">{step.detail}</p>
-          </li>
-        ))}
-      </ol>
+      <div className="reveal relative mt-10">
+        {/* Desktop: connector line that draws in, with a traveling pulse. */}
+        <div className="pointer-events-none absolute left-0 right-0 top-[7px] hidden md:block" aria-hidden="true">
+          <div className="process-line h-px w-full bg-gradient-to-r from-accent/70 via-accent/20 to-accent/70" />
+          <span className="process-pulse absolute -top-[3px] left-0 h-[7px] w-[7px] rounded-full bg-brand-gradient shadow-[0_0_12px_rgba(238,53,94,0.8)]" />
+        </div>
+        {/* Mobile: vertical rail down the left. */}
+        <div className="absolute bottom-3 left-[7px] top-1 w-px bg-white/10 md:hidden" aria-hidden="true" />
+        <ol className="grid gap-8 md:grid-cols-4 md:gap-6">
+          {process.steps.map((step, i) => (
+            <li key={i} className="reveal relative pl-8 md:pl-0">
+              <span
+                className="absolute left-0 top-1 flex h-[15px] w-[15px] items-center justify-center rounded-full border border-accent/50 bg-ink md:static md:mb-4"
+                aria-hidden="true"
+              >
+                <span className="h-[7px] w-[7px] rounded-full bg-brand-gradient" />
+              </span>
+              <span className="font-display text-4xl font-light leading-none text-fg-faint/40">
+                {String(i + 1).padStart(2, "0")}
+              </span>
+              <h3 className="mt-3 text-base text-fg-heading">{step.title}</h3>
+              <p className="mt-2 text-sm leading-relaxed text-fg-muted">{step.detail}</p>
+            </li>
+          ))}
+        </ol>
+      </div>
     </section>
   );
 }

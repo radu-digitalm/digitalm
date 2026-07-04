@@ -213,7 +213,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
                     key={txt}
                     type="button"
                     onClick={() => setAnswers((a) => ({ ...a, [q.id]: txt.replace(/…$/, " ") }))}
-                    className="rounded-full border border-white/10 bg-surface-2 px-3 py-1.5 text-xs text-fg-muted hover:border-accent/40 hover:text-fg-heading"
+                    className="inline-flex min-h-[2.5rem] items-center rounded-full border border-white/10 bg-surface-2 px-3.5 py-2 text-xs text-fg-muted hover:border-accent/40 hover:text-fg-heading"
                   >
                     {txt}
                   </button>
@@ -252,7 +252,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   // ----- screens -----
   if (step === 0) {
     return (
-      <div ref={topRef} className="card p-6 md:p-10">
+      <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
         {showResume ? (
           <div className="mb-6 flex flex-wrap items-center gap-3 rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-sm">
             <span className="text-fg-heading">{t.resume}</span>
@@ -285,16 +285,16 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     if (reference) bookParams.set("ref", reference);
     const bookHref = `/${L}/book?${bookParams.toString()}`;
     return (
-      <div ref={topRef} className="card p-6 md:p-10">
+      <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
         <p className="eyebrow">{t.introEyebrow}</p>
         <h1 className="display-tight mt-4 text-display-m">{t.resultsTitle}</h1>
         {typeof answers.magic === "string" && answers.magic.trim() ? (
-          <blockquote className="mt-4 border-l-2 border-accent/60 pl-4 text-sm italic leading-relaxed text-fg-muted">
+          <blockquote className="mt-4 break-words border-l-2 border-accent/60 pl-4 text-sm italic leading-relaxed text-fg-muted">
             {t.youToldUs} <span className="text-fg-heading">« {(answers.magic as string).trim()} »</span>
           </blockquote>
         ) : null}
         {rationale ? (
-          <p className="mt-4 rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
+          <p className="mt-4 break-words rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
             {rationale}
           </p>
         ) : null}
@@ -332,7 +332,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const pct = 15 + (visibleStep / (totalSteps + 1)) * 85;
 
   return (
-    <div ref={topRef} className="card p-6 md:p-10">
+    <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
       <div className="flex items-baseline justify-between gap-4">
         <p className="font-mono text-xs uppercase tracking-wide text-fg-faint">
           {t.stepOf(visibleStep, totalSteps)}
@@ -360,7 +360,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       ) : null}
 
       <div className="mt-7 flex items-center gap-4">
-        <button onClick={back} className="text-sm text-fg-muted underline hover:text-fg-heading">{t.back}</button>
+        <button onClick={back} className="-ml-3 inline-flex min-h-[2.75rem] items-center px-3 text-sm text-fg-muted underline hover:text-fg-heading">{t.back}</button>
         {step < 6 ? (
           <button onClick={next} disabled={!currentValid} className="btn-primary ml-auto inline-flex px-6 py-3 text-sm disabled:opacity-50">
             {t.continue}

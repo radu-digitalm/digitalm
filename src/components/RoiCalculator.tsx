@@ -38,7 +38,7 @@ export function RoiCalculator({ locale, copy }: { locale: Locale; copy: Copy }) 
             <label htmlFor="roi-hours" className="block text-sm leading-relaxed text-fg-muted">
               {copy.sliderLabel}
             </label>
-            <div className="mt-5 flex items-center gap-5">
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
               <input
                 id="roi-hours"
                 type="range"
@@ -47,9 +47,9 @@ export function RoiCalculator({ locale, copy }: { locale: Locale; copy: Copy }) 
                 step={1}
                 value={hours}
                 onChange={(e) => setHours(Number(e.target.value))}
-                className="roi-slider h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-accent"
+                className="roi-slider h-2 w-full cursor-pointer appearance-none rounded-full bg-white/10"
               />
-              <span className="w-32 shrink-0 text-right font-display text-2xl font-medium tabular-nums text-fg-heading">
+              <span className="shrink-0 font-display text-2xl font-medium tabular-nums text-fg-heading sm:w-32 sm:text-right">
                 {hours} <span className="font-mono text-xs font-normal text-fg-faint">{copy.hoursUnit}</span>
               </span>
             </div>

@@ -27,7 +27,10 @@ export function useTurnstile(active: boolean) {
           sitekey: key,
           // "invisible" size was removed by Cloudflare; interaction-only keeps
           // the widget hidden and only shows a challenge if one is needed.
+          // "flexible" makes that challenge fill its container (no 300px overflow
+          // on narrow cards) when it does appear.
           appearance: "interaction-only",
+          size: "flexible",
           callback: (tok: string) => { token.current = tok; },
           "refresh-expired": "auto",
         });

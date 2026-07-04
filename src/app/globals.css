@@ -114,6 +114,11 @@
   .display-tight {
     font-weight: 700;
     letter-spacing: -0.04em;
+    /* Long French tokens (e.g. "Parlez-nous") must break before overflowing
+       narrow screens. `anywhere` (not `break-word`) also shrinks min-content so
+       a grid/flex track can't be forced wider than the viewport. */
+    overflow-wrap: anywhere;
+    hyphens: auto;
   }
 
   .btn-primary {
@@ -227,12 +232,69 @@
   .node-travel {
     animation: node-travel 7s ease-in-out infinite;
   }
+  /* Process band: line draws in when its .reveal wrapper becomes visible,
+     then a pulse travels it. Without JS the line is simply full-width. */
+  html.reveal-on .process-line {
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.15s;
+  }
+  html.reveal-on .reveal.is-visible .process-line {
+    transform: scaleX(1);
+  }
+  .process-pulse {
+    animation: process-pulse 4.5s ease-in-out 1.8s infinite;
+    opacity: 0;
+  }
+}
+
+@keyframes process-pulse {
+  0% {
+    left: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    left: calc(100% - 7px);
+    opacity: 0;
+  }
 }
 
 /* Below-the-fold sections skip render work until near the viewport. */
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 600px;
+}
+
+/* ROI calculator range slider — visible, 44px-friendly thumb (appearance-none
+   strips the native one). */
+.roi-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 26px;
+  width: 26px;
+  border-radius: 9999px;
+  background: linear-gradient(115deg, #f15a24, #ee355e 52%, #ed1e79);
+  border: 3px solid #0a0e16;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.15);
+  cursor: pointer;
+}
+.roi-slider::-moz-range-thumb {
+  height: 22px;
+  width: 22px;
+  border-radius: 9999px;
+  background: linear-gradient(115deg, #f15a24, #ee355e 52%, #ed1e79);
+  border: 3px solid #0a0e16;
+  cursor: pointer;
+}
+.roi-slider:focus-visible {
+  outline: 2px solid var(--accent, #ee355e);
+  outline-offset: 4px;
 }
 
 /* Nav links: gradient underline that wipes in on hover. */

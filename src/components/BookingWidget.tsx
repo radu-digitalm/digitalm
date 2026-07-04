@@ -227,7 +227,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
               <button
                 type="button"
                 onClick={() => setSelected(null)}
-                className="ml-3 text-xs normal-case text-fg-muted underline hover:text-fg-heading"
+                className="ml-2 inline-flex min-h-[2.25rem] items-center px-2 text-xs normal-case text-fg-muted underline hover:text-fg-heading"
               >
                 {copy.change}
               </button>

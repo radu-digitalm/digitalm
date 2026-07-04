@@ -59,7 +59,7 @@ export function MobileMenu({
 
       {open ? (
         <nav
-          className="absolute right-0 top-full z-50 mt-2 w-72 rounded-xl border border-white/10 bg-surface p-4 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-2 max-h-[calc(100dvh-6rem)] w-72 overflow-y-auto rounded-xl border border-white/10 bg-surface p-4 shadow-xl"
           aria-label="Mobile"
         >
           {links.map((l) => (

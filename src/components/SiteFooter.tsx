@@ -97,27 +97,27 @@ export function SiteFooter({ locale }: { locale: Locale }) {
 
       {locale === "fr" ? (
         <div className="container-x border-t border-white/[0.07] py-5">
-          <ul className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-fg-faint">
+          <ul className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-fg-faint">
             <li className="font-mono uppercase tracking-wide">Zones desservies</li>
             {LOCAL_LINKS.map((l) => (
               <li key={l.slug}>
-                <Link href={`${base}/${l.slug}`} className="transition-colors hover:text-fg-muted">
+                <Link href={`${base}/${l.slug}`} className="inline-block py-1.5 transition-colors hover:text-fg-muted">
                   {l.fr}
                 </Link>
               </li>
             ))}
             <li>
-              <Link href={`${base}/agence-ia/ariege`} className="transition-colors hover:text-fg-muted">
+              <Link href={`${base}/agence-ia/ariege`} className="inline-block py-1.5 transition-colors hover:text-fg-muted">
                 Ariège (09)
               </Link>
             </li>
             <li>
-              <Link href={`${base}/agence-ia/haute-garonne`} className="transition-colors hover:text-fg-muted">
+              <Link href={`${base}/agence-ia/haute-garonne`} className="inline-block py-1.5 transition-colors hover:text-fg-muted">
                 Haute-Garonne (31)
               </Link>
             </li>
             <li>
-              <Link href={`${base}/agence-ia`} className="transition-colors hover:text-fg-muted">
+              <Link href={`${base}/agence-ia`} className="inline-block py-1.5 transition-colors hover:text-fg-muted">
                 toutes les villes →
               </Link>
             </li>
