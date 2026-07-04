@@ -90,6 +90,9 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
       });
       const json = await res.json();
       setResult(json.ok ? (json.mode === "booked" ? "booked" : "requested") : "error");
+      if (json.ok) {
+        try { (window as unknown as { umami?: { track: (n: string) => void } }).umami?.track(json.mode === "booked" ? "book_confirmed" : "book_requested"); } catch { /* best-effort */ }
+      }
     } catch {
       setResult("error");
     } finally {

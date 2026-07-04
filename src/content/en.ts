@@ -47,6 +47,7 @@ export const en = {
       { label: "Services", href: "/services" },
       { label: "Work", href: "/work" },
       { label: "Pricing", href: "/pme" },
+      { label: "Check-up", href: "/diagnostic" },
       { label: "Contact", href: "/contact" },
     ],
     cta: "Book a call",
@@ -326,6 +327,7 @@ export const en = {
       sub: "Digital M helps retail and e-commerce teams put AI to work — backed by 15+ years building the e-commerce and Salesforce CRM systems that brands like Vision Direct, EssilorLuxottica and Liz Earle run on.",
       ctaPrimary: "Book a call",
       ctaSecondary: "See the work",
+      ctaDiagnostic: "Free check-up (4 min)",
     },
     proofLabel: "Selected work",
     proofBreadth:

@@ -93,7 +93,7 @@ export default async function PmePage({
             <p className="mt-3 leading-relaxed text-fg-muted">{p.diagnostic.body}</p>
           </div>
           <Link
-            href={`/${locale}/book`}
+            href={`/${locale}/diagnostic`}
             className="btn-primary inline-flex shrink-0 justify-center px-5 py-3 text-sm"
           >
             {p.diagnostic.cta}

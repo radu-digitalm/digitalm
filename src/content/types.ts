@@ -127,6 +127,7 @@ export type SiteContent = {
       sub: string;
       ctaPrimary: string;
       ctaSecondary: string;
+      ctaDiagnostic: string;
     };
     proofLabel: string;
     proofBreadth: string;

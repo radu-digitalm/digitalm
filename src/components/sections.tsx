@@ -81,7 +81,7 @@ export function CtaBand({
           }}
           aria-hidden="true"
         />
-        <div className="relative max-w-2xl">
+        <div className="reveal relative max-w-2xl">
           <h2 className="display-tight text-display-l">{title}</h2>
           <p className="mt-4 text-fg-muted">{body}</p>
           <Link
@@ -108,7 +108,7 @@ export function Testimonials({
 }) {
   return (
     <section className="cv-auto container-x py-20 md:py-24">
-      <div className="max-w-2xl">
+      <div className="reveal max-w-2xl">
         <Eyebrow>{heading.eyebrow}</Eyebrow>
         <h2 className="mt-5 text-display-l">{heading.title}</h2>
       </div>

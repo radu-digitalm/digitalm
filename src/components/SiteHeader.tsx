@@ -21,7 +21,7 @@ export function SiteHeader({ locale }: { locale: Locale }) {
             <Link
               key={l.href}
               href={`${base}${l.href}`}
-              className="font-mono text-sm text-fg-muted transition-colors hover:text-fg-heading"
+              className="nav-link font-mono text-sm text-fg-muted transition-colors hover:text-fg-heading"
             >
               {l.label}
             </Link>

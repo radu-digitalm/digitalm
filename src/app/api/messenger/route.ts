@@ -91,7 +91,7 @@ const leadTool = tool({
 });
 
 function validSignature(raw: string, sig: string | null): boolean {
-  if (!APP_SECRET) return true; // no secret configured → skip (set it in prod)
+  if (!APP_SECRET) return false; // fail closed — reject unsigned webhooks until MESSENGER_APP_SECRET is set
   if (!sig) return false;
   const expected = "sha256=" + crypto.createHmac("sha256", APP_SECRET).update(raw).digest("hex");
   try {

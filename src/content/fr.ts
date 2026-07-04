@@ -48,6 +48,7 @@ export const fr = {
       { label: "Services", href: "/services" },
       { label: "Réalisations", href: "/work" },
       { label: "Tarifs", href: "/pme" },
+      { label: "Check-up", href: "/diagnostic" },
       { label: "Contact", href: "/contact" },
     ],
     cta: "Réserver un appel",
@@ -327,6 +328,7 @@ export const fr = {
       sub: "Digital M aide les équipes retail et e-commerce à mettre l'IA au travail — fort de plus de 15 ans à bâtir les systèmes e-commerce et CRM Salesforce sur lesquels s'appuient des marques comme Vision Direct, EssilorLuxottica et Liz Earle.",
       ctaPrimary: "Réserver un appel",
       ctaSecondary: "Voir les réalisations",
+      ctaDiagnostic: "Check-up gratuit (4 min)",
     },
     proofLabel: "Réalisations choisies",
     proofBreadth:

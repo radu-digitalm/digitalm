@@ -59,7 +59,13 @@ export default async function HomePage({
               <Link href={`/${locale}/book`} className="btn-primary px-5 py-3 text-sm">
                 {hero.ctaPrimary}
               </Link>
-              <Link href={`/${locale}/work`} className="btn-ghost px-5 py-3 text-sm">
+              <Link href={`/${locale}/diagnostic`} className="btn-ghost px-5 py-3 text-sm">
+                {hero.ctaDiagnostic}
+              </Link>
+              <Link
+                href={`/${locale}/work`}
+                className="link-accent text-sm underline-offset-4 hover:underline"
+              >
                 {hero.ctaSecondary}
               </Link>
             </div>
@@ -100,7 +106,7 @@ export default async function HomePage({
         />
         <div className="container-x relative py-20 md:py-24">
           <div className="flex items-end justify-between gap-6">
-            <div className="max-w-2xl">
+            <div className="reveal max-w-2xl">
               <Eyebrow>{c.home.pillarsHeading.eyebrow}</Eyebrow>
               <h2 className="mt-5 text-display-l">{c.home.pillarsHeading.title}</h2>
               <p className="mt-4 text-fg-muted">{c.home.pillarsHeading.intro}</p>
@@ -128,14 +134,14 @@ export default async function HomePage({
           aria-hidden="true"
         />
         <div className="container-x relative grid gap-12 py-20 md:grid-cols-2 md:py-24">
-          <div>
+          <div className="reveal">
             <Eyebrow>{grounding.eyebrow}</Eyebrow>
             <h2 className="mt-5 text-display-l">{grounding.title}</h2>
             <p className="mt-5 max-w-prose leading-relaxed text-fg-muted">
               {grounding.body}
             </p>
           </div>
-          <div className="flex flex-col items-end gap-6 self-center">
+          <div className="reveal flex flex-col items-end gap-6 self-center">
             <Signature pulse={false} className="hidden h-24 w-auto md:block" />
             <div className="grid w-full grid-cols-2 gap-px overflow-hidden rounded-xl bg-line">
               {grounding.stats.map((stat, i) => (

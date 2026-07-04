@@ -208,21 +208,21 @@
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  @supports (animation-timeline: view()) {
-    .reveal {
-      animation: reveal-in linear both;
-      animation-timeline: view();
-      animation-range: entry 5% cover 25%;
-    }
-    .reveal:nth-child(2) {
-      animation-range: entry 9% cover 29%;
-    }
-    .reveal:nth-child(3) {
-      animation-range: entry 13% cover 33%;
-    }
-    .reveal:nth-child(4) {
-      animation-range: entry 17% cover 37%;
-    }
+  /* JS (Reveal.tsx) adds `reveal-on` to <html> and toggles `.is-visible` via an
+     IntersectionObserver — works in every browser (the old scroll-timeline gate
+     was Safari/iOS-only). No JS or reduced-motion → content stays fully visible. */
+  html.reveal-on .reveal {
+    opacity: 0;
+    transform: translateY(16px);
+    transition:
+      opacity 0.55s ease,
+      transform 0.7s cubic-bezier(0.2, 0.7, 0.2, 1);
+    transition-delay: calc(var(--reveal-i, 0) * 70ms);
+    will-change: opacity, transform;
+  }
+  html.reveal-on .reveal.is-visible {
+    opacity: 1;
+    transform: none;
   }
   .node-travel {
     animation: node-travel 7s ease-in-out infinite;
@@ -233,6 +233,26 @@
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 600px;
+}
+
+/* Nav links: gradient underline that wipes in on hover. */
+.nav-link {
+  position: relative;
+}
+.nav-link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  height: 1.5px;
+  width: 100%;
+  background: var(--brand-gradient, linear-gradient(115deg, #f15a24, #ee355e 52%, #ed1e79));
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.28s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.nav-link:hover::after {
+  transform: scaleX(1);
 }
 
 /* Honour reduced-motion: kill non-essential animation and smooth scroll. */

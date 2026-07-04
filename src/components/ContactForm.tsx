@@ -56,6 +56,7 @@ export function ContactForm({
       });
       if (!res.ok) throw new Error("request failed");
       setStatus("success");
+      try { (window as unknown as { umami?: { track: (n: string) => void } }).umami?.track("contact_submitted"); } catch { /* analytics is best-effort */ }
       form.reset();
     } catch {
       setStatus("error");
