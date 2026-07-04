@@ -12,6 +12,16 @@ const nextConfig = {
   // Self-hosted Umami analytics runs on 127.0.0.1:3002 under BASE_PATH=/anal1t1c5
   // (obscured path). Proxy it through this app so it's reachable at
   // https://digitalm.eu/anal1t1c5 (the tracking script posts same-origin to /anal1t1c5/api/send).
+  async redirects() {
+    // Legacy WordPress-era URLs still crawled by Google (GSC 404 report) —
+    // 301 to the closest new page so any old backlink equity is recycled.
+    return [
+      { source: "/about-us", destination: "/en", permanent: true },
+      { source: "/contact-us", destination: "/en/contact", permanent: true },
+      { source: "/about", destination: "/en", permanent: true },
+      { source: "/page/:n", destination: "/en", permanent: true },
+    ];
+  },
   async rewrites() {
     return [
       { source: "/anal1t1c5", destination: "http://127.0.0.1:3002/anal1t1c5" },
