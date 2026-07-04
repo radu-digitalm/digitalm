@@ -25,10 +25,24 @@ const TriageSchema = z.object({
 
 export type Triage = z.infer<typeof TriageSchema>;
 
+/**
+ * Detect the model's mangled latin-1 escapes (" e9es" = ées, " e0 " = à…).
+ * Only digit-containing hex pairs — letter-only pairs like " ea" would
+ * false-positive on real French ("l'eau"). Corrupted French output always
+ * contains at least one é/è/à/ç/ô/ù, so this catches every real case.
+ */
+export function isMangled(s: string): boolean {
+  return (
+    /(?:^|\s)(?:[ec][0-9]|f[49]|a0)(?=[a-zàâçèéêîôùû])/i.test(s) ||
+    /\\x[0-9a-fA-F]{2}/.test(s)
+  );
+}
+
 export async function triageEnquiry(
   labeledAnswers: string,
   ruleScoring: Scoring,
   locale: "en" | "fr",
+  attempt = 1,
 ): Promise<Triage | null> {
   if (!process.env.OPENAI_API_KEY) return null;
   try {
@@ -59,11 +73,12 @@ CRITICAL OUTPUT RULE: write all text as plain UTF-8 with normal accented charact
     // Belt & braces: never let the model propose an invalid line.
     const proposed = object.proposed.filter((p): p is ServiceLine => (LINES as readonly string[]).includes(p));
     if (!proposed.length) return null;
-    // Reject mangled latin-1 escape output (" E9"→é etc.) — fall back to rules
-    // rather than show corrupted text to anyone.
-    const mangled = /(?:^| )[EA][0-9A-F](?=[ a-z]|$)|\\x[0-9a-fA-F]{2}/;
-    if (mangled.test(object.noteForRadu) || mangled.test(object.clientRationale) || mangled.test(object.replyDraft)) {
-      console.error("triage llm returned mangled encoding — discarded");
+    // The model sometimes emits latin-1 escapes that reach us as " e9"/" E9"
+    // glued mid-word ("impay e9es" = impayées). Corrupted text must never
+    // reach anyone: retry once, then fall back to rule scoring.
+    if (isMangled(object.noteForRadu) || isMangled(object.clientRationale) || isMangled(object.replyDraft)) {
+      console.error(`triage llm returned mangled encoding (attempt ${attempt})`);
+      if (attempt < 2) return triageEnquiry(labeledAnswers, ruleScoring, locale, attempt + 1);
       return null;
     }
     return { ...object, proposed };
