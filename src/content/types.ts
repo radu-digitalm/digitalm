@@ -78,6 +78,18 @@ export type SiteContent = {
     diagnostic: { eyebrow: string; title: string; body: string; cta: string };
     cardReassurance: string;
     packages: Package[];
+    /** Security audit — slim horizontal card under the build grid. */
+    audit: Package;
+    /** Monthly care plans ("Tranquillité"). */
+    care: {
+      eyebrow: string;
+      title: string;
+      body: string;
+      overageRule: string;
+      honesty: string;
+      mechanics: string;
+      tiers: Package[];
+    };
     note: string;
     cta: string;
   };
