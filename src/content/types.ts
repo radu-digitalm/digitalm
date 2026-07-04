@@ -140,6 +140,16 @@ export type SiteContent = {
       body: string;
       stats: Stat[];
     };
+    roi: {
+      eyebrow: string;
+      title: string;
+      sliderLabel: string;
+      hoursUnit: string;
+      yearlyHours: string;
+      yearlyValue: string;
+      rateNote: string;
+      cta: string;
+    };
     cta: { title: string; body: string; button: string };
   };
   services: {

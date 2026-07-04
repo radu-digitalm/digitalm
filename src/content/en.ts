@@ -401,6 +401,16 @@ export const en = {
         { value: "£55k+/yr", label: "saved re-platforming Mr Central Heating" },
       ],
     },
+    roi: {
+      eyebrow: "Do the math",
+      title: "How many hours go to repetitive tasks in your business?",
+      sliderLabel: "Hours per week spent on repetitive admin (quotes, follow-ups, re-typing…)",
+      hoursUnit: "h / week",
+      yearlyHours: "hours per year",
+      yearlyValue: "of time, at €30/h",
+      rateNote: "Indicative estimate — 47 working weeks, €30/h. The check-up shows you where it actually goes.",
+      cta: "See where it goes — free check-up (4 min)",
+    },
     cta: {
       title: "Bring AI into your commerce stack.",
       body: "Tell us where retail is slowing you down. We'll tell you, honestly, where AI helps and where it doesn't.",

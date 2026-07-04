@@ -402,6 +402,16 @@ export const fr = {
         { value: "55k£+/an", label: "économisés en re-platformant Mr Central Heating" },
       ],
     },
+    roi: {
+      eyebrow: "Faites le calcul",
+      title: "Combien d'heures partent en tâches répétitives chez vous ?",
+      sliderLabel: "Heures par semaine passées en admin répétitif (devis, relances, ressaisies…)",
+      hoursUnit: "h / semaine",
+      yearlyHours: "heures par an",
+      yearlyValue: "de temps, à 30 €/h",
+      rateNote: "Estimation indicative — 47 semaines travaillées, 30 €/h. Le check-up vous dit où ça part vraiment.",
+      cta: "Voir où ça part — check-up gratuit (4 min)",
+    },
     cta: {
       title: "Intégrez l'IA à votre stack commerce.",
       body: "Dites-nous où le retail vous ralentit. Nous vous dirons, honnêtement, où l'IA aide et où elle n'aide pas.",

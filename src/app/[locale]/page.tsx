@@ -6,6 +6,8 @@ import { isLocale } from "@/lib/i18n";
 import { pageMetadata } from "@/lib/seo";
 import { Signature } from "@/components/Signature";
 import { Eyebrow, PillarCard, CtaBand, SmbBand, Testimonials } from "@/components/sections";
+import { RoiCalculator } from "@/components/RoiCalculator";
+import { CountUp } from "@/components/CountUp";
 
 export async function generateMetadata({
   params,
@@ -151,7 +153,7 @@ export default async function HomePage({
                       i === 0 ? "gradient-text" : "text-fg-heading"
                     }`}
                   >
-                    {stat.value}
+                    <CountUp value={stat.value} />
                   </p>
                   <p className="mt-2 text-sm text-fg-muted">{stat.label}</p>
                 </div>
@@ -160,6 +162,8 @@ export default async function HomePage({
           </div>
         </div>
       </section>
+
+      <RoiCalculator locale={locale} copy={c.home.roi} />
 
       <Testimonials heading={c.testimonialsHeading} items={c.testimonials} />
 
