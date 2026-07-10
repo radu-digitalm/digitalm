@@ -56,6 +56,13 @@ async function transport() {
   });
 }
 
+const RETRY_DELAYS_MS = [1_000, 5_000, 15_000];
+
+/**
+ * Send with retries. A transient network fault must never silently swallow a
+ * lead again: we retry with backoff, drop the cached IP between attempts (in
+ * case the address went bad), and rethrow so callers can record the failure.
+ */
 export async function sendMail(opts: {
   subject: string;
   text: string;
@@ -63,16 +70,32 @@ export async function sendMail(opts: {
   replyTo?: string;
   to?: string;
 }): Promise<void> {
-  const t = await transport();
-  if (!t) throw new Error("SMTP not configured");
-  await t.sendMail({
-    to: opts.to || TO,
-    from: FROM,
-    replyTo: opts.replyTo,
-    subject: opts.subject,
-    text: opts.text,
-    html: opts.html,
-  });
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      const t = await transport();
+      if (!t) throw new Error("SMTP not configured");
+      await t.sendMail({
+        to: opts.to || TO,
+        from: FROM,
+        replyTo: opts.replyTo,
+        subject: opts.subject,
+        text: opts.text,
+        html: opts.html,
+      });
+      if (attempt > 0) console.warn(`mail delivered on retry ${attempt}: ${opts.subject}`);
+      return;
+    } catch (e) {
+      lastErr = e;
+      if (!mailConfigured()) throw e; // nothing to retry against
+      ipv4Cache = null; // re-resolve; the cached address may be the bad one
+      const delay = RETRY_DELAYS_MS[attempt];
+      if (delay === undefined) break;
+      console.warn(`mail attempt ${attempt + 1} failed (${(e as { code?: string }).code ?? e}), retrying in ${delay}ms`);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
 }
 
 const esc = (s: string) =>

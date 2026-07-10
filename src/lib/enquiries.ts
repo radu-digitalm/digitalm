@@ -29,6 +29,21 @@ export function enquiriesDb(): Database.Database {
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     last_contact_at TEXT NOT NULL DEFAULT (datetime('now'))
   )`);
+
+  // Added after a mail outage silently lost a lead's triage: the LLM analysis
+  // must survive even when every notification channel fails. Additive columns
+  // only, so existing rows keep working.
+  const info = db.prepare("PRAGMA table_info(enquiries)").all() as { name: string }[];
+  const cols = new Set(info.map((c) => c.name));
+  for (const [name, decl] of [
+    ["reply_draft", "TEXT"],
+    ["note_for_radu", "TEXT"],
+    ["subject_summary", "TEXT"],
+    ["mail_status", "TEXT"], // 'sent' | 'failed' | 'skipped'
+    ["mail_error", "TEXT"],
+  ] as const) {
+    if (!cols.has(name)) db.exec(`ALTER TABLE enquiries ADD COLUMN ${name} ${decl}`);
+  }
   return db;
 }
 

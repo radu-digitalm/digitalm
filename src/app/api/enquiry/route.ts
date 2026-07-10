@@ -21,6 +21,17 @@ function labelFor(q: Question, v: string): string {
   return q.options?.find((o) => o.id === v)?.en ?? v;
 }
 
+/** Record whether the triage email actually went out. Never throws. */
+function markMail(reference: string, status: "sent" | "failed" | "skipped", error?: string): void {
+  try {
+    enquiriesDb()
+      .prepare("UPDATE enquiries SET mail_status = ?, mail_error = ? WHERE reference = ?")
+      .run(status, error ?? null, reference);
+  } catch (e) {
+    console.error("could not record mail status", e);
+  }
+}
+
 async function verifyTurnstile(token: string, ip: string): Promise<"ok" | "bad" | "outage"> {
   const secret = process.env.TURNSTILE_SECRET_KEY;
   if (!secret) return "ok"; // not configured -> skip
@@ -105,13 +116,14 @@ export async function POST(req: NextRequest) {
   try {
     enquiriesDb()
       .prepare(
-        `INSERT INTO enquiries (reference, locale, answers, scores, proposed, grade, urgent, flagged, first_name, email, company, phone, source, ip)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO enquiries (reference, locale, answers, scores, proposed, grade, urgent, flagged, first_name, email, company, phone, source, ip, reply_draft, note_for_radu, subject_summary)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         reference, locale, JSON.stringify(answers), JSON.stringify(scoring.scores),
         proposed.join("+") || "-", scoring.grade, scoring.urgent ? 1 : 0, flagged ? 1 : 0,
         firstName, email, company || null, phone || null, source || null, ip,
+        triage?.replyDraft ?? null, triage?.noteForRadu ?? null, triage?.subjectSummary ?? null,
       );
   } catch (e) {
     console.error("enquiry db insert failed", e);
@@ -164,7 +176,18 @@ export async function POST(req: NextRequest) {
       text,
       html,
       replyTo: email,
-    }).catch((e) => console.error("enquiry mail failed", e));
+    })
+      .then(() => markMail(reference, "sent"))
+      .catch((e) => {
+        console.error("enquiry mail failed", e);
+        markMail(reference, "failed", String((e as { code?: string }).code ?? e));
+        // Email is down — make sure the lead can't go unnoticed.
+        notifyTelegram(
+          `⚠️ EMAIL FAILED for ${reference} (${(e as { code?: string }).code ?? "error"}).\n` +
+            `The lead IS saved (reference ${reference}) and the reply draft is in the database.\n` +
+            `Re-send once mail is healthy.`,
+        );
+      });
 
     // ---- Ack to the user, in their language (branded HTML + text) ----
     const ack =
@@ -196,7 +219,12 @@ export async function POST(req: NextRequest) {
       text: ack.text,
       html: renderClientEmail(ack),
       to: email,
-    }).catch((e) => console.error("enquiry ack failed", e));
+    }).catch((e) => {
+      console.error("enquiry ack failed", e);
+      notifyTelegram(`⚠️ Acknowledgement email to the ${reference} visitor failed — they were never confirmed. Re-send manually.`);
+    });
+  } else {
+    markMail(reference, "skipped", "SMTP not configured");
   }
 
   return NextResponse.json({
