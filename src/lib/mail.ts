@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import dns from "node:dns/promises";
+import net from "node:net";
 
 const TO = process.env.CONTACT_FORM_TO || "contact@digitalm.eu";
 const FROM_ADDR =
@@ -11,7 +13,24 @@ export function mailConfigured(): boolean {
   return !!process.env.SMTP_HOST;
 }
 
-function transport() {
+// This server has no IPv6 egress, but smtp.gmail.com publishes an AAAA record.
+// nodemailer resolves A + AAAA and picks one AT RANDOM (lib/shared: formatDNSValue),
+// so ~half of all sends died with ENETUNREACH and were silently lost. Passing
+// `family` doesn't help — SMTPConnection never forwards it to its resolver. So we
+// resolve to IPv4 ourselves and give nodemailer a literal IP (which short-circuits
+// its resolver), keeping `servername` so TLS still validates against the hostname.
+let ipv4Cache: { ip: string; expires: number } | null = null;
+
+async function ipv4For(host: string): Promise<string> {
+  if (net.isIP(host)) return host;
+  if (ipv4Cache && ipv4Cache.expires > Date.now()) return ipv4Cache.ip;
+  const [ip] = await dns.resolve4(host);
+  if (!ip) return host; // fall back to the hostname rather than fail outright
+  ipv4Cache = { ip, expires: Date.now() + 5 * 60_000 };
+  return ip;
+}
+
+async function transport() {
   const host = process.env.SMTP_HOST;
   if (!host) return null;
   const port = Number(process.env.SMTP_PORT || 587);
@@ -20,11 +39,20 @@ function transport() {
     : port === 465;
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
+  let address = host;
+  try {
+    address = await ipv4For(host);
+  } catch {
+    /* DNS hiccup — let nodemailer try the hostname itself */
+  }
   return nodemailer.createTransport({
-    host,
+    host: address,
     port,
     secure,
     auth: user && pass ? { user, pass } : undefined,
+    tls: { servername: host },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
   });
 }
 
@@ -35,7 +63,7 @@ export async function sendMail(opts: {
   replyTo?: string;
   to?: string;
 }): Promise<void> {
-  const t = transport();
+  const t = await transport();
   if (!t) throw new Error("SMTP not configured");
   await t.sendMail({
     to: opts.to || TO,
