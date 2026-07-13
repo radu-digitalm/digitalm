@@ -6,6 +6,8 @@ import { BOOKING, generateSlots } from "@/lib/booking";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { notifyTelegram } from "@/lib/notify";
+import { serverTrack } from "@/lib/serverTrack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -123,14 +125,21 @@ export async function POST(req: Request) {
     });
     if (!ok) return NextResponse.json({ ok: false }, { status: 502 });
 
+    const when =
+      new Date(startMs).toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", {
+        timeZone: BOOKING.tz,
+        dateStyle: "full",
+        timeStyle: "short",
+      }) + ` (${BOOKING.tz})`;
+
+    // Conversion event (server-side, adblock-proof) + instant phone ping.
+    serverTrack("booking_confirmed", { locale, ref: ref || "-" });
+    notifyTelegram(
+      `📅 BOOKING confirmed — ${when}\n${name}${company ? ` · ${company}` : ""}\n📞 ${phone}\n✉️ ${email}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
+    );
+
     // Notify contact@ that a new appointment was booked (in addition to the calendar event).
     if (mailConfigured()) {
-      const when =
-        new Date(startMs).toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", {
-          timeZone: BOOKING.tz,
-          dateStyle: "full",
-          timeStyle: "short",
-        }) + ` (${BOOKING.tz})`;
       const rows: [string, string][] = [
         ["Name", name],
         ["Email", email],
@@ -162,6 +171,10 @@ export async function POST(req: Request) {
   }
 
   // Fallback: no live calendar — email a call request to the team.
+  serverTrack("booking_requested", { locale, ref: ref || "-" });
+  notifyTelegram(
+    `📞 CALL REQUEST — ${name}${company ? ` · ${company}` : ""}\n📞 ${phone}\n✉️ ${email}${proposed ? `\nPreferred: ${proposed}` : ""}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
+  );
   if (mailConfigured()) {
     const rows: [string, string][] = [
       ["Name", name],

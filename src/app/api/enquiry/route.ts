@@ -5,6 +5,7 @@ import { enquiriesDb, newReference } from "@/lib/enquiries";
 import { score } from "@/lib/diagnosticScoring";
 import { triageEnquiry } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
+import { serverTrack } from "@/lib/serverTrack";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
 
 export const runtime = "nodejs";
@@ -129,6 +130,8 @@ export async function POST(req: NextRequest) {
     console.error("enquiry db insert failed", e);
     return NextResponse.json({ ok: false, error: "server" }, { status: 500 });
   }
+
+  serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale });
 
   // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
   const tgLines = [

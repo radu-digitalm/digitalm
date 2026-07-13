@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { verifyTurnstile } from "@/lib/turnstile";
+import { notifyTelegram } from "@/lib/notify";
+import { serverTrack } from "@/lib/serverTrack";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +69,13 @@ export async function POST(req: NextRequest) {
     rows,
     body: message,
   });
+
+  // Conversion event (server-side, adblock-proof) + instant phone ping — the
+  // visitor gets an error if mail fails, but you still know they tried.
+  serverTrack("contact_message", { locale });
+  notifyTelegram(
+    `✉️ CONTACT message — ${name}${company ? ` · ${company}` : ""}${phone ? `\n📞 ${phone}` : ""}\n✉️ ${email}\n\n${message.slice(0, 400)}`,
+  );
 
   try {
     await sendMail({
