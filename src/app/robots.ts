@@ -7,7 +7,6 @@ export default function robots(): MetadataRoute.Robots {
   }
   return {
     rules: { userAgent: "*", allow: "/", disallow: "/anal1t1c5/" },
-    sitemap: `${SITE_URL}/sitemap.xml`,
-    host: SITE_URL,
+    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/sitemap-main.xml`],
   };
 }
