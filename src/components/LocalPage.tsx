@@ -9,6 +9,7 @@ import { localPages } from "@/content/local";
 import { FR_NAP, LOCAL_LINKS, SERVED } from "@/lib/localBusiness";
 import { Eyebrow, CtaBand, Faq } from "./sections";
 import { KeyFigures, ServiceGrid } from "./LocalSections";
+import { GeoHero } from "./GeoPages";
 import { BookingWidget } from "./BookingWidget";
 
 const UI: Record<Locale, { book: string; price: string; zones: string; seePricing: string; home: string; faqTitle: string }> = {
@@ -41,7 +42,9 @@ export async function localPageMetadata(
       title: c.metaTitle,
       description: c.metaDescription,
       url: canonical,
+      images: [{ url: `${SITE_URL}/${loc}/opengraph-image`, width: 1200, height: 630, alt: "Digital M" }],
     },
+    twitter: { card: "summary_large_image", images: [`${SITE_URL}/${loc}/opengraph-image`] },
   };
 }
 
@@ -90,6 +93,7 @@ export function LocalPage({ locale, slug }: { locale: Locale; slug: string }) {
             {FR_NAP.telephone ? ` · ${FR_NAP.telephone}` : ""}
           </p>
         </div>
+        <GeoHero caption={c.metaTitle} />
         <KeyFigures locale={locale} />
       </section>
 

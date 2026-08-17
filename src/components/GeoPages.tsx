@@ -34,6 +34,7 @@ const STR = {
     agence: "Agence IA",
     book: "Réserver un appel",
     price: "À partir de 500 €",
+    heroAlt: (n: string) => `Digital M — agence IA et création de sites internet pour les entreprises de ${n}`,
     communeEyebrow: (n: string, cp: string) => `Agence IA · ${n} (${cp})`,
     communeH1: (n: string, g: G) => `Agence IA à ${n} (${g.name}) — intelligence artificielle & site internet`,
     introA: (n: string, g: G) => `Digital M est votre agence IA — agence d'intelligence artificielle et agence web — de proximité pour ${n} et ${g.toute}. Nous aidons les commerçants, artisans, professions libérales et PME à mettre l'intelligence artificielle au travail : des chatbots qui répondent aux clients, des automatisations qui font gagner des heures, des sites internet qui vendent, et des audits de sécurité honnêtes.`,
@@ -71,6 +72,7 @@ const STR = {
     agence: "AI agency",
     book: "Book a call",
     price: "From €500",
+    heroAlt: (n: string) => `Digital M — AI agency and website creation for businesses in ${n}`,
     communeEyebrow: (n: string, cp: string) => `AI agency · ${n} (${cp})`,
     communeH1: (n: string, g: G) => `AI agency in ${n} (${g.name}) — artificial intelligence & websites`,
     introA: (n: string, g: G) => `Digital M is your local AI agency for ${n} and the wider ${g.name}. We help shops, tradespeople, professionals and SMEs put AI to work: chatbots that answer customers, automations that save hours, websites that sell, and honest security audits.`,
@@ -109,6 +111,30 @@ function hreflangFor(path: string) {
   return { en: `/en${path}`, fr: `/fr${path}`, "x-default": `/fr${path}` };
 }
 
+/** Share thumbnail for every geo page — these had no og:image at all, so links
+ *  to them rendered blank on LinkedIn/WhatsApp and they read as thin to Google. */
+function ogImages(loc: Locale) {
+  return [{ url: `${SITE_URL}/${loc}/opengraph-image`, width: 1200, height: 630, alt: "Digital M" }];
+}
+
+/** Visual for the local pages. Templated text with no image is exactly what
+ *  Google labels "crawled – currently not indexed". */
+export function GeoHero({ caption }: { caption: string }) {
+  return (
+    <figure className="mt-10 overflow-hidden rounded-2xl border border-white/[0.07]">
+      <img
+        src="/media/brand-abstract-landscape.png"
+        alt={caption}
+        width={1536}
+        height={1024}
+        loading="lazy"
+        className="h-48 w-full object-cover md:h-64"
+      />
+      <figcaption className="sr-only">{caption}</figcaption>
+    </figure>
+  );
+}
+
 // ---------------------------------------------------------------- Commune page
 export async function communeMetadata(
   params: Promise<{ locale: string; dept: string; commune: string }>,
@@ -124,7 +150,8 @@ export async function communeMetadata(
     title: t.metaCommuneT(c.nom, c.postcode, g),
     description: t.metaCommuneD(c.nom),
     alternates: { canonical: `/${loc}${path}`, languages: hreflangFor(path) },
-    openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaCommuneT(c.nom, c.postcode, g), description: t.metaCommuneD(c.nom), url: `/${loc}${path}` },
+    openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaCommuneT(c.nom, c.postcode, g), description: t.metaCommuneD(c.nom), url: `/${loc}${path}`, images: ogImages(loc) },
+    twitter: { card: "summary_large_image", images: [`${SITE_URL}/${loc}/opengraph-image`] },
   };
 }
 
@@ -178,6 +205,7 @@ export function CommunePage({ locale, dept, commune }: { locale: Locale; dept: s
             <span className="inline-flex rounded-full border border-white/10 bg-surface-2 px-3 py-1.5 font-mono text-xs text-accent-soft">{t.price}</span>
           </div>
         </div>
+        <GeoHero caption={t.heroAlt(c.nom)} />
         <KeyFigures locale={locale} />
       </section>
 
@@ -243,7 +271,8 @@ export async function deptHubMetadata(
     title: t.metaHubT(g),
     description: t.metaHubD(g),
     alternates: { canonical: `/${loc}${path}`, languages: hreflangFor(path) },
-    openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaHubT(g), url: `/${loc}${path}` },
+    openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaHubT(g), url: `/${loc}${path}`, images: ogImages(loc) },
+    twitter: { card: "summary_large_image", images: [`${SITE_URL}/${loc}/opengraph-image`] },
   };
 }
 
@@ -268,6 +297,7 @@ export function DeptHub({ locale, dept }: { locale: Locale; dept: string }) {
           <Link href={`/${locale}/book`} className="btn-primary px-5 py-3 text-sm">{t.book}</Link>
         </div>
       </div>
+      <GeoHero caption={t.heroAlt(g.name)} />
 
       <h2 className="eyebrow mt-12">{t.hubTowns(g)}</h2>
       <ul className="mt-4 flex flex-wrap gap-2">
@@ -293,7 +323,8 @@ export async function indexMetadata(
     title: t.metaIdxT,
     description: t.metaIdxD,
     alternates: { canonical: `/${loc}${path}`, languages: hreflangFor(path) },
-    openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaIdxT, url: `/${loc}${path}` },
+    openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaIdxT, url: `/${loc}${path}`, images: ogImages(loc) },
+    twitter: { card: "summary_large_image", images: [`${SITE_URL}/${loc}/opengraph-image`] },
   };
 }
 
@@ -308,6 +339,7 @@ export function AgenceIaIndex({ locale }: { locale: Locale }) {
           <h1 className="display-tight mt-6 text-display-l">{t.idxH1}</h1>
           <p className="mt-5 leading-relaxed text-fg-muted">{t.idxIntro}</p>
         </div>
+        <GeoHero caption={t.heroAlt("Occitanie")} />
         <div className="mt-10 grid gap-5 md:grid-cols-2">
           {depts.map((ds) => {
             const d = DEPT_META[ds];
