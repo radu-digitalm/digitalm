@@ -9,7 +9,6 @@
 import { SITE_URL } from "@/lib/seo";
 import { locales } from "@/lib/i18n";
 import { getContent } from "@/content";
-import { communes } from "@/content/communes";
 
 const DATES = {
   home: "2026-07-12", // ROI calculator copy
@@ -67,7 +66,9 @@ export function buildSitemapEntries(): SitemapEntry[] {
     "/agence-ia",
     "/agence-ia/ariege",
     "/agence-ia/haute-garonne",
-    ...communes.filter((c) => !c.richHref).map((c) => `/agence-ia/${c.deptSlug}/${c.slug}`),
+    // Individual commune pages are deliberately noindex (near-duplicate
+    // templated content — see GeoPages.communeMetadata), so they must not be
+    // advertised in the sitemap. The dept hubs above still link to them.
   ];
 
   const entries: SitemapEntry[] = [];

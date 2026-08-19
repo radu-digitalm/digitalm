@@ -152,6 +152,13 @@ export async function communeMetadata(
     alternates: { canonical: `/${loc}${path}`, languages: hreflangFor(path) },
     openGraph: { type: "website", siteName: "Digital M", locale: loc === "fr" ? "fr_FR" : "en_GB", title: t.metaCommuneT(c.nom, c.postcode, g), description: t.metaCommuneD(c.nom), url: `/${loc}${path}`, images: ogImages(loc) },
     twitter: { card: "summary_large_image", images: [`${SITE_URL}/${loc}/opengraph-image`] },
+    // These commune pages share ~77% of their text with each other (only the
+    // town name varies), so Google classes them as doorway pages and returns
+    // "Crawled - currently not indexed". They stay live for visitors and for
+    // internal linking, but we stop asking Google to index them. The towns with
+    // real search volume (Foix, Pamiers, Saint-Girons, Lavelanet, Toulouse)
+    // have their own rich standalone pages and remain indexed.
+    robots: { index: false, follow: true },
   };
 }
 
