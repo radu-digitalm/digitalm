@@ -20,6 +20,22 @@ export function middleware(req: NextRequest) {
   const hasLocale = locales.some(
     (l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`),
   );
+
+  // Legacy WordPress permalinks (?page_id=N) are still in Google's crawl queue.
+  // Left alone they resolve to /en?page_id=N — a duplicate of /en that only a
+  // canonical tag disambiguates. Strip the parameter with a 301 so the old URL
+  // collapses onto the clean one. Every other param is preserved: utm_* for
+  // campaign attribution and the diagnostic's ?name/?email/?ref hand-off to
+  // /book both depend on surviving this.
+  if (req.nextUrl.searchParams.has("page_id")) {
+    const clean = req.nextUrl.clone();
+    clean.searchParams.delete("page_id");
+    if (!hasLocale) {
+      clean.pathname = `/${resolveLocale(req)}${pathname === "/" ? "" : pathname}`;
+    }
+    return NextResponse.redirect(clean, 301);
+  }
+
   if (hasLocale) return;
 
   const locale = resolveLocale(req);
