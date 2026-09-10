@@ -292,6 +292,7 @@ export const EXTRA_COLUMNS: [table: string, column: string, decl: string][] = [
   // @@crm:report
 
   // @@crm:outreach
+  ["prospects", "tps_checked_at", "TEXT"], // GB: last TPS/CTPS screening (valid 28 days)
 ];
 
 /** Idempotent: creates the CRM tables/indexes and adds any missing extra column. */

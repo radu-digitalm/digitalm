@@ -58,45 +58,63 @@ async function transport() {
 
 const RETRY_DELAYS_MS = [1_000, 5_000, 15_000];
 
+// @@crm:outreach
+// Additive extension (contract §3.9): outreach passes its own `from`, `replyTo`
+// and `headers` (List-Unsubscribe), sends with `attempts: 1` (one manual send
+// at a time; a retry loop would outlive nginx's read timeout and hide the
+// result), gives the recipient as an `{ address }` object (no display name,
+// no header injection) and reads the SMTP message id back. Every existing
+// caller keeps today's behaviour: 4 attempts, the site From, a string `to`.
+export interface SendMailOptions {
+  subject: string;
+  text: string;
+  html?: string;
+  replyTo?: string;
+  to?: string | { address: string };
+  from?: string;
+  headers?: Record<string, string>;
+  /** Total attempts, default 4 (1 + the three retry delays). */
+  attempts?: number;
+}
+
 /**
  * Send with retries. A transient network fault must never silently swallow a
  * lead again: we retry with backoff, drop the cached IP between attempts (in
  * case the address went bad), and rethrow so callers can record the failure.
  */
-export async function sendMail(opts: {
-  subject: string;
-  text: string;
-  html?: string;
-  replyTo?: string;
-  to?: string;
-}): Promise<void> {
+export async function sendMail(opts: SendMailOptions): Promise<{ messageId: string | null }> {
   let lastErr: unknown;
-  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+  const maxAttempts = Math.max(1, Math.min(opts.attempts ?? RETRY_DELAYS_MS.length + 1, RETRY_DELAYS_MS.length + 1));
+  const to = typeof opts.to === "object" ? { address: opts.to.address, name: "" } : opts.to || TO;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       const t = await transport();
       if (!t) throw new Error("SMTP not configured");
-      await t.sendMail({
-        to: opts.to || TO,
-        from: FROM,
+      const info = await t.sendMail({
+        to,
+        from: opts.from || FROM,
         replyTo: opts.replyTo,
         subject: opts.subject,
         text: opts.text,
         html: opts.html,
+        headers: opts.headers,
       });
       if (attempt > 0) console.warn(`mail delivered on retry ${attempt}: ${opts.subject}`);
-      return;
+      return { messageId: typeof info?.messageId === "string" ? info.messageId : null };
     } catch (e) {
       lastErr = e;
       if (!mailConfigured()) throw e; // nothing to retry against
       ipv4Cache = null; // re-resolve; the cached address may be the bad one
       const delay = RETRY_DELAYS_MS[attempt];
-      if (delay === undefined) break;
+      if (delay === undefined || attempt + 1 >= maxAttempts) break;
       console.warn(`mail attempt ${attempt + 1} failed (${(e as { code?: string }).code ?? e}), retrying in ${delay}ms`);
       await new Promise((r) => setTimeout(r, delay));
     }
   }
   throw lastErr;
 }
+
+export { esc };
 
 const esc = (s: string) =>
   String(s).replace(
