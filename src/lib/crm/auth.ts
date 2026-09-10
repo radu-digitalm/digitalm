@@ -151,6 +151,13 @@ export function checkCsrf(req: Pick<Request, "headers">, s: AdminSession): boole
   return token.length > 0 && safeEqual(token, csrfTokenFor(s));
 }
 
+/** Post-login destination: only same-site /admin paths, else "/admin" (no open redirect). */
+export function safeAdminNext(v: unknown): string {
+  const s = Array.isArray(v) ? v[0] : v;
+  if (typeof s !== "string" || s.length > 500) return "/admin";
+  return /^\/admin(?:[/?#]|$)/.test(s) && !/[\\\r\n]/.test(s) && !s.startsWith("/admin//") ? s : "/admin";
+}
+
 // ---- guards -------------------------------------------------------------------
 
 /** Server components: every (gated) page starts with `await requireAdmin("/admin/…")`. */
@@ -160,7 +167,7 @@ export async function requireAdmin(path = "/admin"): Promise<AdminSession> {
   const session = readSession(jar.get(ADMIN_COOKIE)?.value);
   if (session) return session;
   const { redirect } = await import("next/navigation");
-  redirect(`/admin/login?next=${encodeURIComponent(path)}`);
+  return redirect(`/admin/login?next=${encodeURIComponent(path)}`);
 }
 
 /** Route handlers (GET): the session, or a 401 JSON response to return as is. */

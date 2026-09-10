@@ -131,3 +131,17 @@ test("verifyPassword: scrypt format, constant-time compare, malformed → false"
   delete process.env.ADMIN_PASSWORD_HASH;
   assert.equal(verifyPassword("s3cret"), false);
 });
+
+test("safeAdminNext keeps only same-site /admin paths", async () => {
+  const { safeAdminNext } = await import("./auth.ts");
+  assert.equal(safeAdminNext("/admin/leads?x=1"), "/admin/leads?x=1");
+  assert.equal(safeAdminNext("/admin"), "/admin");
+  assert.equal(safeAdminNext(["/admin/find", "/evil"]), "/admin/find");
+  assert.equal(safeAdminNext("/administrator"), "/admin");
+  assert.equal(safeAdminNext("//evil.example/admin"), "/admin");
+  assert.equal(safeAdminNext("/admin//evil.example"), "/admin");
+  assert.equal(safeAdminNext("https://evil.example/admin"), "/admin");
+  assert.equal(safeAdminNext("/admin\\@evil.example"), "/admin");
+  assert.equal(safeAdminNext(undefined), "/admin");
+  assert.equal(safeAdminNext(42), "/admin");
+});
