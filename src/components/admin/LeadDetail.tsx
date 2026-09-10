@@ -9,6 +9,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { OUTREACH_MODULE } from "@/lib/crm/features";
 import type { Activity, Lead } from "@/lib/crm/types";
 import type { EnquirySummary, ProspectSummary } from "@/lib/inbox/leads";
 import { KIND_LABELS, STAGE_LABELS, STAGE_TONE, fmtDate, fmtDateTime, leadTitle } from "@/lib/inbox/stages";
@@ -335,10 +336,15 @@ export function LeadDetail({
               <Button size="sm" loading={busy} onClick={markReplied} disabled={lead.stage === "stop"}>
                 Mark replied
               </Button>
-              {prospect ? <GmailBox prospectId={prospect.id} /> : null}
-              <ConfirmButton label="Mark STOP" confirmLabel="Confirm STOP — no more contact" onConfirm={markStop} size="sm" disabled={lead.stage === "stop"} loading={busy} />
+              {OUTREACH_MODULE && prospect ? <GmailBox prospectId={prospect.id} /> : null}
+              {OUTREACH_MODULE ? (
+                <ConfirmButton label="Mark STOP" confirmLabel="Confirm STOP — no more contact" onConfirm={markStop} size="sm" disabled={lead.stage === "stop"} loading={busy} />
+              ) : null}
             </div>
-            {prospect ? <CallBox prospectId={prospect.id} country={prospect.country} /> : null}
+            {OUTREACH_MODULE && prospect ? <CallBox prospectId={prospect.id} country={prospect.country} /> : null}
+            {!OUTREACH_MODULE ? (
+              <p className="text-xs text-fg-faint">Mark STOP, Log call and Sent from Gmail arrive with the outreach module (opt-out list, legal block, call rules). No prospect is contacted from this build.</p>
+            ) : null}
             <BounceBox leadId={lead.id} />
             <NoteBox leadId={lead.id} />
           </div>

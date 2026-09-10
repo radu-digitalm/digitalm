@@ -14,6 +14,7 @@ import { Meter } from "./Meter";
 import { useToast } from "./Toast";
 import { CHECK_COPY, FLAG_COPY, packageLabel } from "@/content/auditChecks";
 import { CHECK_ORDER } from "@/lib/audit/score";
+import { OUTREACH_MODULE } from "@/lib/crm/features";
 import { CHECK_WEIGHTS } from "@/lib/crm/types";
 import type { Audit, CheckKey, CheckResult, CheckStatus } from "@/lib/crm/types";
 
@@ -335,7 +336,7 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
             </div>
           </dl>
 
-          {state.reportPath ? (
+          {state.reportPath && OUTREACH_MODULE ? (
             <p className="mt-4 text-sm">
               <a href={state.reportPath} target="_blank" rel="noopener" className="link-accent">
                 Open the report ({audit.locale.toUpperCase()})
@@ -343,6 +344,8 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
               {audit.reportViews > 0 ? <span className="ml-2 text-xs text-fg-faint">{audit.reportViews} view{audit.reportViews === 1 ? "" : "s"}</span> : null}
               {audit.reportExpiresAt ? <span className="ml-2 text-xs text-fg-faint">expires {when(audit.reportExpiresAt)}</span> : null}
             </p>
+          ) : state.reportPath ? (
+            <p className="mt-4 text-xs text-fg-faint">Report link hidden until the outreach module ships — a report reaches a prospect only through a send with its legal block, never by hand.</p>
           ) : null}
         </>
       ) : null}

@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatTodayText, purgeAgeDays, purgeIsStale, summariseToday } from "./today.ts";
 import type { TodayCard, TodayData } from "./today.ts";
+import { OUTREACH_MODULE } from "../crm/features.ts";
 
 const NOW = new Date("2026-09-10T08:00:00Z");
 
@@ -129,7 +130,8 @@ test("audits, ready, call, google, deadlines, bounces", () => {
 test("STOP replies reminder reflects recent sends and links to the opt-out list", () => {
   const quiet = card(summariseToday(data(), NOW), "stop-replies");
   assert.equal(quiet.tone, "neutral");
-  assert.equal(quiet.href, "/admin/optouts");
+  // The opt-out page belongs to the outreach module: linked only once it ships.
+  assert.equal(quiet.href, OUTREACH_MODULE ? "/admin/optouts" : undefined);
   const busy = card(summariseToday(data({ sends30d: 7 }), NOW), "stop-replies");
   assert.equal(busy.value, "7 emails in 30 days");
   assert.equal(busy.tone, "info");

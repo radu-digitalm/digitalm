@@ -6,6 +6,7 @@
 // collectToday() only. scripts/digitalm-digest.js mirrors the same queries in
 // plain JS for the read-only Telegram digest — keep the two in step.
 import type { LeadStage } from "../crm/types.ts";
+import { OUTREACH_MODULE } from "../crm/features.ts";
 import { daysSince, daysUntil, type Tone } from "./stages.ts";
 
 export interface FollowUp {
@@ -177,9 +178,9 @@ export function summariseToday(d: TodayData, now = new Date()): TodayCard[] {
     key: "stop-replies",
     title: "STOP replies: check the mailbox",
     value: `${plural(d.sends30d, "email")} in 30 days`,
-    detail: d.sends30d > 0 ? "Record any STOP reply on the opt-out list" : "Nothing sent recently",
+    detail: d.sends30d > 0 ? "Record any STOP reply on the opt-out list" : OUTREACH_MODULE ? "Nothing sent recently" : "Nothing sent — the opt-out list arrives with the outreach module",
     tone: d.sends30d > 0 ? "info" : "neutral",
-    href: "/admin/optouts",
+    ...(OUTREACH_MODULE ? { href: "/admin/optouts" } : {}),
   });
 
   const age = purgeAgeDays(d.purgeLastRunAt, now);

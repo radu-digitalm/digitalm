@@ -6,6 +6,7 @@
 // /api/admin/drafts/[id], which stamps reviewed_at — outreach refuses to send
 // until then). Only { prospectId } comes from the page.
 import { useCallback, useEffect, useState } from "react";
+import { OUTREACH_MODULE } from "@/lib/crm/features";
 import type { Draft } from "@/lib/crm/types";
 import { AdminFetchError, adminFetch, adminGet } from "./adminFetch";
 import { Badge } from "./Badge";
@@ -177,10 +178,16 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
           <p className="text-xs text-fg-faint">
             From audit {state.audit.reference}
             {state.audit.score !== null ? ` · ${state.audit.score}/100${state.audit.grade ? ` ${state.audit.grade}` : ""}` : ""} · To: {state.prospect.displayName}
-            {" · "}
-            <a href={state.audit.reportUrl} target="_blank" rel="noopener" className="link-accent">
-              Open report
-            </a>
+            {OUTREACH_MODULE ? (
+              <>
+                {" · "}
+                <a href={state.audit.reportUrl} target="_blank" rel="noopener" className="link-accent">
+                  Open report
+                </a>
+              </>
+            ) : (
+              " · report link shown once the outreach module ships"
+            )}
           </p>
 
           <Field
