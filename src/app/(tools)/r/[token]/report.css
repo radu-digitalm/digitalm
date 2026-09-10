@@ -1,0 +1,72 @@
+/* /r/[token] — print stylesheet (contract §8). On screen the page uses the
+   site's Tailwind palette; on paper it is white, without the call-to-action
+   buttons, with 15 mm margins and no page break inside a check row. */
+
+@media print {
+  @page {
+    margin: 15mm;
+  }
+
+  html,
+  body,
+  .report,
+  .report * {
+    background: #fff !important;
+    color: #111 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  .report {
+    min-height: auto !important;
+  }
+
+  .report h1,
+  .report h2 {
+    color: #000 !important;
+  }
+
+  .report .card,
+  .report .divide-y > * + * {
+    border-color: #cfd4dc !important;
+  }
+
+  .report a {
+    color: #111 !important;
+    text-decoration: underline;
+  }
+
+  .report .no-print {
+    display: none !important;
+  }
+
+  .report .check-row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Meter fill and status dots keep a visible tone on paper. */
+  .report .meter-fill,
+  .report .dot-pass,
+  .report .dot-partial,
+  .report .dot-fail,
+  .report .dot-none {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .report .meter-fill {
+    background: #333 !important;
+  }
+  .report .dot-pass {
+    background: #15803d !important;
+  }
+  .report .dot-partial {
+    background: #b45309 !important;
+  }
+  .report .dot-fail {
+    background: #be123c !important;
+  }
+  .report .dot-none {
+    background: #9ca3af !important;
+  }
+}
