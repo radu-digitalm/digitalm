@@ -6,7 +6,7 @@ import { attributionLabel, attributionSource, type Attribution } from "@/lib/att
 import { notifyTelegram } from "@/lib/notify";
 import { sqlNow, zonedToday } from "@/lib/crm/db";
 import type { Lead } from "@/lib/crm/types";
-import { attachByCampaign, insertLead, linkEnquiry, type LeadInput } from "./leads";
+import { attachByCampaign, getLead, insertLead, linkEnquiry, type LeadInput } from "./leads";
 import { AUDIT_CAMPAIGN_RE, addDays } from "./stages";
 
 /** Runs `fn`; on failure logs the hook name and message only (no lead data) and returns null. */
@@ -23,7 +23,9 @@ function guarded(hook: string, fn: () => Lead | null): Lead | null {
 function createFrom(input: LeadInput, attr: Attribution | undefined): { lead: Lead; merged: boolean } {
   const result = insertLead(input);
   const campaign = attr?.utm_campaign;
-  if (campaign && AUDIT_CAMPAIGN_RE.test(campaign)) attachByCampaign(result.lead.id, campaign);
+  if (campaign && AUDIT_CAMPAIGN_RE.test(campaign) && attachByCampaign(result.lead.id, campaign)) {
+    return { lead: getLead(result.lead.id) ?? result.lead, merged: result.merged };
+  }
   return result;
 }
 
