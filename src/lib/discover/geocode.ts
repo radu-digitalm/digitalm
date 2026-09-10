@@ -218,9 +218,15 @@ function nominatimToArea(h: NominatimHit): Area | null {
   if (![lat, lng, s, n, w, e].every(Number.isFinite)) return null;
   const a = h.address ?? {};
   const cc = (a.country_code ?? "").toUpperCase();
-  const parts = (h.display_name ?? "").split(", ");
-  const label = h.name ? (parts.length > 2 ? `${h.name}, ${parts[parts.length - 2]}` : h.name) : parts[0] ?? "";
-  const locality = a.city ?? a.town ?? a.village ?? a.municipality ?? h.name;
+  // "Havant, Hampshire, England" / "Portland, Multnomah County, Oregon" —
+  // from the address block, not display_name (whose penultimate part is the
+  // postcode in the UK).
+  const name = h.name || (h.display_name ?? "").split(", ")[0] || "";
+  const region = [a.county, a.state].filter((x) => x && x !== name).join(", ") || a.country || "";
+  const label = region ? `${name}, ${region}` : name;
+  // Locality only from the address block — never from the hit's own name, so
+  // a country or a department comes back without one (see geocodeArea).
+  const locality = a.city ?? a.town ?? a.village ?? a.hamlet ?? a.municipality;
   return {
     label,
     countryCode: CC_RE.test(cc) ? cc : "XX",
@@ -254,10 +260,14 @@ export async function geocodeArea(query: string, hint?: string): Promise<Area> {
     } else {
       const hit = await nominatim(q, cc);
       const fromNominatim = hit ? nominatimToArea(hit) : null;
-      if (fromNominatim?.countryCode === "FR") {
-        // Nominatim says France: prefer the commune contour + postcodes from geo.gouv.
-        const nom = fromNominatim.admin?.locality ?? q;
-        area = (await geoGouvCommune({ nom })) ?? fromNominatim;
+      if (fromNominatim?.countryCode === "FR" && fromNominatim.admin?.locality) {
+        // Nominatim says a French locality: refuse a region-sized bbox before
+        // spending a second call, then prefer the commune contour + postcodes
+        // from geo.gouv. Without a locality ("France", "Ariège") the Nominatim
+        // area stands — geo.gouv's fuzzy nom= match would otherwise turn a
+        // country or a department into some small commune.
+        assertSize(fromNominatim.bbox);
+        area = (await geoGouvCommune({ nom: fromNominatim.admin.locality })) ?? fromNominatim;
       } else {
         area = fromNominatim;
       }

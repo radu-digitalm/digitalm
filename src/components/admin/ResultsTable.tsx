@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DiscoverySource } from "@/lib/crm/types";
 import type { MergedBusiness, SearchResult } from "@/lib/discover/index";
-import { adminFetch } from "./adminFetch";
+import { adminFetch, adminGet } from "./adminFetch";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
 import { DataTable, type Column } from "./DataTable";
@@ -75,9 +75,7 @@ export function ResultsTable({ result, onSaved }: { result: SearchResult; onSave
       const r = await adminFetch<SaveResponse>("/api/admin/find/save", { searchId: result.searchId, picks: [...picked] });
       toast.push(`Saved ${r.saved} · ${r.auditsQueued} audit${r.auditsQueued === 1 ? "" : "s"} queued · ${r.withoutWebsite} without a website${r.alreadySaved ? ` · ${r.alreadySaved} already saved` : ""}`, "good");
       // Refresh the already-saved marks from the server rather than guessing.
-      const fresh = await fetch(`/api/admin/find?id=${result.searchId}`, { credentials: "same-origin", cache: "no-store" })
-        .then((res) => (res.ok ? (res.json() as Promise<SearchResult>) : null))
-        .catch(() => null);
+      const fresh = await adminGet<SearchResult>(`/api/admin/find?id=${result.searchId}`).catch(() => null);
       if (fresh) setRows(fresh.rows);
       setPicked(new Set());
       onSaved?.(r);
