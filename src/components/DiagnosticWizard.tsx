@@ -111,10 +111,12 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       if (txt.trim()) merged[`${qid}_other`] = txt.trim();
     }
     try {
+      // ChatGPT Ads click id from the landing URL (?oppref=) — forwarded, never stored.
+      const oppref = new URLSearchParams(window.location.search).get("oppref") ?? undefined;
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "" }),
+        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", oppref }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error("rejected");
@@ -283,6 +285,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     if (typeof answers.email === "string" && answers.email) bookParams.set("email", answers.email as string);
     if (typeof answers.phone === "string" && answers.phone) bookParams.set("phone", answers.phone as string);
     if (reference) bookParams.set("ref", reference);
+    const oppref = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("oppref") : null;
+    if (oppref) bookParams.set("oppref", oppref); // keep the ChatGPT Ads click id through the hand-off
     const bookHref = `/${L}/book?${bookParams.toString()}`;
     return (
       <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">

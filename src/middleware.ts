@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { locales, defaultLocale, isLocale } from "@/lib/i18n";
-import { OPPREF_COOKIE, OPPREF_MAX_AGE } from "@/lib/openaiAds";
 
 function resolveLocale(req: NextRequest): string {
   const cookie = req.cookies.get("NEXT_LOCALE")?.value;
@@ -37,30 +36,12 @@ export function middleware(req: NextRequest) {
     return NextResponse.redirect(clean, 301);
   }
 
-  // ChatGPT Ads appends ?oppref=<click id> to the landing URL. Keep it in a
-  // first-party cookie so the diagnostic/booking API routes can report the
-  // conversion back to OpenAI later (lib/openaiAds.ts). The URL itself is left
-  // untouched — no redirect, no analytics gap.
-  const oppref = req.nextUrl.searchParams.get("oppref");
-  const withOppref = (res: NextResponse) => {
-    if (oppref && oppref.length <= 256) {
-      res.cookies.set(OPPREF_COOKIE, oppref, {
-        maxAge: OPPREF_MAX_AGE,
-        path: "/",
-        sameSite: "lax",
-        secure: true,
-        httpOnly: true,
-      });
-    }
-    return res;
-  };
-
-  if (hasLocale) return oppref ? withOppref(NextResponse.next()) : undefined;
+  if (hasLocale) return;
 
   const locale = resolveLocale(req);
   const url = req.nextUrl.clone();
   url.pathname = `/${locale}${pathname === "/" ? "" : pathname}`;
-  return withOppref(NextResponse.redirect(url));
+  return NextResponse.redirect(url);
 }
 
 export const config = {

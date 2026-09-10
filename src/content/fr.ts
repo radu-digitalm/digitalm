@@ -729,7 +729,7 @@ export const fr = {
         },
         {
           heading: "Cookies et consentement",
-          body: "Ce site utilise un seul cookie fonctionnel pour mémoriser la langue choisie, strictement nécessaire au fonctionnement du site. Nous n'utilisons aucun cookie publicitaire ou de suivi. Pour la mesure d'audience, nous utilisons Umami, un outil auto-hébergé sans cookie qui ne collecte que des statistiques anonymes et agrégées (pages vues, pays, type d'appareil), sans identifier les visiteurs — il est de ce fait exempté de consentement (CNIL). Tout autre cookie non essentiel ne serait déposé qu'avec votre consentement, via le bandeau cookies.",
+          body: "Ce site utilise un seul cookie fonctionnel pour mémoriser la langue choisie, strictement nécessaire au fonctionnement du site. Nous n'utilisons aucun cookie publicitaire ou de suivi. Pour la mesure d'audience, nous utilisons Umami, un outil auto-hébergé sans cookie qui ne collecte que des statistiques anonymes et agrégées (pages vues, pays, type d'appareil), sans identifier les visiteurs — il est de ce fait exempté de consentement (CNIL). Tout autre cookie non essentiel ne serait déposé qu'avec votre consentement, via le bandeau cookies. Si vous arrivez sur le site depuis une publicité diffusée dans ChatGPT, l'adresse de la page contient un identifiant de clic fourni par OpenAI (« oppref »). Il n'est ni stocké sur votre appareil ni associé à votre identité : il est uniquement renvoyé à OpenAI si vous terminez le check-up ou réservez un appel, pour mesurer l'efficacité de la publicité — sans nom, e-mail ni adresse IP.",
         },
         {
           heading: "Assistant IA",

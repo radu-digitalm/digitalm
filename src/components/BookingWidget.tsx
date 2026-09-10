@@ -46,10 +46,16 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
 
   // Pre-fill from the diagnostic hand-off (?name=&email=&phone=&ref=) so the
   // lead doesn't retype what they just gave us. Read once on mount.
-  const [prefill, setPrefill] = useState<{ name?: string; email?: string; ref?: string }>({});
+  const [prefill, setPrefill] = useState<{ name?: string; email?: string; ref?: string; oppref?: string }>({});
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
-    setPrefill({ name: p.get("name") ?? undefined, email: p.get("email") ?? undefined, ref: p.get("ref") ?? undefined });
+    setPrefill({
+      name: p.get("name") ?? undefined,
+      email: p.get("email") ?? undefined,
+      ref: p.get("ref") ?? undefined,
+      // ChatGPT Ads click id (?oppref=) — forwarded with the booking, never stored.
+      oppref: p.get("oppref") ?? undefined,
+    });
   }, []);
 
   useEffect(() => {
@@ -85,6 +91,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
           start: selected ?? "",
           locale,
           ref: prefill.ref,
+          oppref: prefill.oppref,
           turnstile: token.current,
         }),
       });

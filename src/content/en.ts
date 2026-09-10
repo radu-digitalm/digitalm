@@ -726,7 +726,7 @@ export const en = {
         },
         {
           heading: "Cookies and consent",
-          body: "This site uses a single functional cookie to remember your chosen language, which is strictly necessary for the site to work. We do not use advertising or tracking cookies. For audience measurement we use Umami, a self-hosted, cookieless tool that collects only anonymous, aggregated statistics (page views, country, device type) and cannot identify visitors — which is why it does not require consent. Any other non-essential cookies would only be set with your consent, via the cookie banner.",
+          body: "This site uses a single functional cookie to remember your chosen language, which is strictly necessary for the site to work. We do not use advertising or tracking cookies. For audience measurement we use Umami, a self-hosted, cookieless tool that collects only anonymous, aggregated statistics (page views, country, device type) and cannot identify visitors — which is why it does not require consent. Any other non-essential cookies would only be set with your consent, via the cookie banner. If you reach the site from an ad shown in ChatGPT, the page address carries a click identifier provided by OpenAI (“oppref”). It is neither stored on your device nor linked to your identity: it is only sent back to OpenAI if you complete the check-up or book a call, to measure whether the ad worked — with no name, e-mail or IP address.",
         },
         {
           heading: "AI assistant",

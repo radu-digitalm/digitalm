@@ -2,15 +2,13 @@
 // https://developers.openai.com/ads/conversions-api
 //
 // We deliberately do not load OpenAI's browser pixel: it would need new CSP
-// origins and a script on every page. Instead the ad click lands with an
-// `oppref` query parameter (OpenAI's privacy-preserving click id); the
-// middleware stores it in a first-party cookie and the API routes that record
-// a real conversion (diagnostic completed, booking) post it back here.
-// Events are only sent when that cookie exists — visitors who never clicked a
-// ChatGPT ad are never reported to OpenAI. No-op until both env vars are set.
-
-export const OPPREF_COOKIE = "__oppref"; // same name the official pixel uses
-export const OPPREF_MAX_AGE = 30 * 24 * 3600; // seconds — matches a 30-day click window
+// origins, a script on every page and a tracking cookie — and our privacy
+// page promises none. Instead the ad click lands with an `oppref` query
+// parameter (OpenAI's privacy-preserving click id). The diagnostic wizard and
+// the booking widget read it from the landing URL and post it back with the
+// form; the API route forwards it here when a real conversion happens.
+// Nothing is stored on the visitor's device, and visitors who never clicked a
+// ChatGPT ad are never reported. No-op until both env vars are set.
 
 const PIXEL_ID = process.env.OPENAI_ADS_PIXEL_ID;
 const API_KEY = process.env.OPENAI_ADS_CAPI_KEY;
@@ -22,36 +20,26 @@ export function adsConfigured(): boolean {
   return Boolean(PIXEL_ID && API_KEY);
 }
 
-/** Read the click id the middleware stored on the landing page, if any. */
-export function opprefFrom(req: Request): string | null {
-  const raw = req.headers.get("cookie") ?? "";
-  for (const part of raw.split(";")) {
-    const [k, ...v] = part.trim().split("=");
-    if (k === OPPREF_COOKIE) {
-      const val = decodeURIComponent(v.join("=")).trim();
-      return val && val.length <= 256 ? val : null;
-    }
-  }
-  return null;
+/** Validate a click id coming from the client; OpenAI says pass it unmodified. */
+export function cleanOppref(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const s = v.trim();
+  return s && s.length <= 256 && /^[\x21-\x7e]+$/.test(s) ? s : null;
 }
 
 /**
  * Report a conversion to ChatGPT Ads. Fire-and-forget: never delays or fails
  * the request. `id` must be stable (the enquiry reference) so a retry or a
- * second integration can't double-count.
+ * second integration can't double-count. Only the click id, the event and the
+ * page are sent — no name, e-mail, IP or user agent.
  */
 export function adsConversion(
   event: AdsEvent,
-  opts: { id: string; sourceUrl: string; req: Request; ip?: string },
+  opts: { id: string; sourceUrl: string; oppref: unknown },
 ): void {
   if (!adsConfigured()) return;
-  const oppref = opprefFrom(opts.req);
+  const oppref = cleanOppref(opts.oppref);
   if (!oppref) return;
-
-  const user: Record<string, string> = {};
-  if (opts.ip && opts.ip !== "unknown") user.ip_address = opts.ip;
-  const ua = opts.req.headers.get("user-agent");
-  if (ua) user.user_agent = ua.slice(0, 512);
 
   const ctl = new AbortController();
   const t = setTimeout(() => ctl.abort(), 4000);
@@ -68,7 +56,6 @@ export function adsConversion(
           oppref,
           source_url: opts.sourceUrl,
           action_source: "web",
-          user,
           data: { type: "customer_action" },
         },
       ],

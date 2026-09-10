@@ -67,6 +67,7 @@ export async function POST(req: NextRequest) {
     answers?: Record<string, unknown>;
     turnstile?: string;
     website?: string;
+    oppref?: string; // ChatGPT Ads click id, read from the landing URL by the wizard
   };
   try {
     body = await req.json();
@@ -134,8 +135,8 @@ export async function POST(req: NextRequest) {
   }
 
   serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale });
-  // ChatGPT Ads conversion — only fires when the visitor landed from an ad (oppref cookie).
-  adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, req, ip });
+  // ChatGPT Ads conversion — only fires when the visitor landed from an ad (?oppref=).
+  adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, oppref: body.oppref });
 
   // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
   const tgLines = [
