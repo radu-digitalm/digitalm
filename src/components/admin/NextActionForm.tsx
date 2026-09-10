@@ -11,8 +11,9 @@ import { Textarea } from "./Textarea";
 import { adminFetch } from "./adminFetch";
 import { useToast } from "./Toast";
 
+// next_action_at is a Europe/Paris civil date (schema comment), not a UTC one.
 function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
 }
 
 export function NextActionForm({
