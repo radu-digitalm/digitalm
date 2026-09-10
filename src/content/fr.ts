@@ -689,7 +689,7 @@ export const fr = {
   legal: {
     notice: {
       title: "Mentions légales",
-      updated: "Dernière mise à jour : juin 2026",
+      updated: "Dernière mise à jour : septembre 2026",
       placeholderNote: "",
       sections: [
         {
@@ -712,12 +712,16 @@ export const fr = {
           heading: "Responsabilité",
           body: "Nous veillons à maintenir les informations de ce site exactes et à jour, sans pouvoir garantir l'absence d'erreurs ou d'omissions. Le site peut renvoyer vers des sites tiers sur lesquels nous n'avons aucun contrôle et dont nous déclinons la responsabilité.",
         },
+        {
+          heading: "Établissement en France",
+          body: "Digital Management Ltd exerce son activité de prospection et de services en France depuis son établissement situé 3 Résidence des Écoles, 09000 Ferrières-sur-Ariège, France (SIRET : [en cours d'immatriculation]). Pour les traitements de données effectués depuis cet établissement, l'autorité de contrôle compétente est la CNIL (cnil.fr).",
+        },
         // @@crm:outreach notice section
       ],
     },
     privacy: {
       title: "Politique de confidentialité",
-      updated: "Dernière mise à jour : juin 2026",
+      updated: "Dernière mise à jour : septembre 2026",
       placeholderNote: "",
       sections: [
         {
@@ -747,6 +751,10 @@ export const fr = {
         {
           heading: "Vos droits",
           body: "Conformément au RGPD (UE) et au UK GDPR, vous pouvez demander l'accès, la rectification, la suppression ou la limitation du traitement de vos données personnelles, et vous y opposer. Écrivez à contact@digitalm.eu. Vous pouvez également introduire une réclamation auprès de la CNIL (cnil.fr) ou, au Royaume-Uni, de l'Information Commissioner's Office (ico.org.uk).",
+        },
+        {
+          heading: "Prospection commerciale auprès des professionnels",
+          body: "Digital M démarche des entreprises et des professionnels (restaurants, artisans, commerces, hébergements…) pour leur proposer des services en rapport avec leur activité : site web, assistant IA, automatisation, sécurité. Données traitées : dénomination, enseigne, forme juridique, numéro SIRET ou d'immatriculation, adresse, coordonnées géographiques, site web, adresse e-mail et téléphone professionnels, liens vers les réseaux sociaux, et les constats techniques publics de votre site (HTTPS, vitesse, données structurées, etc.) qui composent le rapport que nous vous adressons. Sources : le registre national des entreprises (annuaire-entreprises.data.gouv.fr, base Sirene, licence ouverte), OpenStreetMap (données © les contributeurs d'OpenStreetMap, ODbL), Companies House (Royaume-Uni), et le site internet de votre entreprise, consulté par notre propre outil dans le respect de son fichier robots.txt et de ses mentions légales — nous ne collectons rien sur Google Maps, les Pages Jaunes, LinkedIn ou Facebook. Base juridique : notre intérêt légitime à proposer nos services aux professionnels dont l'activité y correspond (art. 6.1.f du RGPD ; art. L34-5 du CPCE), sans jamais démarcher d'adresses personnelles ; au plus deux e-mails, puis plus aucun sans réponse de votre part. Destinataires : Google Workspace (envoi des e-mails), OpenAI (rédaction assistée à partir des seuls constats techniques, jamais de données nominatives), Google PageSpeed Insights (test de vitesse de votre site), OVH (hébergement) ; Google Maps Platform si nous vérifions l'existence de votre fiche Google (nous ne conservons alors qu'un identifiant de fiche). Nous enregistrons l'ouverture du rapport que nous vous envoyons (date, référence), sans cookie. Durées : 3 ans après notre dernier échange, ou 12 mois sans réponse de votre part ; les adresses IP et leurs empreintes sont supprimées sous 12 mois ; votre demande de ne plus être contacté est conservée sans limite de durée dans notre liste d'opposition, tant que nous faisons de la prospection, afin d'être respectée. Nous vous informons dès notre premier message et au plus tard un mois après la collecte ; passé ce délai sans contact, les données d'un entrepreneur individuel sont supprimées et les coordonnées nominatives d'une société sont effacées. Ce traitement est effectué par Digital Management Ltd depuis son établissement en France (3 Résidence des Écoles, 09000 Ferrières-sur-Ariège) ; l'autorité de contrôle compétente est la CNIL. Vous pouvez à tout moment vous opposer, gratuitement et sans motif, en répondant STOP à l'un de nos e-mails, en cliquant sur le lien de désinscription, ou en écrivant à contact@digitalm.eu ; vous disposez aussi des droits d'accès, de rectification et d'effacement, et du droit d'introduire une réclamation auprès de la CNIL (cnil.fr).",
         },
         // @@crm:outreach privacy section
       ],

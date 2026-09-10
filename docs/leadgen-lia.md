@@ -1,0 +1,46 @@
+# Legitimate-interest assessment (LIA) — B2B prospecting by Digital M
+
+Controller: Digital Management Ltd (company no. 09457882, 67 Meridian Centre, Havant, Hampshire, PO9 1UN, United Kingdom), trading as Digital M, acting from its French establishment at 3 Résidence des Écoles, 09000 Ferrières-sur-Ariège, France. Contact: contact@digitalm.eu.
+
+Processing assessed: finding businesses and trade professionals in a chosen area and trade, auditing their public website, sending them a one-page report with a short email (or calling them when no usable business email exists), and following up once. Basis claimed: Article 6(1)(f) GDPR / UK GDPR; for French recipients art. L34-5 CPCE (B2B email related to the recipient's trade); for UK corporate subscribers PECR reg. 22/23; for US recipients CAN-SPAM.
+
+Status: **draft — to be signed by Radu before the first production send** (contract §13 item 5). Date: 10 September 2026. Companion documents: `leadgen-registre-art30.md` (register entry), the "Prospection commerciale auprès des professionnels" / "Business-to-business prospecting" section of the privacy policy (`src/content/{fr,en}.ts`), the email footers and the `/o` page (`src/content/outreach.ts`, outreach module).
+
+## 1. Purpose test — is there a legitimate interest?
+
+- **Interest:** offering Digital M's services (websites, on-site AI assistants, booking automation, e-commerce security audits) to businesses whose public online presence shows a need for them. Prospecting a business about services related to its trade is an interest the CNIL and the ICO both recognise as legitimate for B2B marketing.
+- **Benefit:** the recipient receives a free, factual report on its own website (HTTPS, mobile speed, structured data, contact and booking, AI readability, upkeep) that it can use with or without us. Digital M gains customers.
+- **Lawfulness elsewhere:** French B2B email prospecting is permitted without prior consent when the message relates to the recipient's profession, the recipient was informed and can object simply and free of charge (art. L34-5 CPCE, CNIL guidance on B2B prospecting). UK corporate subscribers: PECR reg. 22 does not require prior consent, reg. 23 gives the right to opt out; UK sole traders and partnerships are treated as individual subscribers and are **not emailed** (consent would be required). US: CAN-SPAM opt-out regime — the message is identified as advertising, carries a postal address and honours opt-outs within 10 business days. Every other country (Canada included): no in-app email, calls "manual" only after a local-law check.
+
+## 2. Necessity test — is the processing needed for that interest?
+
+- We cannot offer a website audit to a business without knowing the business exists, what it does, where it is, and which site is its own. The data set is the minimum for that: identity (name, trading name, legal form, registration number, address, coordinates), the website, one business email and phone, social links, and the technical facts about the site.
+- Less intrusive means considered: advertising alone (already used — ChatGPT ads, Google Business Profile) reaches only businesses that search; a trade-directory listing does not address the specific need the report shows. Prospecting is additional, not a replacement, and capped (10 emails a day).
+- Data not collected because not necessary: directors, finances and any other block of the register answer are dropped inside the adapter; nothing is scraped from Google Maps, Pages Jaunes, LinkedIn or Facebook; the only crawler is ours, on the prospect's own site, honouring robots.txt and terms; no raw HTML is stored; report opens are counted with a salted IP hash only, no cookies.
+
+## 3. Balancing test — do the recipient's interests override ours?
+
+**Nature of the data.** Business identity and contact data from public registers (Sirene / RNE, Companies House), OpenStreetMap and the recipient's own website. For a company this is non-personal or professional data; for a sole trader (entrepreneur individuel) the trading name and contact@ are personal data and are treated as such (personal name never used in reports, subjects or model prompts — `safeDisplayName`; day-30 deletion if no notice was sent). No special-category data.
+
+**Reasonable expectations.** A business publishes its address and contact details precisely to be contacted about its activity; the CNIL's 2024 recommendations on re-use of publicly available data and the Sirene re-use conditions are followed: only full-diffusion register rows are saved, the SIRET is re-checked before every send and call, and a site whose legal page forbids extraction or prospecting yields neither its email nor its phone (`forbids_extraction`). Recipients might not expect a technical audit of their site; the report is factual, uses no judgemental wording, and the AI-readability result is phrased "AI assistants cannot read your site", never "error".
+
+**Impact.** Low: at most two emails (first message + one reminder after a week), then nothing without a reply; no third email by any channel; 90-day gap before any re-contact; calls limited to business hours, four attempts per 30 days, opening with who we are, where the number came from, why, and "you can refuse — I note it now". The report contains only public technical facts about the site.
+
+**Safeguards (all enforced in code, contract §9–§10):**
+- Information: the first message carries the full notice (who, sources with dates, why, legal basis, retention, rights, CNIL); every prospect has a 30-day notice deadline from the day of saving; past it without a notice, sole-trader rows are deleted and company rows lose their named contact details (`digitalm-purge.js`, daily). The notice-deadline rule also blocks the ready-to-send and call lists.
+- Opt-out: a stand-alone line above the notice in every email ("Pour ne plus recevoir nos messages : répondez STOP … ou cliquez ici"), a one-button `/o/{token}` page, `List-Unsubscribe` one-click, reply-STOP handling; every opt-out lands on the opposition list (email hash / phone hash), kept as long as we prospect, checked before every send and call. Opposition entries are never purged.
+- No private addresses: webmail domains are never emailed (classification at extraction, refusal at override and at send time).
+- Retention: 3 years after the last exchange; 12 months for no-response / not-a-fit prospects; IPs and IP hashes nulled at 12 months; only the last 3 audits per business kept; expired caches and finished jobs pruned. Periods are stated on the privacy page.
+- Volume and pace: 10 emails a day (lower by setting), one at a time, manual review of every draft before sending (drafts are refused while unreviewed).
+- Security: admin behind a scrypt-hashed shared password, signed HttpOnly cookie, CSRF check, rate limits; SSRF-safe crawler pinned to vetted addresses; secrets never logged; Telegram and analytics receive references only.
+- Recipients / processors: Google Workspace (email), OpenAI (drafting from technical findings only, never personal data — API DPA accepted), Google PageSpeed Insights (speed test of the public site), OVH (hosting), Google Maps Platform (listing identifier only, when enabled).
+
+**Outcome.** The interest is legitimate, the processing is necessary and proportionate, and with the safeguards above the recipients' interests and rights do not override it. Basis confirmed: Article 6(1)(f). Sole traders are informed under Article 14 within one month or their data is deleted.
+
+## 4. Establishment and supervisory authority (Art. 3 / Art. 27 stance)
+
+Digital Management Ltd is a UK company. The prospecting activity is run from its French establishment in Ferrières-sur-Ariège, which makes the CNIL the competent authority for EU recipients (Art. 3(1), Art. 55) — no EU representative under Art. 27 is then needed. The French establishment's SIRET is pending (INPI registration); the legal notice carries a placeholder. **Decision recorded here:** either the SIRET is registered before the first production send, or an Art. 27 representative in the EU is appointed and named in the footers and the privacy page. For UK recipients the ICO remains competent under the UK GDPR.
+
+## 5. Review
+
+Re-assess when: a new country is opened (a new SendRule, footer and local-law check); Google Places is switched on; the daily cap is raised; a complaint or opt-out rate above ~2% of sends is observed; or twelve months have passed. Signed: __________________ (Radu, Digital Management Ltd), date: __________.
