@@ -22,9 +22,11 @@ const MODES: { value: Mode; label: string; placeholder: string; hint: string }[]
   { value: "email", label: "Email address", placeholder: "contact@example.fr", hint: "Hashed at once; the address itself is never stored." },
   { value: "phone", label: "Phone number", placeholder: "+33 5 61 00 00 00", hint: "Hashed as E.164 digits with the country below." },
   { value: "send_reference", label: "STOP reply (send reference)", placeholder: "SN-XXXXX", hint: "The address that email went to is listed." },
-  { value: "lead_reference", label: "Lead reference", placeholder: "LD-XXXXX", hint: "The lead's email and phone; the lead moves to STOP." },
-  { value: "prospect_reference", label: "Prospect reference", placeholder: "PR-XXXXX", hint: "The prospect's addresses and numbers on file." },
+  { value: "lead_reference", label: "Lead reference", placeholder: "LD-XXXXX", hint: "Every email and phone the lead and its prospect are known by; the lead moves to STOP." },
+  { value: "prospect_reference", label: "Prospect reference", placeholder: "PR-XXXXX", hint: "Every address and number on file for the prospect (override and website alike)." },
 ];
+
+const NOTE_HINT = "Never an address or a number — the note is stored raw and never purged.";
 
 const SOURCE_LABEL: Record<OptoutListRow["source"], string> = {
   link: "Unsubscribe page",
@@ -53,6 +55,7 @@ function errorMessage(e: unknown): string {
       lead_without_contact: "That lead has neither an email nor a phone.",
       prospect_not_found: "No prospect with that reference.",
       prospect_without_contact: "That prospect has neither an email nor a phone.",
+      note_contains_contact: "The note must not contain an email address or a phone number — it is stored raw and never purged.",
       csrf: "Session check failed — reload the page.",
     };
     return map[e.code] ?? `Request failed: ${e.code}`;
@@ -113,7 +116,7 @@ function AddForm() {
         )}
       </div>
       <div className="flex flex-wrap items-end gap-3">
-        <Field label="Note (optional)" name="optout_note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} className="min-w-[16rem] flex-1" autoComplete="off" />
+        <Field label="Note (optional)" name="optout_note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} hint={NOTE_HINT} className="min-w-[16rem] flex-1" autoComplete="off" />
         <Button type="submit" variant="primary" loading={busy}>
           Add to the list
         </Button>

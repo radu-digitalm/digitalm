@@ -71,6 +71,17 @@ export const EMAIL_SOURCE: Record<OutreachLocale, { withPage: string; withoutPag
   en: { withPage: "your website {domain} (page {page})", withoutPage: "your website {domain}" },
 };
 
+/**
+ * The email sentence when the address is a validated override typed by the
+ * owner: it may come from a card, a call or a directory, so the notice never
+ * claims the website for it (Art. 14(2)(f) names the source truthfully). The
+ * whole clause replaces EMAIL_CLAUSES; no date is asserted.
+ */
+export const EMAIL_CLAUSES_LISTING: Bilingual = {
+  fr: ", et votre adresse e-mail professionnelle dans un annuaire ou une mention publique",
+  en: ", and your business email address from a public listing",
+};
+
 /** "{trade}" when trade_key is null. */
 export const FALLBACK_TRADE: Bilingual = { fr: "votre activité professionnelle", en: "your business" };
 
@@ -235,21 +246,44 @@ export const REFUSAL_MESSAGES: Record<RefusalCode, Bilingual> = {
   },
 };
 
+/**
+ * Variants of `emailed_recently` for two cases the 90-day wording does not
+ * describe: the 7-day gap before the follow-up (LIA: "one reminder after a
+ * week") and a send that is still pending or prepared for the same contact.
+ */
+export const FOLLOW_UP_TOO_SOON: Bilingual = {
+  fr: "Le premier e-mail date de moins de 7 jours : attendez.",
+  en: "The first email is less than 7 days old: wait.",
+};
+
+export const SEND_PENDING: Bilingual = {
+  fr: "Un envoi est déjà en cours ou préparé pour ce contact : terminez-le ou annulez-le d'abord.",
+  en: "A send is already in progress or prepared for this contact: finish or cancel it first.",
+};
+
 // ---- calls ---------------------------------------------------------------------------------------
 
-/** Opening lines the CNIL expects on a prospecting call: who, where the number came from, why, the right to refuse. */
+/**
+ * Opening lines the CNIL expects on a prospecting call: who, where the number
+ * came from, why, the right to refuse — and the pointer to the full notice.
+ * An answered call is stamped as the Art. 14 notice (calls.ts) only because
+ * the fifth line names where the full notice lives and offers to email it: a
+ * layered oral notice is accepted when it points to the complete one.
+ */
 export const CALL_OPENERS: Record<OutreachLocale, string[]> = {
   fr: [
     "Bonjour, Radu de Digital M, une petite agence web en Ariège.",
     "J'ai trouvé votre numéro sur {phone_source}.",
     "J'ai fait un rapide état des lieux de votre site : je vous appelle pour vous en dire deux mots.",
     "Vous pouvez refuser tout de suite : je le note et je ne vous rappelle pas.",
+    "Le détail — d'où viennent vos coordonnées, vos droits, la durée de conservation — est sur digitalm.eu/fr/legal/confidentialite ; je peux aussi vous l'envoyer par e-mail.",
   ],
   en: [
     "Hello, this is Radu from Digital M, a small web agency in the south of France.",
     "I found your number on {phone_source}.",
     "I ran a quick check of your website: I am calling to tell you what I saw, in two minutes.",
     "You can say no right now: I will note it and will not call again.",
+    "Full details — where your details came from, your rights, how long we keep them — are at digitalm.eu/en/legal/confidentialite; I can also email them.",
   ],
 };
 

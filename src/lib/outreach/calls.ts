@@ -15,7 +15,7 @@ import { addActivity, ensureLeadForProspect, getLead, updateLead } from "@/lib/i
 import { getProspect, type ProspectRecord } from "@/lib/prospects/store";
 import { recheckRegister, type RegisterCheck } from "@/lib/prospects/registerCheck";
 import { CALL_OPENERS, PHONE_SOURCES } from "@/content/outreach";
-import { isProspectOptedOut, prospectHashes, recordOptout } from "./optout";
+import { isProspectOptedOut, noteCarriesContact, prospectHashes, recordOptout } from "./optout";
 import { TPS_VALID_DAYS, evaluateCallRefusals, screeningValid } from "./refusals";
 import { callWindowStatus, ruleFor, ruleKeyFor, type RuleKey, type WindowStatus } from "./rules";
 
@@ -210,6 +210,8 @@ export async function logCall(input: LogCallInput): Promise<LogCallResult> {
   if (refusals.length) return { ok: false, refusals };
 
   const note = (input.note ?? "").trim().slice(0, 500);
+  // A refusal's note lands in `optouts`, which the purge never touches: no address or number in it.
+  if (input.outcome === "refused" && noteCarriesContact(note)) throw new CallError("note_contains_contact", 422);
   const prospect = p;
   return db.transaction((): LogCallResult => {
     // A call is a contact attempt: the lead exists from the first one.
@@ -238,14 +240,18 @@ export async function logCall(input: LogCallInput): Promise<LogCallResult> {
 
     let optedOut = false;
     if (input.outcome === "answered") {
-      // The opener lines carry the notice: first spoken contact counts as informed.
+      // The opener lines carry the layered notice — identity, source of the
+      // number, purpose, right to refuse, and the pointer to the full notice
+      // (CALL_OPENERS, fifth line): the first spoken contact counts as informed.
       db.prepare("UPDATE prospects SET notice_sent_at = COALESCE(notice_sent_at, ?) WHERE id = ?").run(nowSql, prospect.id);
       db.prepare("UPDATE leads SET notice_sent_at = COALESCE(notice_sent_at, ?) WHERE id = ?").run(nowSql, lead.id);
     }
     if (input.outcome === "refused") {
+      // Every address and number the prospect is known by goes on the list —
+      // the list must outlive the prospect row and any re-discovery.
       const h = prospectHashes(prospect);
-      if (h.emailHash || h.phoneHash) {
-        recordOptout({ emailHash: h.emailHash, phoneHash: h.phoneHash, source: "call", leadId: lead.id, prospectId: prospect.id, note: note || null, actor: "prospect" });
+      if (h.emailHashes.length || h.phoneHashes.length) {
+        recordOptout({ emailHashes: h.emailHashes, phoneHashes: h.phoneHashes, source: "call", leadId: lead.id, prospectId: prospect.id, note: note || null, actor: "prospect" });
       } else {
         db.prepare("UPDATE prospects SET opted_out_at = COALESCE(opted_out_at, ?), updated_at = ? WHERE id = ?").run(nowSql, nowSql, prospect.id);
         updateLead(lead.id, { stage: "stop" }, "prospect");

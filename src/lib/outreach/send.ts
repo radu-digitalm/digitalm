@@ -4,14 +4,18 @@
 // behind nginx's read timeout) and applies the prospect / lead / audit updates
 // on success. The manual path prepares the same row with channel
 // `manual_email` and the legal block resolved, then records it as sent once
-// the owner confirms he pasted it into Gmail. Nothing touches the DB at
-// module load; bodies are never logged.
+// the owner confirms he pasted it into Gmail. A `pending` row is a
+// reservation: it counts towards the daily cap and the 90-day counters and
+// refuses a second send to the same prospect until it is sent, recorded or
+// cancelled — better-sqlite3 is synchronous, so the facts and the insert of
+// one request run without a yield and two requests cannot both pass. Nothing
+// touches the DB at module load; bodies are never logged.
 import { countApiUsage } from "@/lib/crm/apiUsage";
 import { classifyEmail, hashEmail, validEmail } from "@/lib/crm/classify";
-import { outreachDailyCap, outreachSentToday } from "@/lib/crm/db";
+import { outreachDailyCap } from "@/lib/crm/db";
 import { HttpError } from "@/lib/crm/http";
 import { newReference } from "@/lib/crm/refs";
-import { sqlNow, toSql } from "@/lib/crm/time";
+import { parisDayStartSql, sqlNow, toSql } from "@/lib/crm/time";
 import type { Audit, Draft, EmailKind, Lead, Refusal, SendRule } from "@/lib/crm/types";
 import { DEFAULT_SIGNATURE, followUp } from "@/lib/drafts/templates";
 import { getDraft, latestDraft } from "@/lib/drafts/store";
@@ -27,7 +31,7 @@ import { reportTtlDays, reportUrl, rowToAudit } from "@/lib/report/view";
 import { SITE_URL } from "@/lib/seo";
 import { serverTrack } from "@/lib/serverTrack";
 import { FOLLOW_UP_SUBJECT } from "@/content/outreach";
-import { cleanSubject, domainForNotice, footerLocale, legalFooter, optoutUrl, renderEmail, type LegalContext } from "./legal";
+import { cleanSubject, domainForNotice, footerLocale, legalBlockProblems, legalFooter, optoutUrl, renderEmail, type LegalContext } from "./legal";
 import { isOptedOut, isProspectOptedOut } from "./optout";
 import { newOptoutToken } from "./optoutToken";
 import { evaluateRefusals } from "./refusals";
@@ -97,13 +101,41 @@ function latestDoneAudit(prospectId: number): Audit | null {
   return row ? rowToAudit(row) : null;
 }
 
-/** `sent` rows of any email channel in the last 90 days — the "no third email" counter. */
+/** `sent` (by sent_at) and still `pending` (by created_at) rows of any email channel in the last 90 days — the "no third email" counter. */
 export function sentCount90d(prospectId: number): number {
   return (
     enquiriesDb()
-      .prepare("SELECT COUNT(*) AS n FROM sends WHERE prospect_id = ? AND status = 'sent' AND channel IN ('email', 'manual_email') AND sent_at > datetime('now', '-90 days')")
+      .prepare(
+        `SELECT COUNT(*) AS n FROM sends WHERE prospect_id = ? AND channel IN ('email', 'manual_email')
+           AND ((status = 'sent' AND sent_at > datetime('now', '-90 days')) OR (status = 'pending' AND created_at > datetime('now', '-90 days')))`,
+      )
       .get(prospectId) as { n: number }
   ).n;
+}
+
+/**
+ * Emails of both paths sent since 00:00 Europe/Paris plus the pending rows
+ * created since then — what the daily cap is measured against. (crm/db.ts's
+ * outreachSentToday counts in-app sent rows only, for the Today card.)
+ */
+export function outreachUsedToday(): number {
+  const dayStart = parisDayStartSql();
+  return (
+    enquiriesDb()
+      .prepare(
+        `SELECT COUNT(*) AS n FROM sends WHERE channel IN ('email', 'manual_email')
+           AND ((status = 'sent' AND sent_at >= ?) OR (status = 'pending' AND created_at >= ?))`,
+      )
+      .get(dayStart, dayStart) as { n: number }
+  ).n;
+}
+
+/** created_at of the newest `pending` email row of the prospect (in flight, or prepared and not yet recorded), else null. */
+export function pendingSendAt(prospectId: number): string | null {
+  const row = enquiriesDb()
+    .prepare("SELECT created_at FROM sends WHERE prospect_id = ? AND status = 'pending' AND channel IN ('email', 'manual_email') ORDER BY id DESC LIMIT 1")
+    .get(prospectId) as { created_at: string } | undefined;
+  return row?.created_at ?? null;
 }
 
 /** Legal-block context for a prospect: identity source, where the address came from, trade words. */
@@ -112,12 +144,17 @@ export function legalContextFor(p: ProspectRecord, recipient: Recipient, audit: 
   // The email sentence names the site (and page) the address was read from;
   // an address that came with the identity itself (OSM / register tag) is
   // covered by the identity sentence and the clause is omitted. A validated
-  // override is described as the site without a page — the owner sees that
-  // wording in the panel before sending.
-  const emailSource =
-    recipient.source === "source" || !recipient.to || !domain
+  // override was typed by the owner and may come from anywhere, so the notice
+  // says "a public listing" and claims neither the site nor a date for it —
+  // the owner sees that wording in the panel before sending.
+  const emailSource: LegalContext["emailSource"] =
+    !recipient.to || recipient.source === "source"
       ? null
-      : { domain, page: recipient.source === "website" ? recipient.page : null, auditDate: audit?.finishedAt ?? null };
+      : recipient.source === "override"
+        ? { kind: "listing" }
+        : domain
+          ? { kind: "website", domain, page: recipient.page, auditDate: audit?.finishedAt ?? null }
+          : null;
   return {
     siteUrl: SITE_URL,
     token,
@@ -137,9 +174,13 @@ export interface SendFacts {
   draft: Draft | null;
   lead: Lead | null;
   optedOut: boolean;
+  /** Sent or pending today, both paths. */
   todaySent: number;
   dailyCap: number;
+  /** Sent or pending in 90 days, both paths. */
   sentCount90d: number;
+  /** A row still pending for this prospect — a reservation that refuses a second send. */
+  pendingSendAt: string | null;
 }
 
 export function sendFacts(prospectId: number, draftId?: number | null): SendFacts {
@@ -157,9 +198,10 @@ export function sendFacts(prospectId: number, draftId?: number | null): SendFact
     draft,
     lead: prospect.leadId !== null ? getLead(prospect.leadId) : null,
     optedOut: isProspectOptedOut(prospect),
-    todaySent: outreachSentToday(),
+    todaySent: outreachUsedToday(),
     dailyCap: outreachDailyCap(),
     sentCount90d: sentCount90d(prospectId),
+    pendingSendAt: pendingSendAt(prospectId),
   };
 }
 
@@ -175,6 +217,7 @@ function refusalsFor(f: SendFacts, opts: { channel: "email" | "manual_email"; fo
     dailyCap: f.dailyCap,
     channel: opts.channel,
     sentCount90d: f.sentCount90d,
+    pendingSendAt: f.pendingSendAt,
     optedOut: f.optedOut,
     lead: f.lead ? { stage: f.lead.stage } : null,
     registerCheck: opts.registerCheck?.checked ? { registerStatus: opts.registerCheck.registerStatus, diffusion: opts.registerCheck.diffusion } : null,
@@ -262,7 +305,11 @@ export interface SendPanelState {
   /** Refusals for the 7-day follow-up (manual path). */
   followUpRefusals: Refusal[];
   legalPreview: string;
+  /** What makes the rendered block unfit to send (legalBlockProblems); empty when complete. Both send paths refuse while non-empty. */
+  legalProblems: string[];
+  /** Sent or pending today, both paths, against the cap. */
   cap: { used: number; cap: number };
+  /** Sent or pending in 90 days, both paths. */
   sentCount90d: number;
   sends: SendSummary[];
 }
@@ -301,6 +348,7 @@ export function sendPanelState(prospectId: number): SendPanelState {
     refusals: refusalsFor(f, { channel: "email", followUp: false, registerCheck: null }),
     followUpRefusals: refusalsFor(f, { channel: "manual_email", followUp: true, registerCheck: null }),
     legalPreview: preview,
+    legalProblems: legalBlockProblems(preview),
     cap: { used: f.todaySent, cap: f.dailyCap },
     sentCount90d: f.sentCount90d,
     sends: listSends(prospectId),
@@ -309,17 +357,36 @@ export function sendPanelState(prospectId: number): SendPanelState {
 
 // ---- shared effects ---------------------------------------------------------------------------------
 
+interface SentRow {
+  id: number;
+  reference: string;
+  prospectId: number;
+  prospectReference: string;
+  auditId: number | null;
+  channel: "email" | "manual_email";
+  subject: string;
+  /** The row's sent_at — last_emailed_at never moves backwards on a repair. */
+  sentAt: string;
+}
+
 /**
  * Everything a successful send changes besides its own row: the prospect's
  * last_emailed_at and first notice date, the audit's report expiry, the lead
  * (created as outreach/contacted with a 7-day follow-up, or nudged from
- * `new`), and the activity. One transaction.
+ * `new`), and the activity. One transaction, re-runnable: every write is a
+ * COALESCE / MAX and the activity is written once per send reference, so the
+ * owner repairs a send whose bookkeeping failed instead of sending again.
  */
-function applySentEffects(send: { id: number; reference: string; prospectId: number; auditId: number | null; channel: "email" | "manual_email"; subject: string }): Lead {
+function applySentEffects(send: SentRow): Lead {
   const db = enquiriesDb();
   return db.transaction(() => {
     const now = sqlNow();
-    db.prepare("UPDATE prospects SET last_emailed_at = ?, notice_sent_at = COALESCE(notice_sent_at, ?), updated_at = ? WHERE id = ?").run(now, now, now, send.prospectId);
+    db.prepare("UPDATE prospects SET last_emailed_at = MAX(COALESCE(last_emailed_at, ''), ?), notice_sent_at = COALESCE(notice_sent_at, ?), updated_at = ? WHERE id = ?").run(
+      send.sentAt,
+      send.sentAt,
+      now,
+      send.prospectId,
+    );
     if (send.auditId !== null) {
       const expires = toSql(new Date(Date.now() + reportTtlDays() * 86_400_000));
       db.prepare("UPDATE audits SET report_expires_at = COALESCE(report_expires_at, ?) WHERE id = ?").run(expires, send.auditId);
@@ -329,19 +396,67 @@ function applySentEffects(send: { id: number; reference: string; prospectId: num
     let lead = ensureLeadForProspect(send.prospectId, { kind: "outreach", stage: "contacted", nextAction, nextActionAt });
     if (lead.stage === "new") lead = updateLead(lead.id, { stage: "contacted", nextAction, nextActionAt }, "admin") ?? lead;
     else if (lead.stage === "contacted" && !lead.nextActionAt) lead = updateLead(lead.id, { nextAction, nextActionAt }, "admin") ?? lead;
-    db.prepare("UPDATE leads SET notice_sent_at = COALESCE(notice_sent_at, ?) WHERE id = ?").run(now, lead.id);
+    db.prepare("UPDATE leads SET notice_sent_at = COALESCE(notice_sent_at, ?) WHERE id = ?").run(send.sentAt, lead.id);
     db.prepare("UPDATE sends SET lead_id = COALESCE(lead_id, ?) WHERE id = ?").run(lead.id, send.id);
-    addActivity({
-      leadId: lead.id,
-      prospectId: send.prospectId,
-      kind: send.channel === "email" ? "email_out" : "manual_send",
-      channel: "email",
-      summary: send.channel === "email" ? `Email sent · ${send.reference} · ${send.subject}` : `Sent by hand (Gmail) · ${send.reference} · ${send.subject}`,
-      payload: { send: send.reference },
-      actor: "admin",
-    });
+    const logged = db
+      .prepare(
+        "SELECT 1 AS hit FROM activities WHERE prospect_id = ? AND kind IN ('email_out', 'manual_send') AND payload IS NOT NULL AND json_valid(payload) AND json_extract(payload, '$.send') = ? LIMIT 1",
+      )
+      .get(send.prospectId, send.reference);
+    if (!logged) {
+      addActivity({
+        leadId: lead.id,
+        prospectId: send.prospectId,
+        kind: send.channel === "email" ? "email_out" : "manual_send",
+        channel: "email",
+        summary: send.channel === "email" ? `Email sent · ${send.reference} · ${send.subject}` : `Sent by hand (Gmail) · ${send.reference} · ${send.subject}`,
+        payload: { send: send.reference },
+        actor: "admin",
+      });
+    }
     return lead;
   })();
+}
+
+export type SentWarning = "bookkeeping_failed" | null;
+
+/**
+ * The bookkeeping after an email has left (or been recorded as sent): never
+ * lets a failure look like a failed send. The row stays `sent`; the owner is
+ * told to repair, not to send again — a second email is what the counters
+ * could no longer catch.
+ */
+function bookkeeping(send: SentRow, track: () => void): { lead: Lead | null; warning: SentWarning } {
+  try {
+    const lead = applySentEffects(send);
+    track();
+    return { lead, warning: null };
+  } catch (e) {
+    const code = String((e as { code?: string }).code ?? (e as Error).name ?? "error").slice(0, 60);
+    console.error(`outreach send ${send.reference} went out but the bookkeeping failed (${code})`);
+    notifyTelegram(`Outreach send ${send.reference} went out but the bookkeeping failed (${code}) — ${send.prospectReference}. Do NOT send again: open the prospect and use "Repair bookkeeping".`);
+    return { lead: null, warning: "bookkeeping_failed" };
+  }
+}
+
+/** Re-run the bookkeeping of a `sent` row (409 unless sent). Idempotent; used by the panel after a bookkeeping failure. */
+export function repairSentEffects(sendId: number, prospectId: number): { send: SendSummary; lead: Lead } {
+  const row = enquiriesDb()
+    .prepare("SELECT s.id, s.reference, s.prospect_id, s.audit_id, s.channel, s.status, s.subject, s.sent_at, p.reference AS prospect_reference FROM sends s JOIN prospects p ON p.id = s.prospect_id WHERE s.id = ?")
+    .get(sendId) as { id: number; reference: string; prospect_id: number; audit_id: number | null; channel: string; status: string; subject: string | null; sent_at: string | null; prospect_reference: string } | undefined;
+  if (!row || row.prospect_id !== prospectId) throw new SendError("send_not_found", 404);
+  if (row.status !== "sent" || (row.channel !== "email" && row.channel !== "manual_email")) throw new SendError("not_sent", 409);
+  const lead = applySentEffects({
+    id: row.id,
+    reference: row.reference,
+    prospectId,
+    prospectReference: row.prospect_reference,
+    auditId: row.audit_id,
+    channel: row.channel,
+    subject: row.subject ?? "",
+    sentAt: row.sent_at ?? sqlNow(),
+  });
+  return { send: listSends(prospectId, 50).find((s) => s.id === sendId)!, lead };
 }
 
 function insertSendRow(input: {
@@ -419,21 +534,27 @@ function recordRefusal(f: SendFacts, channel: "email" | "manual_email", refusals
 // ---- in-app send -------------------------------------------------------------------------------------
 
 export type SendResult =
-  | { ok: true; send: SendSummary; lead: Lead }
+  | { ok: true; send: SendSummary; lead: Lead | null; warning: SentWarning }
   | { ok: false; refusals: Refusal[]; reference: string }
   | { ok: false; error: "smtp_failed"; code: string; reference: string };
 
+/** An incomplete Art. 14 notice never leaves: 409 legal_block_incomplete (the panel lists the problems). */
+function assertLegalComplete(legal: string): void {
+  if (legalBlockProblems(legal).length) throw new SendError("legal_block_incomplete", 409);
+}
+
 /**
  * Send the reviewed draft to the prospect. Order matters: facts → live
- * register re-check → refusals (each one logged as a refused row) → pending
- * row committed → one SMTP attempt → sent/failed. A failure alerts Telegram
- * and is never retried automatically: the owner sees it and decides.
+ * register re-check → facts again (the re-check may have wiped fields, and a
+ * concurrent send may have reserved its row while we waited) → refusals
+ * (each one logged as a refused row) → pending row committed → one SMTP
+ * attempt → sent/failed. A failure alerts Telegram and is never retried
+ * automatically: the owner sees it and decides.
  */
 export async function sendOutreach(input: { prospectId: number; draftId?: number | null }): Promise<SendResult> {
   const facts = sendFacts(input.prospectId, input.draftId ?? null);
   const registerCheck = await liveRegisterCheck(facts.prospect);
-  // The re-check may have wiped contact fields or changed the status: reload.
-  const f = registerCheck.checked ? sendFacts(input.prospectId, input.draftId ?? null) : facts;
+  const f = sendFacts(input.prospectId, input.draftId ?? null);
   const refusals = refusalsFor(f, { channel: "email", followUp: false, registerCheck });
   if (refusals.length) {
     const { reference } = recordRefusal(f, "email", refusals);
@@ -446,6 +567,7 @@ export async function sendOutreach(input: { prospectId: number; draftId?: number
   const token = newOptoutToken();
   const ctx = legalContextFor(p, f.recipient, f.audit, token, locale);
   const { text, html, legal } = renderEmail(draft.body, f.rule, ctx, locale);
+  assertLegalComplete(legal);
   const subject = cleanSubject(draft.subject);
   const from = outreachFrom();
   const replyTo = outreachReplyTo();
@@ -471,8 +593,11 @@ export async function sendOutreach(input: { prospectId: number; draftId?: number
     ruleKey: f.ruleKey,
   });
 
+  // Only the SMTP call decides sent vs failed: once the email has left, the
+  // row is `sent` whatever happens next.
+  let messageId: string | null;
   try {
-    const { messageId } = await sendMail({
+    ({ messageId } = await sendMail({
       to: { address: to },
       from,
       replyTo,
@@ -484,13 +609,7 @@ export async function sendOutreach(input: { prospectId: number; draftId?: number
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
       attempts: 1,
-    });
-    enquiriesDb().prepare("UPDATE sends SET status = 'sent', sent_at = ?, smtp_message_id = ? WHERE id = ?").run(sqlNow(), messageId, sendId);
-    const lead = applySentEffects({ id: sendId, reference, prospectId: p.id, auditId: f.audit?.id ?? null, channel: "email", subject });
-    countApiUsage("outreach_email");
-    serverTrack("outreach_sent", { ref: reference });
-    const send = listSends(p.id, 50).find((s) => s.id === sendId)!;
-    return { ok: true, send, lead };
+    }));
   } catch (e) {
     const code = String((e as { code?: string }).code ?? (e as Error).name ?? "smtp_error").slice(0, 60);
     enquiriesDb().prepare("UPDATE sends SET status = 'failed', error = ? WHERE id = ?").run(code, sendId);
@@ -498,6 +617,14 @@ export async function sendOutreach(input: { prospectId: number; draftId?: number
     notifyTelegram(`Outreach send ${reference} failed (${code}) — ${p.reference}. Nothing was retried; check SMTP and send again from the panel.`);
     return { ok: false, error: "smtp_failed", code, reference };
   }
+  const sentAt = sqlNow();
+  enquiriesDb().prepare("UPDATE sends SET status = 'sent', sent_at = ?, smtp_message_id = ? WHERE id = ?").run(sentAt, messageId, sendId);
+  const { lead, warning } = bookkeeping({ id: sendId, reference, prospectId: p.id, prospectReference: p.reference, auditId: f.audit?.id ?? null, channel: "email", subject, sentAt }, () => {
+    countApiUsage("outreach_email");
+    serverTrack("outreach_sent", { ref: reference });
+  });
+  const send = listSends(p.id, 50).find((s) => s.id === sendId)!;
+  return { ok: true, send, lead, warning };
 }
 
 // ---- manual send (Gmail) ----------------------------------------------------------------------------
@@ -529,7 +656,8 @@ export async function prepareManualSend(prospectId: number, draftId: number | "f
   const isFollowUp = draftId === "followup";
   const facts = sendFacts(prospectId, isFollowUp ? null : draftId);
   const registerCheck = await liveRegisterCheck(facts.prospect);
-  const f = registerCheck.checked ? sendFacts(prospectId, isFollowUp ? null : draftId) : facts;
+  // Reloaded after the await: a row prepared or sent meanwhile must count.
+  const f = sendFacts(prospectId, isFollowUp ? null : draftId);
   const refusals = refusalsFor(f, { channel: "manual_email", followUp: isFollowUp, registerCheck });
   if (refusals.length) {
     const { reference } = recordRefusal(f, "manual_email", refusals);
@@ -543,6 +671,7 @@ export async function prepareManualSend(prospectId: number, draftId: number | "f
   const body = isFollowUp ? followUp(p.locale, { reportUrl: f.audit ? reportUrl(f.audit.reportToken) : null, signature: outreachFromName() }) : f.draft!.body;
   const subject = isFollowUp ? followUpSubject(p.id, p.locale) : cleanSubject(f.draft!.subject);
   const { text, legal } = renderEmail(body, f.rule, ctx, locale);
+  assertLegalComplete(legal);
   const reference = newReference("SN");
   const sendId = insertSendRow({
     reference,
@@ -565,33 +694,45 @@ export async function prepareManualSend(prospectId: number, draftId: number | "f
   return { sendId, reference, subject, text, optoutUrl: optoutUrl(SITE_URL, token) };
 }
 
-type PendingManualRow = { id: number; reference: string; prospect_id: number; audit_id: number | null; channel: string; status: string; subject: string | null; to_email: string | null; to_hash: string | null };
+type PendingRow = { id: number; reference: string; prospect_id: number; audit_id: number | null; channel: string; status: string; subject: string | null; to_email: string | null; to_hash: string | null };
 
-function pendingManualRow(sendId: number, prospectId: number): PendingManualRow {
-  const row = enquiriesDb().prepare("SELECT id, reference, prospect_id, audit_id, channel, status, subject, to_email, to_hash FROM sends WHERE id = ?").get(sendId) as PendingManualRow | undefined;
+function pendingRow(sendId: number, prospectId: number, channels: readonly string[]): PendingRow {
+  const row = enquiriesDb().prepare("SELECT id, reference, prospect_id, audit_id, channel, status, subject, to_email, to_hash FROM sends WHERE id = ?").get(sendId) as PendingRow | undefined;
   if (!row || row.prospect_id !== prospectId) throw new SendError("send_not_found", 404);
-  if (row.channel !== "manual_email" || row.status !== "pending") throw new SendError("not_prepared", 409);
+  if (!channels.includes(row.channel) || row.status !== "pending") throw new SendError("not_prepared", 409);
   return row;
 }
 
-/** "I sent it from Gmail": the prepared row becomes `sent` with the same prospect / lead / audit effects. 409 unless prepared. */
-export function recordManualSend(sendId: number, prospectId: number): { send: SendSummary; lead: Lead } {
-  const row = pendingManualRow(sendId, prospectId);
+/**
+ * "I sent it from Gmail": the prepared row becomes `sent` with the same
+ * prospect / lead / audit effects. 409 unless prepared. The row is `sent`
+ * before the bookkeeping runs: a bookkeeping failure comes back as a warning,
+ * never as a reason to send again.
+ */
+export function recordManualSend(sendId: number, prospectId: number): { send: SendSummary; lead: Lead | null; warning: SentWarning } {
+  const row = pendingRow(sendId, prospectId, ["manual_email"]);
   // The opposition list is checked before every send — a STOP may have landed
   // between preparing and confirming.
   const p = getProspect(prospectId);
   if (!p) throw new SendError("prospect_not_found", 404);
   if (isProspectOptedOut(p) || (row.to_hash !== null && isOptedOut({ emailHash: row.to_hash }))) throw new SendError("optout_listed", 409);
-  enquiriesDb().prepare("UPDATE sends SET status = 'sent', sent_at = ? WHERE id = ? AND status = 'pending'").run(sqlNow(), sendId);
-  const lead = applySentEffects({ id: row.id, reference: row.reference, prospectId, auditId: row.audit_id, channel: "manual_email", subject: row.subject ?? "" });
-  serverTrack("outreach_manual_sent", { ref: row.reference });
+  const sentAt = sqlNow();
+  enquiriesDb().prepare("UPDATE sends SET status = 'sent', sent_at = ? WHERE id = ? AND status = 'pending'").run(sentAt, sendId);
+  const { lead, warning } = bookkeeping({ id: row.id, reference: row.reference, prospectId, prospectReference: p.reference, auditId: row.audit_id, channel: "manual_email", subject: row.subject ?? "", sentAt }, () =>
+    serverTrack("outreach_manual_sent", { ref: row.reference }),
+  );
   const send = listSends(prospectId, 50).find((s) => s.id === sendId)!;
-  return { send, lead };
+  return { send, lead, warning };
 }
 
-/** Cancel a prepared manual send that was never pasted: the row is kept as `failed / cancelled`, nothing else changes. */
+/**
+ * Cancel a pending row: a prepared manual send that was never pasted, or an
+ * in-app row left `pending` by a process that died mid-SMTP (it reserves the
+ * prospect until cleared — the owner checks the mailbox first). The row is
+ * kept as `failed / cancelled`, nothing else changes.
+ */
 export function cancelManualSend(sendId: number, prospectId: number): SendSummary {
-  pendingManualRow(sendId, prospectId);
+  pendingRow(sendId, prospectId, ["manual_email", "email"]);
   enquiriesDb().prepare("UPDATE sends SET status = 'failed', error = 'cancelled' WHERE id = ? AND status = 'pending'").run(sendId);
   return listSends(prospectId, 50).find((s) => s.id === sendId)!;
 }

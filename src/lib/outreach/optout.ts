@@ -2,16 +2,19 @@
 // never purged, checked before every send and every call. Entries arrive from
 // the /o/[token] page (link), the List-Unsubscribe one-click POST, a STOP
 // reply recorded by send reference, a refused call, or a manual add. Raw
-// addresses are hashed at once and never stored here; Telegram gets references
-// only. Nothing touches the DB at module load.
+// addresses are hashed at once and never stored here — the free-text note is
+// refused when it carries an address or a number, because this table is never
+// purged; Telegram gets references only. Nothing touches the DB at module load.
 import { hashEmail, hashPhone, localeForCountry, normaliseEmail, validEmail } from "@/lib/crm/classify";
 import { sqlNow } from "@/lib/crm/time";
 import type { Activity, Lead, LeadStage } from "@/lib/crm/types";
+import { containsEmail, containsPhone } from "@/lib/drafts/templates";
 import { enquiriesDb } from "@/lib/enquiries";
 import { addActivity, getLead, getLeadByReference, updateLead } from "@/lib/inbox/leads";
 import { LEAD_REFERENCE_RE, SEND_REFERENCE_RE } from "@/lib/inbox/stages";
 import { notifyTelegram } from "@/lib/notify";
 import { getProspect, getProspectByReference } from "@/lib/prospects/store";
+import { cleanHashes, missingOptoutHashes, optoutChannelOf, optoutRowsFor } from "./optoutRows";
 import { isOptoutToken } from "./optoutToken";
 
 export type OptoutSource = "link" | "one_click" | "reply_stop" | "call" | "manual";
@@ -111,6 +114,9 @@ export function isProspectOptedOut(p: Parameters<typeof prospectHashes>[0] & { o
 export interface RecordOptoutInput {
   emailHash?: string | null;
   phoneHash?: string | null;
+  /** Every known hash of the contact (override and website address, both numbers…): each one is listed. */
+  emailHashes?: readonly (string | null)[];
+  phoneHashes?: readonly (string | null)[];
   source: OptoutSource;
   leadId?: number | null;
   prospectId?: number | null;
@@ -120,8 +126,9 @@ export interface RecordOptoutInput {
 }
 
 export interface RecordOptoutResult {
-  /** False when the same hash was already listed — nothing was written. */
+  /** False when every supplied hash was already listed — nothing was written. */
   recorded: boolean;
+  /** The first row written, or the row that already carried the hash. */
   optout: OptoutRow;
   leadId: number | null;
   prospectId: number | null;
@@ -143,16 +150,23 @@ const SUMMARY: Record<OptoutSource, string> = {
   manual: "Added to the opposition list",
 };
 
+/** True when the free text carries an address or a number — never stored in a table the purge skips. */
+export function noteCarriesContact(note: string | null | undefined): boolean {
+  return !!note && (containsEmail(note) || containsPhone(note));
+}
+
 /**
- * Writes the opposition row (idempotent on the hashes), flags the prospect,
- * closes the lead with stage `stop`, records one `optout` activity and pings
- * Telegram with references only. Everything but the ping runs in one
- * transaction.
+ * Writes the opposition rows (idempotent per hash: every hash handed in that
+ * is not yet listed gets a row, an email and a phone paired when both are
+ * missing), flags the prospect, closes the lead with stage `stop`, records
+ * one `optout` activity and pings Telegram with references only. Everything
+ * but the ping runs in one transaction.
  */
 export function recordOptout(input: RecordOptoutInput): RecordOptoutResult {
-  const emailHash = input.emailHash || null;
-  const phoneHash = input.phoneHash || null;
-  if (!emailHash && !phoneHash) throw new OptoutError("nothing_to_list", 422);
+  const emailHashes = cleanHashes([input.emailHash, ...(input.emailHashes ?? [])]);
+  const phoneHashes = cleanHashes([input.phoneHash, ...(input.phoneHashes ?? [])]);
+  if (emailHashes.length === 0 && phoneHashes.length === 0) throw new OptoutError("nothing_to_list", 422);
+  if (noteCarriesContact(input.note)) throw new OptoutError("note_contains_contact", 422);
   const db = enquiriesDb();
   const result = db.transaction((): RecordOptoutResult => {
     let prospectId = input.prospectId ?? null;
@@ -167,17 +181,20 @@ export function recordOptout(input: RecordOptoutInput): RecordOptoutResult {
       prospectId = l?.prospect_id ?? null;
     }
 
+    // Each hash is looked up on its own column: a contact whose email was
+    // listed by the /o link must still get its phone listed by a later STOP.
     const where: string[] = [];
     const params: string[] = [];
-    if (emailHash) {
-      where.push("email_hash = ?");
-      params.push(emailHash);
+    if (emailHashes.length) {
+      where.push(`email_hash IN (${emailHashes.map(() => "?").join(", ")})`);
+      params.push(...emailHashes);
     }
-    if (phoneHash) {
-      where.push("phone_hash = ?");
-      params.push(phoneHash);
+    if (phoneHashes.length) {
+      where.push(`phone_hash IN (${phoneHashes.map(() => "?").join(", ")})`);
+      params.push(...phoneHashes);
     }
-    const existing = db.prepare(`SELECT * FROM optouts WHERE ${where.join(" OR ")} ORDER BY id LIMIT 1`).get(...params) as Row | undefined;
+    const listed = db.prepare(`SELECT * FROM optouts WHERE ${where.join(" OR ")} ORDER BY id`).all(...params) as Row[];
+    const rows = optoutRowsFor(missingOptoutHashes({ emailHashes, phoneHashes }, listed.map((r) => ({ emailHash: str(r.email_hash), phoneHash: str(r.phone_hash) }))));
 
     // The prospect and lead are flagged even on a repeat: a second request
     // from another path must never leave them contactable.
@@ -188,13 +205,16 @@ export function recordOptout(input: RecordOptoutInput): RecordOptoutResult {
       const lead = getLead(leadId);
       if (lead && lead.stage !== "stop") updateLead(leadId, { stage: "stop" }, input.actor ?? "prospect");
     }
-    if (existing) return { recorded: false, optout: rowToOptout(existing), leadId, prospectId };
+    if (rows.length === 0) return { recorded: false, optout: rowToOptout(listed[0]!), leadId, prospectId };
 
-    const channel: OptoutChannel = emailHash && phoneHash ? "both" : phoneHash ? "phone" : "email";
-    const info = db
-      .prepare("INSERT INTO optouts (email_hash, phone_hash, channel, source, lead_id, prospect_id, send_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(emailHash, phoneHash, channel, input.source, leadId, prospectId, input.sendId ?? null, input.note?.trim().slice(0, 300) || null, sqlNow());
-    const optout = rowToOptout(db.prepare("SELECT * FROM optouts WHERE id = ?").get(Number(info.lastInsertRowid)) as Row);
+    const insert = db.prepare("INSERT INTO optouts (email_hash, phone_hash, channel, source, lead_id, prospect_id, send_id, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    const note = input.note?.trim().slice(0, 300) || null;
+    let first: OptoutRow | null = null;
+    for (const row of rows) {
+      const info = insert.run(row.emailHash, row.phoneHash, optoutChannelOf(row), input.source, leadId, prospectId, input.sendId ?? null, note, sqlNow());
+      first ??= rowToOptout(db.prepare("SELECT * FROM optouts WHERE id = ?").get(Number(info.lastInsertRowid)) as Row);
+    }
+    const channel: OptoutChannel = rows.some((r) => r.emailHash) && rows.some((r) => r.phoneHash) ? "both" : rows.some((r) => r.phoneHash) ? "phone" : "email";
     if (leadId !== null || prospectId !== null) {
       addActivity({
         leadId,
@@ -202,11 +222,11 @@ export function recordOptout(input: RecordOptoutInput): RecordOptoutResult {
         kind: "optout",
         channel: CHANNEL_FOR_SOURCE[input.source],
         summary: SUMMARY[input.source],
-        payload: { source: input.source, channel },
+        payload: { source: input.source, channel, rows: rows.length },
         actor: input.actor ?? (input.source === "manual" ? "admin" : "prospect"),
       });
     }
-    return { recorded: true, optout, leadId, prospectId };
+    return { recorded: true, optout: first!, leadId, prospectId };
   })();
 
   if (result.recorded) {
@@ -291,12 +311,14 @@ export interface ManualOptoutResult {
 /**
  * Accepts `{ email }`, `{ phone, country? }`, `{ lead_id }` or `{ lead_reference }`,
  * `{ prospect_id }` or `{ prospect_reference }`, or `{ send_reference, source: "reply_stop" }`.
- * Raw values are hashed at once; nothing raw is stored. Throws OptoutError.
+ * Raw values are hashed at once; nothing raw is stored — a note carrying an
+ * address or a number is refused (422 note_contains_contact). Throws OptoutError.
  */
 export function manualOptout(body: unknown): ManualOptoutResult {
   if (!body || typeof body !== "object") throw new OptoutError("bad_request", 400);
   const b = body as Record<string, unknown>;
   const note = typeof b.note === "string" ? b.note : null;
+  if (noteCarriesContact(note)) throw new OptoutError("note_contains_contact", 422);
   const source: OptoutSource = b.source === "reply_stop" ? "reply_stop" : b.source === "call" ? "call" : "manual";
   const finish = (r: RecordOptoutResult): ManualOptoutResult => ({ recorded: r.recorded, optout: r.optout, lead: r.leadId !== null ? getLead(r.leadId) : null });
 
@@ -338,12 +360,13 @@ export function manualOptout(body: unknown): ManualOptoutResult {
     if (!lead) throw new OptoutError("lead_not_found", 404);
   }
   if (lead) {
+    // Every hash the lead and its prospect are known by, so the list outlives the purge whole.
     const prospect = lead.prospectId !== null ? getProspect(lead.prospectId) : null;
-    const h = prospect ? prospectHashes(prospect) : { emailHash: null, phoneHash: null };
-    const emailHash = lead.emailHash ?? h.emailHash;
-    const phoneHash = lead.phoneHash ?? h.phoneHash;
-    if (!emailHash && !phoneHash) throw new OptoutError("lead_without_contact", 422);
-    return finish(recordOptout({ emailHash, phoneHash, source, leadId: lead.id, prospectId: lead.prospectId, note, actor: "admin" }));
+    const h = prospect ? prospectHashes(prospect) : { emailHashes: [], phoneHashes: [] };
+    const emailHashes = cleanHashes([lead.emailHash, ...h.emailHashes]);
+    const phoneHashes = cleanHashes([lead.phoneHash, ...h.phoneHashes]);
+    if (emailHashes.length === 0 && phoneHashes.length === 0) throw new OptoutError("lead_without_contact", 422);
+    return finish(recordOptout({ emailHashes, phoneHashes, source, leadId: lead.id, prospectId: lead.prospectId, note, actor: "admin" }));
   }
 
   let prospect = null;
@@ -359,8 +382,8 @@ export function manualOptout(body: unknown): ManualOptoutResult {
   }
   if (prospect) {
     const h = prospectHashes(prospect);
-    if (!h.emailHash && !h.phoneHash) throw new OptoutError("prospect_without_contact", 422);
-    return finish(recordOptout({ emailHash: h.emailHash, phoneHash: h.phoneHash, source, leadId: prospect.leadId, prospectId: prospect.id, note, actor: "admin" }));
+    if (h.emailHashes.length === 0 && h.phoneHashes.length === 0) throw new OptoutError("prospect_without_contact", 422);
+    return finish(recordOptout({ emailHashes: h.emailHashes, phoneHashes: h.phoneHashes, source, leadId: prospect.leadId, prospectId: prospect.id, note, actor: "admin" }));
   }
 
   throw new OptoutError("bad_request", 400);

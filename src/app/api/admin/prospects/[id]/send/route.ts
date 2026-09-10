@@ -57,7 +57,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   }
   try {
     const r = await sendOutreach({ prospectId: id, draftId });
-    if (r.ok) return NextResponse.json({ ok: true, send: r.send, lead: r.lead });
+    // `warning: "bookkeeping_failed"` means the email left but the lead / activity
+    // writes failed: the row is sent; the panel offers "Repair bookkeeping".
+    if (r.ok) return NextResponse.json({ ok: true, send: r.send, lead: r.lead, warning: r.warning });
     if ("refusals" in r) return NextResponse.json({ ok: false, error: "refused", refusals: r.refusals, reference: r.reference }, { status: 409 });
     return NextResponse.json({ ok: false, error: "smtp_failed", code: r.code, reference: r.reference }, { status: 502 });
   } catch (e) {

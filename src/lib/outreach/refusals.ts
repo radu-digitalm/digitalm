@@ -6,7 +6,8 @@
 import type { LeadStage, Prospect, Refusal, RefusalCode, SendRule } from "../crm/types.ts";
 import { classifyEmail, validEmail } from "../crm/classify.ts";
 import { daysSinceSql, sqlToMs } from "../crm/time.ts";
-import { REFUSAL_MESSAGES } from "../../content/outreach.ts";
+import { FOLLOW_UP_TOO_SOON, REFUSAL_MESSAGES, SEND_PENDING } from "../../content/outreach.ts";
+import type { Bilingual } from "../../content/outreach.ts";
 import { callWindowStatus } from "./rules.ts";
 
 const CLOSED: readonly LeadStage[] = ["won", "lost", "stop", "no_response"];
@@ -14,6 +15,9 @@ const IN_CONVERSATION: readonly LeadStage[] = ["replied", "meeting", "proposal"]
 
 /** GB screening (PECR reg 21) is valid for 28 days. */
 export const TPS_VALID_DAYS = 28;
+
+/** The follow-up waits a week after the first email (LIA: "first message + one reminder after a week"). */
+export const FOLLOW_UP_AFTER_DAYS = 7;
 
 export function refusal(code: RefusalCode): Refusal {
   return { code, message: REFUSAL_MESSAGES[code] };
@@ -53,18 +57,28 @@ export interface EmailRefusalContext {
   rule: SendRule;
   /** emailEnabled(country) — rule row AND OUTREACH_COUNTRY_ALLOW. */
   emailEnabled: boolean;
-  /** In-app emails sent today (Europe/Paris) and the cap; the cap only applies to channel "email". */
+  /**
+   * Emails sent or still pending today (Europe/Paris), both paths, and the
+   * cap. The cap is a safeguard of the balancing test (LIA "Volume and pace"),
+   * so it applies to the Gmail path as much as to the in-app one.
+   */
   todaySent: number;
   dailyCap: number;
   channel: "email" | "manual_email";
-  /** sent rows (email | manual_email) in the last 90 days. */
+  /** sent or pending rows (email | manual_email) in the last 90 days. */
   sentCount90d: number;
+  /**
+   * created_at of a send still `pending` for this prospect (in flight on SMTP,
+   * or prepared for Gmail and neither recorded nor cancelled). A reservation:
+   * it refuses a second send the way a sent email would.
+   */
+  pendingSendAt?: string | null;
   /** Opposition list hit for the address (or prospects.opted_out_at). */
   optedOut: boolean;
   lead: { stage: LeadStage } | null;
   /** Result of the live register re-check, when one ran; else the stored status is used. */
   registerCheck: { registerStatus: Prospect["registerStatus"]; diffusion: Prospect["diffusion"] } | null;
-  /** True for the 7-day follow-up: emailed_recently does not apply, max_emails_reached does. */
+  /** True for the follow-up: emailed_recently applies with FOLLOW_UP_AFTER_DAYS instead of the 90-day gap; max_emails_reached still does. */
   followUp?: boolean;
   requireDraft?: boolean;
   now?: Date;
@@ -75,8 +89,11 @@ export function evaluateRefusals(ctx: EmailRefusalContext): Refusal[] {
   const now = ctx.now ?? new Date();
   const p = ctx.prospect;
   const codes: RefusalCode[] = [];
-  const push = (c: RefusalCode) => {
-    if (!codes.includes(c)) codes.push(c);
+  const wording: Partial<Record<RefusalCode, Bilingual>> = {};
+  const push = (c: RefusalCode, message?: Bilingual) => {
+    if (codes.includes(c)) return;
+    codes.push(c);
+    if (message) wording[c] = message;
   };
 
   if (!ctx.emailEnabled) push("country_blocked");
@@ -91,10 +108,15 @@ export function evaluateRefusals(ctx: EmailRefusalContext): Refusal[] {
   if (ctx.rule.soleTraderEmail === "consent_required" && p.soleTrader === true) push("email_sole_trader_consent");
   if (ctx.rule.unknownLegalFormEmail === "call_only" && (p.registerId === null || p.soleTrader === null)) push("email_unknown_legal_form");
 
-  // Opposition and frequency.
+  // Opposition and frequency. A pending row is a reservation: refused like a
+  // sent email, whichever path, until it is recorded or cancelled.
   if (ctx.optedOut || p.optedOutAt) push("optout_listed");
   const sinceEmail = daysSinceSql(p.lastEmailedAt, now);
-  if (!ctx.followUp && sinceEmail !== null && sinceEmail < ctx.rule.reEmailAfterDays) push("emailed_recently");
+  if (ctx.pendingSendAt) push("emailed_recently", SEND_PENDING);
+  else if (sinceEmail !== null) {
+    if (!ctx.followUp && sinceEmail < ctx.rule.reEmailAfterDays) push("emailed_recently");
+    if (ctx.followUp && sinceEmail < FOLLOW_UP_AFTER_DAYS) push("emailed_recently", FOLLOW_UP_TOO_SOON);
+  }
   if (ctx.sentCount90d >= ctx.rule.maxEmailsPer90d) push("max_emails_reached");
 
   // Audit and draft.
@@ -103,7 +125,7 @@ export function evaluateRefusals(ctx: EmailRefusalContext): Refusal[] {
     const age = daysSinceSql(ctx.audit.finishedAt, now);
     if (age === null || age > ctx.rule.auditMaxAgeDays) push("audit_stale");
   }
-  if (ctx.channel === "email" && ctx.todaySent >= ctx.dailyCap) push("daily_cap");
+  if (ctx.todaySent >= ctx.dailyCap) push("daily_cap");
   if (p.forbidsExtraction && !p.forbidsOverrideReason) push("forbids_extraction");
 
   // Register (live result wins over the stored columns).
@@ -123,7 +145,7 @@ export function evaluateRefusals(ctx: EmailRefusalContext): Refusal[] {
     if (CLOSED.includes(ctx.lead.stage)) push("stage_closed");
     if (IN_CONVERSATION.includes(ctx.lead.stage)) push("lead_in_conversation");
   }
-  return refusalsOf(codes);
+  return codes.map((code) => ({ code, message: wording[code] ?? REFUSAL_MESSAGES[code] }));
 }
 
 // ---- calls --------------------------------------------------------------------------------------

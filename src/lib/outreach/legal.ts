@@ -7,8 +7,16 @@
 import type { Prospect, SendRule } from "../crm/types.ts";
 import { safeHttpUrl } from "../crm/classify.ts";
 import { fromSql } from "../crm/time.ts";
-import { EMAIL_CLAUSES, EMAIL_SOURCE, FALLBACK_TRADE, FOOTERS, IDENTITY_SOURCES, WEBSITE_IDENTITY } from "../../content/outreach.ts";
+import { EMAIL_CLAUSES, EMAIL_CLAUSES_LISTING, EMAIL_SOURCE, FALLBACK_TRADE, FOOTERS, IDENTITY_SOURCES, WEBSITE_IDENTITY } from "../../content/outreach.ts";
 import type { OutreachLocale } from "../../content/outreach.ts";
+
+/**
+ * Where the email address was found. `website` names the prospect's site
+ * (page when known) and the audit date; `listing` is a validated override
+ * typed by the owner — the notice then says "a public listing" and asserts
+ * neither a site nor a date, because neither is known to be true.
+ */
+export type EmailSource = { kind: "website"; domain: string; page: string | null; auditDate: string | null } | { kind: "listing" };
 
 export interface LegalContext {
   /** SITE_URL without a trailing slash. */
@@ -18,12 +26,8 @@ export interface LegalContext {
   prospect: Pick<Prospect, "source" | "website" | "domainKey" | "savedAt" | "tradeKey">;
   /** Trade in words (tradeWords / tradeLabel); null → the fallback wording. */
   trade: string | null;
-  /**
-   * Where the email address was found. `{ domain, page, auditDate }` names the
-   * prospect's site (page when known) and the audit date; null means the
-   * address came from the identity source itself and the sentence is omitted.
-   */
-  emailSource: { domain: string; page: string | null; auditDate: string | null } | null;
+  /** Null means the address came from the identity source itself and the sentence is omitted. */
+  emailSource: EmailSource | null;
 }
 
 // ---- URLs and dates -----------------------------------------------------------------------
@@ -86,20 +90,38 @@ function resolve(rule: SendRule, ctx: LegalContext, locale: OutreachLocale): Res
   const identity = identitySource(ctx.prospect, lang);
   const urls = { optout: optoutUrl(ctx.siteUrl, ctx.token), identity: identity.url, privacy: privacyUrl(ctx.siteUrl, lang) };
 
-  if (ctx.emailSource) {
+  if (ctx.emailSource?.kind === "website") {
     const src = EMAIL_SOURCE[lang];
     const emailSource = (ctx.emailSource.page ? src.withPage : src.withoutPage)
       .replace("{domain}", ctx.emailSource.domain)
       .replace("{page}", ctx.emailSource.page ?? "");
     text = text.replace("{email_source}", emailSource).replace("{audit_date}", formatLegalDate(ctx.emailSource.auditDate, lang));
   } else {
-    text = text.replace(EMAIL_CLAUSES[lang], "");
+    text = text.replace(EMAIL_CLAUSES[lang], ctx.emailSource ? EMAIL_CLAUSES_LISTING[lang] : "");
   }
   text = text
     .replace("{identity_source}", identity.label)
     .replace("{saved_date}", formatLegalDate(ctx.prospect.savedAt, lang))
     .replace("{trade}", (ctx.trade ?? "").trim() || FALLBACK_TRADE[lang]);
   return { text, urls };
+}
+
+/**
+ * What makes a rendered block unfit to send: a placeholder left in, an empty
+ * "()" where the identity URL should be, or a doubled space / a bare comma or
+ * full stop where a label or a date was empty (a manual row without a
+ * website, an unparsable saved_at). Empty → the block is complete. The send
+ * paths refuse with `legal_block_incomplete` when this returns anything.
+ */
+export function legalBlockProblems(text: string): string[] {
+  if (!text.trim()) return ["empty block"];
+  const problems: string[] = [];
+  const left = text.match(/\{[a-z_]+\}/g);
+  if (left) problems.push(`placeholder left in: ${[...new Set(left)].join(", ")}`);
+  if (/\(\s*\)/.test(text)) problems.push("empty parentheses — the identity source has no URL");
+  if (/[^\S\n][^\S\n]/.test(text)) problems.push("doubled space — a source label, domain or date is empty");
+  if (/[^\S\n][,.](\s|$)/m.test(text)) problems.push("comma or full stop after a blank — a date or a label is empty");
+  return problems;
 }
 
 /** The legal block as plain text: "—", the opt-out line alone, a blank line, the notice paragraphs. */

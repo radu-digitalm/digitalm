@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { bodyHtml, cleanSubject, domainForNotice, formatLegalDate, identitySource, legalFooter, legalFooterHtml, optoutUrl, privacyUrl, renderEmail } from "./legal.ts";
+import { bodyHtml, cleanSubject, domainForNotice, formatLegalDate, identitySource, legalBlockProblems, legalFooter, legalFooterHtml, optoutUrl, privacyUrl, renderEmail } from "./legal.ts";
 import type { LegalContext } from "./legal.ts";
 import { RULES } from "./rules.ts";
 
@@ -13,7 +13,7 @@ function ctx(over: Partial<LegalContext> = {}, prospect: Partial<LegalContext["p
     token: TOKEN,
     prospect: { source: "fr_register", website: "https://www.boulangerie-martin.fr/", domainKey: "boulangerie-martin.fr", savedAt: "2026-09-01 08:15:00", tradeKey: "bakery", ...prospect },
     trade: "boulangerie",
-    emailSource: { domain: "boulangerie-martin.fr", page: "/contact", auditDate: "2026-09-03 10:00:00" },
+    emailSource: { kind: "website", domain: "boulangerie-martin.fr", page: "/contact", auditDate: "2026-09-03 10:00:00" },
     ...over,
   };
 }
@@ -93,8 +93,43 @@ test("the email sentence is omitted when the address came from the identity sour
   assert.ok(en.includes("on 1 September 2026, in connection with your your business business."));
   assert.ok(!en.includes("your business email address"));
   // Page unknown → the domain alone.
-  const noPage = legalFooter(RULES.FR, ctx({ emailSource: { domain: "boulangerie-martin.fr", page: null, auditDate: "2026-09-03 10:00:00" } }), "fr");
+  const noPage = legalFooter(RULES.FR, ctx({ emailSource: { kind: "website", domain: "boulangerie-martin.fr", page: null, auditDate: "2026-09-03 10:00:00" } }), "fr");
   assert.ok(noPage.includes("sur votre site internet boulangerie-martin.fr le 03/09/2026"));
+});
+
+test("a validated override is described as a public listing — never the website, never a date", () => {
+  const fr = legalFooter(RULES.FR, ctx({ emailSource: { kind: "listing" } }), "fr");
+  assert.ok(fr.includes("le 01/09/2026, et votre adresse e-mail professionnelle dans un annuaire ou une mention publique, dans le cadre de votre activité de boulangerie."));
+  assert.ok(!fr.includes("sur votre site internet"), "no site claimed for the address");
+  assert.ok(!fr.includes("03/09/2026"), "no audit date claimed for the address");
+  const en = legalFooter(RULES.GB, ctx({ emailSource: { kind: "listing" } }, { source: "companies_house" }), "en");
+  assert.ok(en.includes("on 1 September 2026, and your business email address from a public listing, in connection with your boulangerie business."));
+  assert.ok(!en.includes("email address on your website"), "no site claimed for the address");
+  assert.deepEqual(legalBlockProblems(fr), []);
+  assert.deepEqual(legalBlockProblems(en), []);
+});
+
+test("legalBlockProblems: every complete footer passes; placeholders, empty identity and empty dates are caught", () => {
+  for (const [rule, locale] of [
+    [RULES.FR, "fr"],
+    [RULES.FR, "en"],
+    [RULES.GB, "en"],
+    [RULES.US, "en"],
+  ] as const) {
+    assert.deepEqual(legalBlockProblems(legalFooter(rule, ctx({}, { source: rule === RULES.FR ? "fr_register" : "osm" }), locale)), [], `${rule.country}/${locale}`);
+    assert.deepEqual(legalBlockProblems(legalFooter(rule, ctx({ emailSource: null, trade: null }), locale)), [], `${rule.country}/${locale} without the email sentence`);
+  }
+  // A manual row with no website: label "votre site internet " and url "" → "sur votre site internet  () le".
+  const manual = legalFooter(RULES.FR, ctx({}, { source: "manual", website: null, domainKey: null }), "fr");
+  const problems = legalBlockProblems(manual);
+  assert.ok(problems.some((p) => p.startsWith("empty parentheses")), problems.join(" | "));
+  assert.ok(problems.some((p) => p.startsWith("doubled space")), problems.join(" | "));
+  // An unparsable saved_at → "le , et" in FR, "on , and" in EN.
+  const noDate = legalFooter(RULES.FR, ctx({}, { savedAt: "not a date" }), "fr");
+  assert.ok(legalBlockProblems(noDate).some((p) => p.startsWith("comma or full stop")));
+  assert.ok(legalBlockProblems(legalFooter(RULES.GB, ctx({ emailSource: { kind: "website", domain: "x.co.uk", page: null, auditDate: "garbage" } }, { source: "companies_house" }), "en")).length > 0);
+  assert.deepEqual(legalBlockProblems("Bonjour {trade}"), ["placeholder left in: {trade}"]);
+  assert.deepEqual(legalBlockProblems("   "), ["empty block"]);
 });
 
 test("HTML rendering: rule paragraph, opt-out paragraph with the link first, escaped values, linked URLs", () => {

@@ -6,7 +6,11 @@
 // cap and the recent sends. Send (POST the same route), "Copy email with
 // legal block" and "I sent it from Gmail" (POST …/manual-send), the 7-day
 // follow-up through the same manual path, and Mark STOP (POST
-// /api/admin/optouts). Only { prospectId } comes from the page.
+// /api/admin/optouts). A pending row left behind (page reloaded while an
+// email was prepared, process died mid-SMTP) is listed with Record / Cancel,
+// because it reserves the prospect until cleared; a send whose bookkeeping
+// failed gets "Repair bookkeeping" — never a second send. Only { prospectId }
+// comes from the page.
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { fromSql } from "@/lib/crm/time";
@@ -38,6 +42,8 @@ function errorMessage(e: unknown): string {
     if (e.code === "csrf") return "Session check failed — reload the page.";
     if (e.code === "optout_listed") return "This contact opted out in the meantime — nothing was sent.";
     if (e.code === "not_prepared") return "That prepared email is no longer pending — prepare it again.";
+    if (e.code === "not_sent") return "Only a sent email can be repaired.";
+    if (e.code === "legal_block_incomplete") return "The legal block is incomplete (see the problems under the preview) — nothing was sent.";
     if (e.code.startsWith("register_check_failed")) return `The register could not be reached (${e.code.split(":")[1] ?? "network"}) — nothing was sent. Try again later.`;
     if (e.code === "smtp_failed") {
       const code = (e.body as { code?: string } | null)?.code ?? "smtp";
@@ -95,6 +101,8 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
   const [busy, setBusy] = useState<"load" | "send" | "prepare" | "record" | "stop" | null>("load");
   const [lastRefusals, setLastRefusals] = useState<Refusal[] | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null);
+  /** A sent row whose lead / activity bookkeeping failed: offer a repair, never a re-send. */
+  const [repairId, setRepairId] = useState<{ id: number; reference: string } | null>(null);
 
   const load = useCallback(async () => {
     setBusy("load");
@@ -113,13 +121,20 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
     void load();
   }, [load]);
 
+  function afterSent(r: { send: SendSummary; warning?: string | null }) {
+    if (r.warning === "bookkeeping_failed") {
+      setRepairId({ id: r.send.id, reference: r.send.reference });
+      toast.push(`${r.send.reference} went out, but the lead / activity bookkeeping failed — repair it below, do not send again`, "bad");
+    } else toast.push(`Sent — ${r.send.reference}`, "good");
+  }
+
   async function send() {
     if (!state?.draft) return;
     setBusy("send");
     setLastRefusals(null);
     try {
-      const r = await adminFetch<{ ok: true; send: SendSummary }>(`/api/admin/prospects/${prospectId}/send`, { draftId: state.draft.id });
-      toast.push(`Sent — ${r.send.reference}`, "good");
+      const r = await adminFetch<{ ok: true; send: SendSummary; warning: string | null }>(`/api/admin/prospects/${prospectId}/send`, { draftId: state.draft.id });
+      afterSent(r);
       router.refresh();
       await load();
     } catch (e) {
@@ -164,12 +179,12 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
     }
   }
 
-  async function record() {
-    if (!prepared) return;
+  async function record(sendId = prepared?.sendId) {
+    if (!sendId) return;
     setBusy("record");
     try {
-      const r = await adminFetch<{ ok: true; send: SendSummary }>(`/api/admin/prospects/${prospectId}/manual-send`, { action: "record", sendId: prepared.sendId });
-      toast.push(`Recorded as sent — ${r.send.reference}`, "good");
+      const r = await adminFetch<{ ok: true; send: SendSummary; warning: string | null }>(`/api/admin/prospects/${prospectId}/manual-send`, { action: "record", sendId });
+      afterSent(r);
       setPrepared(null);
       router.refresh();
       await load();
@@ -179,16 +194,31 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
     }
   }
 
-  async function cancel() {
-    if (!prepared) return;
-    const id = prepared.sendId;
+  async function cancel(sendId = prepared?.sendId) {
+    if (!sendId) return;
     setPrepared(null);
     try {
-      await adminFetch(`/api/admin/prospects/${prospectId}/manual-send`, { action: "cancel", sendId: id });
-    } catch {
-      /* a row left pending is harmless: it never counts as sent */
+      await adminFetch(`/api/admin/prospects/${prospectId}/manual-send`, { action: "cancel", sendId });
+    } catch (e) {
+      // A row left pending reserves the prospect (no second send) until it is cleared: say so.
+      toast.push(errorMessage(e), "bad");
     }
     await load();
+  }
+
+  async function repair() {
+    if (!repairId) return;
+    setBusy("record");
+    try {
+      const r = await adminFetch<{ ok: true; send: SendSummary }>(`/api/admin/prospects/${prospectId}/manual-send`, { action: "repair", sendId: repairId.id });
+      toast.push(`Bookkeeping repaired — ${r.send.reference}`, "good");
+      setRepairId(null);
+      router.refresh();
+      await load();
+    } catch (e) {
+      toast.push(errorMessage(e), "bad");
+      setBusy(null);
+    }
   }
 
   async function markStop() {
@@ -205,10 +235,13 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
   }
 
   const refusals = lastRefusals ?? state?.refusals ?? [];
-  const manualBlockers = (state?.refusals ?? []).filter((r) => r.code !== "daily_cap");
-  const canSend = !!state && !!state.draft && state.refusals.length === 0 && state.smtp;
-  const canPrepare = !!state && !!state.draft && manualBlockers.length === 0;
-  const canFollowUp = !!state && state.sentCount90d >= 1 && state.followUpRefusals.length === 0;
+  const legalOk = !!state && state.legalProblems.length === 0;
+  // The daily cap is a safeguard of the LIA: it blocks the Gmail path as much as the in-app one.
+  const canSend = legalOk && !!state.draft && state.refusals.length === 0 && state.smtp;
+  const canPrepare = legalOk && !!state.draft && state.refusals.length === 0;
+  const canFollowUp = legalOk && state.sentCount90d >= 1 && state.followUpRefusals.length === 0;
+  // Rows still pending with nothing prepared in this tab: a reload lost the prepared text, or an in-app send died mid-SMTP.
+  const stuck = !prepared && state ? state.sends.filter((s) => s.status === "pending") : [];
 
   return (
     <section className="card p-5" aria-labelledby={`send-panel-${prospectId}`}>
@@ -221,10 +254,14 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
             <Badge variant={state.prospect.emailEnabled ? "info" : "warn"} title="Country rule row (contract §3)">
               {state.prospect.ruleKey === "*" ? `no email rule for ${state.prospect.country}` : `${state.prospect.ruleKey} rule`}
             </Badge>
-            <Badge variant={state.cap.used >= state.cap.cap ? "bad" : "neutral"} title="In-app emails sent today (Europe/Paris)">
+            <Badge variant={state.cap.used >= state.cap.cap ? "bad" : "neutral"} title="Emails sent or still pending today, in-app and Gmail alike (Europe/Paris)">
               today {state.cap.used}/{state.cap.cap}
             </Badge>
-            {state.sentCount90d > 0 ? <Badge variant={state.sentCount90d >= 2 ? "warn" : "neutral"}>{state.sentCount90d}/2 emails in 90 d</Badge> : null}
+            {state.sentCount90d > 0 ? (
+              <Badge variant={state.sentCount90d >= 2 ? "warn" : "neutral"} title="Sent or pending, both paths">
+                {state.sentCount90d}/2 emails in 90 d
+              </Badge>
+            ) : null}
             {state.prospect.optedOutAt ? <Badge variant="bad">Opted out {when(state.prospect.optedOutAt)}</Badge> : null}
             {!state.smtp ? <Badge variant="warn" title="SMTP_HOST is unset on this host">SMTP off</Badge> : null}
           </div>
@@ -253,7 +290,7 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
                   ) : null}
                   <span className="ml-2 text-xs text-fg-faint">
                     {state.recipient.source === "override"
-                      ? "validated override — the notice names the website without a page"
+                      ? "validated override — the notice says the address came from a public listing, not the website"
                       : state.recipient.source === "website"
                         ? `from the site${state.recipient.page ? ` (${state.recipient.page})` : ""}`
                         : "from the discovery source — the notice omits the email sentence"}
@@ -326,6 +363,51 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
             <summary className="cursor-pointer text-fg-faint">Legal block preview (the opt-out link is generated at send time)</summary>
             <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface-2/40 p-3 font-mono text-[11px] leading-relaxed text-fg">{state.legalPreview}</pre>
           </details>
+          {state.legalProblems.length > 0 ? (
+            <div className="rounded-lg border border-accent/40 bg-accent/10 p-3" role="alert">
+              <p className="text-xs uppercase tracking-wide text-accent-soft">Legal block incomplete — both paths are refused</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-fg">
+                {state.legalProblems.map((problem) => (
+                  <li key={problem}>{problem}</li>
+                ))}
+              </ul>
+              <p className="mt-2 text-xs text-fg-faint">Fix the prospect's website / domain or its saved date in the finder, then reload this panel.</p>
+            </div>
+          ) : null}
+
+          {repairId ? (
+            <div className="space-y-2 rounded-lg border border-accent/40 bg-accent/10 p-4" role="alert">
+              <p className="text-sm text-fg">
+                {repairId.reference} went out, but the lead / activity bookkeeping failed. The email is recorded as sent — do not send it again; repair the bookkeeping instead.
+              </p>
+              <Button size="sm" variant="primary" onClick={repair} loading={busy === "record"} disabled={busy !== null}>
+                Repair bookkeeping
+              </Button>
+            </div>
+          ) : null}
+
+          {stuck.length > 0 ? (
+            <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
+              <p className="text-sm text-fg">A send is still pending for this prospect — it counts as sent until you record or cancel it.</p>
+              <ul className="space-y-2">
+                {stuck.map((s) => (
+                  <li key={s.id} className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-mono">{s.reference}</span>
+                    <span className="text-fg-faint">{s.channel === "manual_email" ? "prepared for Gmail" : "in-app send left in flight — check the mailbox's Sent folder first"}</span>
+                    <span className="text-fg-faint">{when(s.createdAt)}</span>
+                    {s.channel === "manual_email" ? (
+                      <Button size="sm" variant="primary" onClick={() => record(s.id)} loading={busy === "record"} disabled={busy !== null}>
+                        I sent it from Gmail
+                      </Button>
+                    ) : null}
+                    <Button size="sm" onClick={() => cancel(s.id)} disabled={busy !== null}>
+                      Cancel
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
 
           {prepared ? (
             <div className="space-y-2 rounded-lg border border-line bg-surface-2/40 p-4">
@@ -338,10 +420,10 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
                 <Button size="sm" onClick={copy}>
                   Copy email with legal block
                 </Button>
-                <Button size="sm" variant="primary" onClick={record} loading={busy === "record"} disabled={busy !== null}>
+                <Button size="sm" variant="primary" onClick={() => record()} loading={busy === "record"} disabled={busy !== null}>
                   I sent it from Gmail
                 </Button>
-                <Button size="sm" onClick={cancel} disabled={busy !== null}>
+                <Button size="sm" onClick={() => cancel()} disabled={busy !== null}>
                   Cancel
                 </Button>
               </div>
@@ -359,7 +441,7 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
               <Button onClick={() => prepare("draft")} loading={busy === "prepare"} disabled={!canPrepare || busy !== null} title="Prepares the same email with its legal block for Gmail">
                 Prepare for Gmail…
               </Button>
-              <Button onClick={() => prepare("followup")} loading={busy === "prepare"} disabled={!canFollowUp || busy !== null} title="7-day follow-up (manual path) — refused as a third email">
+              <Button onClick={() => prepare("followup")} loading={busy === "prepare"} disabled={!canFollowUp || busy !== null} title="Follow-up by hand: refused inside 7 days of the first email, and as a third email">
                 Prepare follow-up…
               </Button>
               <ConfirmButton

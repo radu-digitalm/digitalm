@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guardAdminPost, isResponse } from "@/lib/crm/auth";
-import { SendError, cancelManualSend, prepareManualSend, recordManualSend } from "@/lib/outreach/send";
+import { SendError, cancelManualSend, prepareManualSend, recordManualSend, repairSentEffects } from "@/lib/outreach/send";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,7 +21,9 @@ function fail(e: unknown): NextResponse {
  *   { action: "prepare", draftId?: number | "followup" } → the same refusals as an in-app send, then a pending
  *     manual_email row and the text to paste (body + legal block with the opt-out link resolved);
  *   { action: "record", sendId } → the row becomes sent with the prospect / lead / audit effects (409 unless prepared);
- *   { action: "cancel", sendId } → a prepared row that was never pasted is closed as failed/cancelled.
+ *     `warning: "bookkeeping_failed"` when those effects failed after the row was marked sent;
+ *   { action: "cancel", sendId } → a pending row (prepared and never pasted, or stuck in flight) is closed as failed/cancelled;
+ *   { action: "repair", sendId } → re-runs the bookkeeping of a sent row (idempotent; 409 unless sent).
  * Refusals answer 409 with `error` in plain words: the lead page shows that string as-is.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -57,12 +59,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ ok: true, ...r });
       }
       case "record":
-      case "cancel": {
+      case "cancel":
+      case "repair": {
         const sendId = Number(body.sendId);
         if (!Number.isInteger(sendId) || sendId <= 0) return NextResponse.json({ ok: false, error: "send_id" }, { status: 422 });
         if (body.action === "cancel") return NextResponse.json({ ok: true, send: cancelManualSend(sendId, id) });
+        if (body.action === "repair") {
+          const r = repairSentEffects(sendId, id);
+          return NextResponse.json({ ok: true, send: r.send, lead: r.lead });
+        }
         const r = recordManualSend(sendId, id);
-        return NextResponse.json({ ok: true, send: r.send, lead: r.lead });
+        return NextResponse.json({ ok: true, send: r.send, lead: r.lead, warning: r.warning });
       }
       default:
         return NextResponse.json({ ok: false, error: "action" }, { status: 400 });

@@ -48,6 +48,7 @@ function when(sql: string | null): string {
 function errorMessage(e: unknown): string {
   if (e instanceof AdminFetchError) {
     if (e.code === "csrf") return "Session check failed — reload the page.";
+    if (e.code === "note_contains_contact") return "A refusal's note goes on the opposition list, which is never purged: take the address or number out of it.";
     if (e.code.startsWith("register_check_failed")) return `The register could not be reached (${e.code.split(":")[1] ?? "network"}) — the call was not logged. Try again later.`;
     return e.status === 409 ? e.code : `Request failed: ${e.code}`;
   }

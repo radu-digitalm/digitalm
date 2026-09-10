@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { evaluateCallRefusals, evaluateRefusals, refusal, screeningValid } from "./refusals.ts";
+import { FOLLOW_UP_AFTER_DAYS, evaluateCallRefusals, evaluateRefusals, refusal, screeningValid } from "./refusals.ts";
 import type { CallRefusalContext, EmailRefusalContext, ProspectFacts } from "./refusals.ts";
 import { RULES, countryAllowList, emailEnabled } from "./rules.ts";
 import type { RefusalCode } from "../crm/types.ts";
@@ -75,7 +75,8 @@ test("fixtures of the acceptance list, one code each", () => {
   assert.deepEqual(codes(ctx({ audit: { finishedAt: sqlDaysAgo(89) } })), []);
   assert.deepEqual(codes(ctx({ audit: null })), ["audit_missing"]);
   assert.deepEqual(codes(ctx({ todaySent: 10 })), ["daily_cap"]);
-  assert.deepEqual(codes(ctx({ todaySent: 10, channel: "manual_email" })), [], "the cap only counts in-app emails");
+  assert.deepEqual(codes(ctx({ todaySent: 10, channel: "manual_email" })), ["daily_cap"], "the cap is a safeguard of the LIA: the Gmail path counts too");
+  assert.deepEqual(codes(ctx({ todaySent: 9, channel: "manual_email" })), []);
   assert.deepEqual(codes(ctx({}, { forbidsExtraction: true })), ["forbids_extraction"]);
   assert.deepEqual(codes(ctx({}, { forbidsExtraction: true, forbidsOverrideReason: "Terms allow B2B contact (checked 9 Sep)" })), []);
   assert.deepEqual(codes(ctx({}, { registerStatus: "ceased" })), ["register_inactive"]);
@@ -92,6 +93,21 @@ test("fixtures of the acceptance list, one code each", () => {
   assert.deepEqual(codes(ctx({ lead: { stage: "no_response" } })), ["stage_closed"]);
   assert.deepEqual(codes(ctx({ lead: { stage: "replied" } })), ["lead_in_conversation"]);
   assert.deepEqual(codes(ctx({ lead: { stage: "contacted" } })), []);
+});
+
+test("a pending send is a reservation: refused on both paths and for the follow-up, with its own wording", () => {
+  const pending = evaluateRefusals(ctx({ pendingSendAt: sqlDaysAgo(0) }));
+  assert.deepEqual(
+    pending.map((r) => r.code),
+    ["emailed_recently"],
+  );
+  assert.equal(pending[0]!.message.en, "A send is already in progress or prepared for this contact: finish or cancel it first.");
+  assert.equal(pending[0]!.message.fr, "Un envoi est déjà en cours ou préparé pour ce contact : terminez-le ou annulez-le d'abord.");
+  assert.deepEqual(codes(ctx({ pendingSendAt: sqlDaysAgo(0), channel: "manual_email" })), ["emailed_recently"]);
+  assert.deepEqual(codes(ctx({ pendingSendAt: sqlDaysAgo(0), followUp: true, requireDraft: false, draft: null, sentCount90d: 1 }, { lastEmailedAt: sqlDaysAgo(10) })), ["emailed_recently"]);
+  assert.deepEqual(codes(ctx({ pendingSendAt: null })), []);
+  // The 90-day wording stays for a real earlier email.
+  assert.equal(evaluateRefusals(ctx({}, { lastEmailedAt: sqlDaysAgo(10) }))[0]!.message.en, "An email went out less than 90 days ago: wait.");
 });
 
 test("GB: sole trader needs consent, unknown legal form is call-only", () => {
@@ -112,8 +128,17 @@ test("country: CA is blocked even when OUTREACH_COUNTRY_ALLOW lists it", () => {
   assert.deepEqual(codes(ctx({ emailEnabled: emailEnabled("FR", allow) })), []);
 });
 
-test("the follow-up skips emailed_recently but a third email is refused, and codes stack", () => {
-  assert.deepEqual(codes(ctx({ followUp: true, requireDraft: false, draft: null, sentCount90d: 1 }, { lastEmailedAt: sqlDaysAgo(7) })), []);
+test("the follow-up waits 7 days after the first email, a third email is refused, and codes stack", () => {
+  const followUp = (days: number) => ctx({ followUp: true, requireDraft: false, draft: null, sentCount90d: 1 }, { lastEmailedAt: sqlDaysAgo(days) });
+  assert.equal(FOLLOW_UP_AFTER_DAYS, 7);
+  assert.deepEqual(codes(followUp(7)), []);
+  assert.deepEqual(codes(followUp(30)), []);
+  assert.deepEqual(codes(followUp(6)), ["emailed_recently"], "day 6: too soon");
+  assert.deepEqual(evaluateRefusals(followUp(6))[0]!.message, {
+    fr: "Le premier e-mail date de moins de 7 jours : attendez.",
+    en: "The first email is less than 7 days old: wait.",
+  });
+  assert.deepEqual(codes(followUp(0)), ["emailed_recently"]);
   assert.deepEqual(codes(ctx({ followUp: true, requireDraft: false, draft: null, sentCount90d: 2 }, { lastEmailedAt: sqlDaysAgo(14) })), ["max_emails_reached"]);
   assert.deepEqual(
     codes(ctx({ to: "me@hotmail.fr", optedOut: true, todaySent: 10, draft: { reviewedAt: null }, lead: { stage: "lost" } }, { registerStatus: "ceased" })),
