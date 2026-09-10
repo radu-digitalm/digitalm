@@ -282,6 +282,7 @@ export const EXTRA_COLUMNS: [table: string, column: string, decl: string][] = [
   // @@crm:foundation
 
   // @@crm:inbox
+  ["enquiries", "lead_id", "INTEGER"],
 
   // @@crm:finder
 

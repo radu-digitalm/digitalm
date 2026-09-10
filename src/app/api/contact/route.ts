@@ -5,6 +5,8 @@ import { verifyTurnstile } from "@/lib/turnstile";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
+// @@crm:inbox
+import { leadFromContact } from "@/lib/inbox/hooks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -52,6 +54,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "verification" }, { status: 403 });
   }
   const flagged = ts === "outage";
+
+  // @@crm:inbox
+  leadFromContact({ name, email, phone, company, locale, message, attr, ip });
 
   if (!mailConfigured()) {
     // No SMTP yet — tell the client to use the mailto fallback.

@@ -4,6 +4,8 @@ import { z } from "zod";
 import crypto from "node:crypto";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit } from "@/lib/rateLimit";
+// @@crm:inbox
+import { leadFromMessenger } from "@/lib/inbox/hooks";
 
 // Facebook Messenger bot for the Digital M Page — same brain as the on-site chat
 // (same model + system prompt + email lead capture). Wired to the Meta Messenger
@@ -69,6 +71,8 @@ const leadTool = tool({
     locale: z.string().optional(),
   }),
   execute: async (lead) => {
+    // @@crm:inbox
+    leadFromMessenger(lead);
     if (!mailConfigured()) return { ok: false, reason: "email not configured" };
     const rows: [string, string][] = [["Name", lead.name]];
     if (lead.email) rows.push(["Email", lead.email]);

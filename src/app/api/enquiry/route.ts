@@ -10,6 +10,8 @@ import { adsConversion } from "@/lib/openaiAds";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
 import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
+// @@crm:inbox
+import { leadFromEnquiry } from "@/lib/inbox/hooks";
 
 export const runtime = "nodejs";
 
@@ -139,6 +141,9 @@ export async function POST(req: NextRequest) {
     console.error("enquiry db insert failed", e);
     return NextResponse.json({ ok: false, error: "server" }, { status: 500 });
   }
+
+  // @@crm:inbox
+  leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
 
   serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale, source: attributionSource(attr) || "direct" });
   // ChatGPT Ads conversion — only fires when the visitor landed from an ad (?oppref=).

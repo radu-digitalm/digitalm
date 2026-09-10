@@ -11,6 +11,8 @@ import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
 import { SITE_URL } from "@/lib/seo";
+// @@crm:inbox
+import { leadFromBooking } from "@/lib/inbox/hooks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -176,6 +178,9 @@ export async function POST(req: Request) {
       }
     }
 
+    // @@crm:inbox
+    leadFromBooking({ mode: "booked", name, email, phone, company, locale, needs, ref, startISO, attr, ip });
+
     return NextResponse.json({ ok: true, mode: "booked" });
   }
 
@@ -209,6 +214,8 @@ export async function POST(req: Request) {
         html,
         replyTo: email,
       });
+      // @@crm:inbox
+      leadFromBooking({ mode: "requested", name, email, phone, company, locale, needs, ref, proposed, attr, ip });
       return NextResponse.json({ ok: true, mode: "requested" });
     } catch {
       return NextResponse.json({ ok: false }, { status: 502 });

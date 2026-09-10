@@ -10,6 +10,8 @@ import { z } from "zod";
 import { sendMail, mailConfigured, renderNotification } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { verifyTurnstile, markVerified, isRecentlyVerified } from "@/lib/turnstile";
+// @@crm:inbox
+import { leadFromChat } from "@/lib/inbox/hooks";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -104,6 +106,8 @@ export async function POST(req: Request) {
           locale: z.string().optional().describe("en or fr"),
         }),
         execute: async (lead) => {
+          // @@crm:inbox
+          leadFromChat(lead, ip);
           if (!mailConfigured()) {
             return { ok: false, reason: "email not configured" };
           }
