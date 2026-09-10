@@ -12,7 +12,8 @@
 // timeout path clears the claim token.
 import { randomBytes } from "node:crypto";
 import { enquiriesDb } from "@/lib/enquiries";
-import { parseJson, sqlNow, toSql } from "@/lib/crm/db";
+import { parseJson } from "@/lib/crm/db";
+import { sqlNow, toSql } from "@/lib/crm/time";
 import { handlers } from "@/lib/crm/jobHandlers";
 import type { Job, JobKind } from "@/lib/crm/types";
 

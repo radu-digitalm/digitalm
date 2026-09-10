@@ -7,7 +7,8 @@
 import { enquiriesDb } from "@/lib/enquiries";
 import { allowed } from "@/lib/crm/allowlist";
 import { newReference } from "@/lib/crm/refs";
-import { parseJson, sqlNow } from "@/lib/crm/db";
+import { parseJson } from "@/lib/crm/db";
+import { sqlNow } from "@/lib/crm/time";
 import { hashEmail, hashPhone } from "@/lib/crm/classify";
 import { attributionLabel, type Attribution } from "@/lib/attribution";
 import type { Activity, ActivityKind, Lead, LeadKind, LeadStage } from "@/lib/crm/types";

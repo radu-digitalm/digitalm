@@ -15,6 +15,7 @@ import { useToast } from "./Toast";
 import { CHECK_COPY, FLAG_COPY, packageLabel } from "@/content/auditChecks";
 import { CHECK_ORDER } from "@/lib/audit/score";
 import { OUTREACH_MODULE } from "@/lib/crm/features";
+import { fromSql } from "@/lib/crm/time";
 import { CHECK_WEIGHTS } from "@/lib/crm/types";
 import type { Audit, CheckKey, CheckResult, CheckStatus } from "@/lib/crm/types";
 
@@ -46,8 +47,8 @@ const AUDIT_BADGE: Record<Audit["status"], { variant: BadgeVariant; label: strin
 
 function when(s: string | null | undefined): string {
   if (!s) return "";
-  const d = new Date(s.includes("T") ? s : `${s.replace(" ", "T")}Z`);
-  return Number.isNaN(d.getTime()) ? s : d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" });
+  const d = fromSql(s);
+  return d ? d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : s;
 }
 
 function pct(v: number | null | undefined): string {

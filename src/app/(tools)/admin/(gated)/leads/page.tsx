@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { allowedKey } from "@/lib/crm/allowlist";
 import { requireAdmin } from "@/lib/crm/auth";
-import { zonedToday } from "@/lib/crm/time";
+import { zonedDateString } from "@/lib/crm/time";
 import { LEAD_SORTS, leadStageCounts, listLeads } from "@/lib/inbox/leads";
 import { isLeadKind, isLeadStage } from "@/lib/inbox/stages";
 import { AddLeadForm } from "@/components/admin/AddLeadForm";
@@ -44,8 +44,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     limit: PAGE_SIZE,
     offset: (query.page - 1) * PAGE_SIZE,
   });
-  const [y, m, d] = zonedToday("Europe/Paris");
-  const today = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const today = zonedDateString("Europe/Paris");
 
   return (
     <div className="space-y-6">

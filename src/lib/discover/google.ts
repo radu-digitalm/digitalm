@@ -4,6 +4,7 @@
 // and the GoogleBlock use, and the monthly hard stop for the day the real
 // adapter lands. Nothing here ever stores more than a place_id.
 import { apiUsageMonth } from "@/lib/crm/apiUsage";
+import { intEnv } from "@/lib/crm/time";
 import { googleAdapter } from "@/lib/crm/types";
 
 export { googleAdapter };
@@ -16,8 +17,7 @@ export function googlePlacesOn(): boolean {
 
 /** GOOGLE_PLACES_MONTHLY_CAP (default 900) — Places calls per calendar month. */
 export function googleMonthlyCap(): number {
-  const n = Number.parseInt(process.env.GOOGLE_PLACES_MONTHLY_CAP ?? "", 10);
-  return Number.isFinite(n) && n >= 0 ? n : 900;
+  return intEnv("GOOGLE_PLACES_MONTHLY_CAP", 900);
 }
 
 /** Calls made this month vs the cap (Today shows "Google calls this month vs 900"). */

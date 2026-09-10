@@ -1,11 +1,12 @@
+import { daysUntilSql, fromSql } from "@/lib/crm/time";
 import { Badge, type BadgeVariant } from "./Badge";
 
 // Status badges for a prospect (contract §6 "Badges"): needs website / email
 // / phone, call instead, notice deadline in N days, not a fit, chain (brand),
 // partial register, wiped, plus the states that block outreach. Pure — no
 // hooks, no DB — so server pages and client tables share it. Dates arrive as
-// SQL UTC strings ("YYYY-MM-DD HH:MM:SS"); parsed locally because crm/db.ts
-// (fromSql) pulls the SQLite driver into any bundle that imports it.
+// SQL UTC strings ("YYYY-MM-DD HH:MM:SS") and are parsed by crm/time.ts, which
+// has no imports and therefore never pulls the SQLite driver into a bundle.
 
 export type BadgeSpec = { key: string; label: string; variant: BadgeVariant; title?: string };
 
@@ -35,17 +36,10 @@ export type BadgeInput = {
   leadStage?: string | null;
 };
 
-export function parseSqlDate(s: string | null | undefined): Date | null {
-  if (!s) return null;
-  const d = new Date(s.includes("T") ? s : `${s.replace(" ", "T")}Z`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
+export const parseSqlDate = fromSql;
 
 /** Whole days from now until `s` (negative when past); null when unset. */
-export function daysUntil(s: string | null | undefined, now = new Date()): number | null {
-  const d = parseSqlDate(s);
-  return d ? Math.ceil((d.getTime() - now.getTime()) / 86_400_000) : null;
-}
+export const daysUntil = daysUntilSql;
 
 export function usableEmail(p: Pick<BadgeInput, "websiteEmail" | "websiteEmailKind" | "contactEmailOverride">): string | null {
   if (p.contactEmailOverride) return p.contactEmailOverride;

@@ -1,4 +1,5 @@
 import { safeHttpUrl } from "@/lib/crm/classify";
+import { fromSql } from "@/lib/crm/time";
 import { REPORT_UI } from "@/content/report";
 import { checkCounts, checkRows, firstSteps, googleLine, topFindings } from "@/lib/report/findings";
 import type { ReportData } from "@/lib/report/view";
@@ -21,9 +22,8 @@ function utm(locale: "fr" | "en", path: string, ref: string): string {
 }
 
 function formatDate(sql: string | null, locale: "fr" | "en"): string {
-  if (!sql) return "";
-  const d = new Date(sql.includes("T") ? sql : `${sql.replace(" ", "T")}Z`);
-  if (Number.isNaN(d.getTime())) return "";
+  const d = fromSql(sql);
+  if (!d) return "";
   return locale === "fr"
     ? new Intl.DateTimeFormat("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Paris" }).format(d)
     : new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" }).format(d);

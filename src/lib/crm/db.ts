@@ -1,75 +1,10 @@
-// Shared CRM DB helpers: SQL timestamps, Europe/Paris day boundaries, the
-// READY_WHERE / CALL_WHERE predicates used by finder's views and inbox's Today,
-// the outreach daily cap and the settings table. Nothing here touches the DB at
-// module load — every query lives inside a function.
+// Shared CRM DB helpers: the READY_WHERE / CALL_WHERE predicates used by
+// finder's views and inbox's Today, the outreach daily cap and the settings
+// table. Time helpers live in crm/time.ts (no imports) so components can use
+// them. Nothing here touches the DB at module load — every query lives inside
+// a function.
 import { enquiriesDb } from "@/lib/enquiries";
-
-// ---- timestamps ----------------------------------------------------------
-// Every CRM timestamp is stored the way SQLite's datetime('now') writes it —
-// "YYYY-MM-DD HH:MM:SS" in UTC — so string comparisons in SQL stay correct.
-
-export function toSql(d: Date): string {
-  return d.toISOString().slice(0, 19).replace("T", " ");
-}
-
-export function sqlNow(): string {
-  return toSql(new Date());
-}
-
-export function fromSql(s: string | null | undefined): Date | null {
-  if (!s) return null;
-  const d = new Date(s.includes("T") ? s : `${s.replace(" ", "T")}Z`);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-/** Offset of `tz` from UTC, in minutes, at the given instant. */
-function tzOffsetMinutes(tz: string, at: Date): number {
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone: tz,
-    hourCycle: "h23",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  }).formatToParts(at);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
-  const asUtc = Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
-  return Math.round((asUtc - at.getTime()) / 60_000);
-}
-
-/** The instant at which the wall clock in `tz` reads y-m-d h:mi. */
-export function zonedDate(tz: string, y: number, m: number, d: number, h = 0, mi = 0): Date {
-  const guess = Date.UTC(y, m - 1, d, h, mi);
-  let off = tzOffsetMinutes(tz, new Date(guess));
-  let result = guess - off * 60_000;
-  // One more pass for the DST edges, where the first guess lands on the wrong side.
-  off = tzOffsetMinutes(tz, new Date(result));
-  result = guess - off * 60_000;
-  return new Date(result);
-}
-
-/** Today's civil date in `tz` as [y, m, d]. */
-export function zonedToday(tz: string, at = new Date()): [number, number, number] {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(at);
-  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value ?? 0);
-  return [get("year"), get("month"), get("day")];
-}
-
-/** Start of today, Europe/Paris, as a SQL timestamp (used by the daily send cap). */
-export function parisDayStartSql(at = new Date()): string {
-  const [y, m, d] = zonedToday("Europe/Paris", at);
-  return toSql(zonedDate("Europe/Paris", y, m, d));
-}
-
-/** Next occurrence of hh:mm Europe/Paris strictly after `at` (audit cap reschedule). */
-export function nextParisTime(hour: number, minute = 0, at = new Date()): Date {
-  const [y, m, d] = zonedToday("Europe/Paris", at);
-  const today = zonedDate("Europe/Paris", y, m, d, hour, minute);
-  if (today.getTime() > at.getTime()) return today;
-  return zonedDate("Europe/Paris", y, m, d + 1, hour, minute);
-}
+import { intEnv, parisDayStartSql } from "./time";
 
 // ---- countries and views ----------------------------------------------------
 
@@ -88,11 +23,6 @@ export function emailEnabledCountries(): string[] {
       .filter((s) => /^[A-Z]{2}$/.test(s)),
   );
   return EMAIL_RULE_COUNTRIES.filter((cc) => allow.has(cc));
-}
-
-function intEnv(name: string, fallback: number): number {
-  const n = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
 }
 
 /** Prospects with latest_score below this appear in the "ready to send" view. */

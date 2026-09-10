@@ -3,7 +3,8 @@
 // "<provider>:<sha256(request)>" or a caller-chosen key like "search:42".
 import { createHash } from "node:crypto";
 import { enquiriesDb } from "@/lib/enquiries";
-import { parseJson, sqlNow, toSql } from "@/lib/crm/db";
+import { parseJson } from "@/lib/crm/db";
+import { sqlNow, toSql } from "@/lib/crm/time";
 
 export const HOUR_MS = 3_600_000;
 export const DAY_MS = 24 * HOUR_MS;

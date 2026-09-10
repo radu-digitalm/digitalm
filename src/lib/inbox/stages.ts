@@ -1,9 +1,10 @@
 // Pure lead rules shared by the store, the routes and the UI (contract §5):
 // the stage and kind lists with their labels, which stages count as closed or
 // "in conversation", what a stage change writes to replied_at/closed_at, the
-// merge rules (kind upgrade, 180-day window) and a few display helpers. No
-// imports beyond types, so node --test loads it in strip-only mode.
+// merge rules (kind upgrade, 180-day window) and a few display helpers. Only
+// types and crm/time.ts (no imports itself), so node --test loads it.
 import type { LeadKind, LeadStage } from "../crm/types.ts";
+import { sqlToMs } from "../crm/time.ts";
 
 export const LEAD_STAGES: readonly LeadStage[] = ["new", "contacted", "replied", "meeting", "proposal", "won", "lost", "no_response", "stop"];
 export const LEAD_KINDS: readonly LeadKind[] = ["diagnostic", "booking", "contact", "chat", "messenger", "outreach", "manual"];
@@ -133,12 +134,6 @@ export const LEAD_REFERENCE_RE = /^LD-[23456789A-Z]{5}$/;
 export const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 // ---- display helpers ----------------------------------------------------------
-
-function sqlToMs(s: string | null | undefined): number | null {
-  if (!s) return null;
-  const ms = Date.parse(s.includes("T") ? s : `${s.replace(" ", "T")}Z`);
-  return Number.isNaN(ms) ? null : ms;
-}
 
 /** "10 Sep 2026 14:03" in Europe/Paris, or "—". */
 export function fmtDateTime(sql: string | null | undefined): string {

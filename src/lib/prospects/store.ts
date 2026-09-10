@@ -9,7 +9,8 @@
 import { allowed } from "@/lib/crm/allowlist";
 import { cacheGet } from "@/lib/crm/apiCache";
 import { coerceHttpUrl, domainOf, isWebmailDomain, localeForCountry, normaliseEmail, normaliseName, validEmail } from "@/lib/crm/classify";
-import { CALL_WHERE, READY_WHERE, parseJson, sqlNow } from "@/lib/crm/db";
+import { CALL_WHERE, READY_WHERE, parseJson } from "@/lib/crm/db";
+import { sqlNow } from "@/lib/crm/time";
 import { enqueue } from "@/lib/crm/jobs";
 import { newReference } from "@/lib/crm/refs";
 import type { ActivityKind, EmailKind, Prospect } from "@/lib/crm/types";

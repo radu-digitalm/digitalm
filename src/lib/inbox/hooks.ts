@@ -4,7 +4,7 @@
 // mail outage cannot lose it. Telegram pings carry references only.
 import { attributionLabel, attributionSource, type Attribution } from "@/lib/attribution";
 import { notifyTelegram } from "@/lib/notify";
-import { sqlNow, zonedToday } from "@/lib/crm/db";
+import { sqlNow, zonedDateString } from "@/lib/crm/time";
 import type { Lead } from "@/lib/crm/types";
 import { attachByCampaign, getLead, insertLead, linkEnquiry, type LeadInput } from "./leads";
 import { AUDIT_CAMPAIGN_RE, addDays } from "./stages";
@@ -30,8 +30,7 @@ function createFrom(input: LeadInput, attr: Attribution | undefined): { lead: Le
 }
 
 function todayParis(): string {
-  const [y, m, d] = zonedToday("Europe/Paris");
-  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  return zonedDateString("Europe/Paris");
 }
 
 // Enquiries are DM- references; the booking widget passes them as `ref`.

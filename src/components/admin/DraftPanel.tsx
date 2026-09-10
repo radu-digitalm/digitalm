@@ -7,6 +7,7 @@
 // until then). Only { prospectId } comes from the page.
 import { useCallback, useEffect, useState } from "react";
 import { OUTREACH_MODULE } from "@/lib/crm/features";
+import { fromSql } from "@/lib/crm/time";
 import type { Draft } from "@/lib/crm/types";
 import { AdminFetchError, adminFetch, adminGet } from "./adminFetch";
 import { Badge } from "./Badge";
@@ -58,8 +59,8 @@ function errorMessage(e: unknown): string {
 
 function when(sql: string | null): string {
   if (!sql) return "";
-  const d = new Date(sql.includes("T") ? sql : `${sql.replace(" ", "T")}Z`);
-  return Number.isNaN(d.getTime()) ? sql : d.toLocaleString("en-GB", { timeZone: "Europe/Paris", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+  const d = fromSql(sql);
+  return d ? d.toLocaleString("en-GB", { timeZone: "Europe/Paris", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : sql;
 }
 
 function Count({ value, cap }: { value: string; cap: { min: number; max: number } }) {

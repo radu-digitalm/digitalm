@@ -10,7 +10,7 @@ import { randomBytes } from "node:crypto";
 import { enquiriesDb } from "@/lib/enquiries";
 import { newReference } from "@/lib/crm/refs";
 import { RescheduleJob } from "@/lib/crm/jobs";
-import { nextParisTime, sqlNow } from "@/lib/crm/db";
+import { intEnv, nextParisTime, sqlNow } from "@/lib/crm/time";
 import { apiUsage, countApiUsage } from "@/lib/crm/apiUsage";
 import { classifyEmail, coerceHttpUrl, domainOf } from "@/lib/crm/classify";
 import { notifyTelegram } from "@/lib/notify";
@@ -45,8 +45,7 @@ type ProspectRow = {
 
 /** AUDIT_DAILY_CAP (default 50). */
 export function auditDailyCap(): number {
-  const n = Number.parseInt(process.env.AUDIT_DAILY_CAP ?? "", 10);
-  return Number.isFinite(n) && n >= 0 ? n : 50;
+  return intEnv("AUDIT_DAILY_CAP", 50);
 }
 
 /** Today's count against the cap — the AuditBlock shows it. */

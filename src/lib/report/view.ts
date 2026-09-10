@@ -6,7 +6,8 @@
 import { createHash } from "node:crypto";
 import type { Audit, AuditChecks, CheckKey, FitSuggestion, Flag, PsiSummary } from "@/lib/crm/types";
 import { readSession } from "@/lib/crm/auth";
-import { fromSql, parseJson } from "@/lib/crm/db";
+import { parseJson } from "@/lib/crm/db";
+import { fromSql, intEnv } from "@/lib/crm/time";
 import { enquiriesDb } from "@/lib/enquiries";
 import { notifyTelegram } from "@/lib/notify";
 import { SITE_URL } from "@/lib/seo";
@@ -29,8 +30,7 @@ export function privacyUrl(locale: ReportLocale): string {
 
 /** REPORT_TTL_DAYS (default 90) — outreach adds it to `now` at the first send. */
 export function reportTtlDays(): number {
-  const n = Number.parseInt(process.env.REPORT_TTL_DAYS ?? "", 10);
-  return Number.isFinite(n) && n > 0 ? n : 90;
+  return intEnv("REPORT_TTL_DAYS", 90) || 90;
 }
 
 // ---- rows -------------------------------------------------------------------------

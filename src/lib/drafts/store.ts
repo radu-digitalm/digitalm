@@ -4,7 +4,7 @@
 // generate + insert, and the review-gated save. Values are always bound with
 // ?; nothing here runs at module load.
 import { countApiUsage } from "@/lib/crm/apiUsage";
-import { sqlNow } from "@/lib/crm/db";
+import { sqlNow } from "@/lib/crm/time";
 import type { Draft } from "@/lib/crm/types";
 import { enquiriesDb } from "@/lib/enquiries";
 import { tradeWords } from "@/lib/report/findings";

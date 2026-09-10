@@ -3,10 +3,11 @@
 // lib/outreach — READY_WHERE, CALL_WHERE and outreachDailyCap() come from
 // crm/db.ts); `summariseToday()` turns them into cards and is pure, so
 // node --test can load this file: the DB helpers are imported lazily inside
-// collectToday() only. scripts/digitalm-digest.js mirrors the same queries in
+// collectToday() only (time helpers come from crm/time.ts, which is pure). scripts/digitalm-digest.js mirrors the same queries in
 // plain JS for the read-only Telegram digest — keep the two in step.
 import type { LeadStage } from "../crm/types.ts";
 import { OUTREACH_MODULE } from "../crm/features.ts";
+import { intEnv, sqlToMs, zonedDateString } from "../crm/time.ts";
 import { daysSince, daysUntil, type Tone } from "./stages.ts";
 
 export interface FollowUp {
@@ -66,9 +67,8 @@ export function purgeAgeDays(lastRunAt: string | null, now: Date): number | null
 
 /** Missing, unreadable, or more than 48 h old (two missed 04:00 runs) — the red card. */
 export function purgeIsStale(lastRunAt: string | null, now: Date): boolean {
-  if (!lastRunAt) return true;
-  const ms = Date.parse(`${lastRunAt.replace(" ", "T")}Z`);
-  if (Number.isNaN(ms)) return true;
+  const ms = sqlToMs(lastRunAt);
+  if (ms === null) return true;
   return now.getTime() - ms > PURGE_STALE_DAYS * 86_400_000;
 }
 
@@ -215,18 +215,12 @@ export function formatTodayText(cards: TodayCard[]): string {
   return out.join("\n");
 }
 
-function intEnv(name: string, fallback: number): number {
-  const n = Number.parseInt(process.env[name] ?? "", 10);
-  return Number.isFinite(n) && n >= 0 ? n : fallback;
-}
-
 /** Gathers every Today number from the DB. Async only because the DB helpers load lazily. */
 export async function collectToday(now = new Date()): Promise<TodayData> {
   const { enquiriesDb } = await import("@/lib/enquiries");
-  const { CALL_WHERE, READY_WHERE, outreachDailyCap, outreachSentToday, zonedToday } = await import("@/lib/crm/db");
+  const { CALL_WHERE, READY_WHERE, outreachDailyCap, outreachSentToday } = await import("@/lib/crm/db");
   const db = enquiriesDb();
-  const [y, m, d] = zonedToday("Europe/Paris", now);
-  const today = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  const today = zonedDateString("Europe/Paris", now);
   const month = today.slice(0, 7);
   const count = (sql: string, ...params: unknown[]): number => (db.prepare(sql).get(...params) as { n: number }).n;
 
