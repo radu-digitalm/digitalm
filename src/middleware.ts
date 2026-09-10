@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { locales, defaultLocale, isLocale } from "@/lib/i18n";
+import { rateLimit, clientIp } from "@/lib/rateLimit";
+import { verifySessionEdge } from "@/lib/crm/authEdge";
 
 function resolveLocale(req: NextRequest): string {
   const cookie = req.cookies.get("NEXT_LOCALE")?.value;
@@ -14,8 +16,38 @@ function resolveLocale(req: NextRequest): string {
   return defaultLocale;
 }
 
-export function middleware(req: NextRequest) {
+const isAdminPath = (p: string) => p === "/admin" || p.startsWith("/admin/");
+const isLoginPath = (p: string) => p === "/admin/login";
+const isToolsPath = (p: string) => isAdminPath(p) || p.startsWith("/r/") || p.startsWith("/o/");
+
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // CRM tool routes live outside the locale tree (contract §4). The edge cookie
+  // check below also covers RSC / soft-navigation requests, which skip shared
+  // layouts — every (gated) page still calls requireAdmin() itself.
+  if (isAdminPath(pathname) && !isLoginPath(pathname)) {
+    const session = await verifySessionEdge(
+      req.cookies.get("dm_admin")?.value,
+      process.env.ADMIN_SESSION_SECRET ?? "",
+      process.env.ADMIN_SESSION_VERSION || "1",
+    );
+    if (!session) {
+      const login = req.nextUrl.clone();
+      login.pathname = "/admin/login";
+      login.search = `?next=${encodeURIComponent(pathname)}`;
+      return NextResponse.redirect(login, 307);
+    }
+  }
+  // Public token pages: per-IP limits so a leaked link cannot be brute-forced
+  // or hammered. The report and opt-out routes also carry their own guards.
+  if (pathname.startsWith("/r/") && !rateLimit(`r:${clientIp(req)}`, 60, 10 * 60_000)) {
+    return new NextResponse("Too many requests", { status: 429 });
+  }
+  if (pathname.startsWith("/o/") && !rateLimit(`o:${clientIp(req)}`, 30, 10 * 60_000)) {
+    return new NextResponse("Too many requests", { status: 429 });
+  }
+  if (isToolsPath(pathname)) return NextResponse.next();
 
   const hasLocale = locales.some(
     (l) => pathname === `/${l}` || pathname.startsWith(`/${l}/`),

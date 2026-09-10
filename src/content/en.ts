@@ -709,6 +709,7 @@ export const en = {
           heading: "Liability",
           body: "We take care to keep the information on this site accurate and up to date, but cannot guarantee it is free of errors or omissions. The site may link to third-party sites over which we have no control and for which we accept no responsibility.",
         },
+        // @@crm:outreach notice section
       ],
     },
     privacy: {
@@ -744,6 +745,7 @@ export const en = {
           heading: "Your rights",
           body: "Under the UK GDPR and the EU GDPR you can ask to access, correct, delete or restrict the processing of your personal data, and object to it. Email contact@digitalm.eu. You can also complain to the UK Information Commissioner's Office (ico.org.uk) or, in the EU, your local data protection authority (in France, the CNIL).",
         },
+        // @@crm:outreach privacy section
       ],
     },
   },

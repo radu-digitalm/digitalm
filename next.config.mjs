@@ -50,6 +50,15 @@ const nextConfig = {
         source: "/:dir(brand|badges|media)/:path*",
         headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=86400" }],
       },
+      // CRM tool routes (admin, prospect reports, opt-out links, their APIs):
+      // never indexed, never cached by a shared proxy.
+      ...["/admin", "/admin/:path*", "/r/:path*", "/o/:path*", "/api/admin/:path*", "/api/o/:path*"].map((source) => ({
+        source,
+        headers: [
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+          { key: "Cache-Control", value: "no-store" },
+        ],
+      })),
     ];
   },
 };

@@ -712,6 +712,7 @@ export const fr = {
           heading: "Responsabilité",
           body: "Nous veillons à maintenir les informations de ce site exactes et à jour, sans pouvoir garantir l'absence d'erreurs ou d'omissions. Le site peut renvoyer vers des sites tiers sur lesquels nous n'avons aucun contrôle et dont nous déclinons la responsabilité.",
         },
+        // @@crm:outreach notice section
       ],
     },
     privacy: {
@@ -747,6 +748,7 @@ export const fr = {
           heading: "Vos droits",
           body: "Conformément au RGPD (UE) et au UK GDPR, vous pouvez demander l'accès, la rectification, la suppression ou la limitation du traitement de vos données personnelles, et vous y opposer. Écrivez à contact@digitalm.eu. Vous pouvez également introduire une réclamation auprès de la CNIL (cnil.fr) ou, au Royaume-Uni, de l'Information Commissioner's Office (ico.org.uk).",
         },
+        // @@crm:outreach privacy section
       ],
     },
   },
