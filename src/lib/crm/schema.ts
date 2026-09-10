@@ -285,6 +285,7 @@ export const EXTRA_COLUMNS: [table: string, column: string, decl: string][] = [
   ["enquiries", "lead_id", "INTEGER"],
 
   // @@crm:finder
+  ["prospects", "brand", "TEXT"], // chain / franchise name from OSM (badge "chain"); finder only
 
   // @@crm:audit
 
