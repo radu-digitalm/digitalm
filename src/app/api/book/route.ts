@@ -8,6 +8,8 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
+import { adsConversion } from "@/lib/openaiAds";
+import { SITE_URL } from "@/lib/seo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -134,6 +136,7 @@ export async function POST(req: Request) {
 
     // Conversion event (server-side, adblock-proof) + instant phone ping.
     serverTrack("booking_confirmed", { locale, ref: ref || "-" });
+    adsConversion("appointment_scheduled", { id: ref || `slot_${startMs}`, sourceUrl: `${SITE_URL}/${locale}/book`, req, ip });
     notifyTelegram(
       `📅 BOOKING confirmed — ${when}\n${name}${company ? ` · ${company}` : ""}\n📞 ${phone}\n✉️ ${email}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
     );
@@ -172,6 +175,7 @@ export async function POST(req: Request) {
 
   // Fallback: no live calendar — email a call request to the team.
   serverTrack("booking_requested", { locale, ref: ref || "-" });
+  adsConversion("lead_created", { id: ref || `call_${Date.now()}`, sourceUrl: `${SITE_URL}/${locale}/book`, req, ip });
   notifyTelegram(
     `📞 CALL REQUEST — ${name}${company ? ` · ${company}` : ""}\n📞 ${phone}\n✉️ ${email}${proposed ? `\nPreferred: ${proposed}` : ""}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
   );

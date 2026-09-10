@@ -6,6 +6,8 @@ import { score } from "@/lib/diagnosticScoring";
 import { triageEnquiry } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
+import { adsConversion } from "@/lib/openaiAds";
+import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
 
 export const runtime = "nodejs";
@@ -132,6 +134,8 @@ export async function POST(req: NextRequest) {
   }
 
   serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale });
+  // ChatGPT Ads conversion — only fires when the visitor landed from an ad (oppref cookie).
+  adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, req, ip });
 
   // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
   const tgLines = [
