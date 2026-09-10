@@ -11,6 +11,7 @@ export const handlers: Partial<Record<JobKind, JobHandler>> = {
     return { ok: true, payload: job.payload };
   },
   // @@jobs:audit
+  audit: (job, ctx) => import("@/lib/audit/job").then((m) => m.runAuditJob(job, ctx)),
 
   // @@jobs:outreach
 

@@ -215,8 +215,8 @@ type LookupCallback = (err: NodeJS.ErrnoException | null, address: string | { ad
 
 /**
  * `lookup` option for http.request / net.connect / tls.connect that answers
- * with the vetted IPv4 only. Handles both callback shapes (`all: true` gets an
- * array); pass `autoSelectFamily: false` alongside it.
+ * with the vetted IPv4 only. Handles both callback shapes: Node's default
+ * autoSelectFamily path asks with `all: true` and gets a one-element array.
  */
 export function pinnedLookup(ip: string): (hostname: string, options: { all?: boolean } | undefined, callback: LookupCallback) => void {
   return (_hostname, options, callback) => {

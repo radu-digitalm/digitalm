@@ -217,7 +217,6 @@ function fetchOnce(t: VettedTarget, opts: { ua: string; accept: string; wantBody
       path: `${t.url.pathname}${t.url.search}` || "/",
       method: "GET",
       lookup: pinnedLookup(dest.ip),
-      autoSelectFamily: false,
       agent: false,
       timeout: FETCH_TIMEOUT_MS,
       headers: {
