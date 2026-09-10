@@ -45,7 +45,8 @@ export function ReportPage({ data }: { data: ReportData }) {
   const steps = firstSteps(audit.fits, audit.flags, locale);
   const counts = checkCounts(audit.checks);
   const site = data.website ? safeHttpUrl(data.website) : null;
-  const where = [data.trade, data.town].filter(Boolean).join(locale === "fr" ? " · " : " · ");
+  const trade = data.trade ? data.trade.charAt(0).toUpperCase() + data.trade.slice(1) : null;
+  const where = [trade, data.town].filter(Boolean).join(" · ");
 
   return (
     <main lang={locale} className="report min-h-screen bg-ink text-fg">

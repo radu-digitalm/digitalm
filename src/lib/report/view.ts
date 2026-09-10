@@ -177,7 +177,7 @@ export function logView(report: ReportData, ip: string): void {
       ).run(report.audit.id);
       db.prepare(
         "INSERT INTO activities (lead_id, prospect_id, kind, channel, summary, payload, actor) VALUES (?, ?, 'report_view', 'web', ?, ?, 'prospect')",
-      ).run(report.leadId, report.prospectId, `Report ${ref} opened`, JSON.stringify({ ipHash: ipHash(ip), reference: ref }));
+      ).run(report.leadId, report.prospectId, `Report ${ref} opened`, JSON.stringify({ ipHash: ipHash(ip) }));
       if (report.leadId !== null) {
         db.prepare("UPDATE leads SET last_activity_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(report.leadId);
       }
