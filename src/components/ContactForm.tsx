@@ -4,6 +4,7 @@ import { useState } from "react";
 import type { SiteContent } from "@/content/types";
 import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
+import { currentAttribution } from "@/lib/attributionClient";
 
 type FormText = SiteContent["contact"]["form"];
 type Status = "idle" | "sending" | "success" | "error";
@@ -52,7 +53,7 @@ export function ContactForm({
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...data, locale, turnstile: token.current }),
+        body: JSON.stringify({ ...data, locale, turnstile: token.current, attribution: currentAttribution() }),
       });
       if (!res.ok) throw new Error("request failed");
       setStatus("success");

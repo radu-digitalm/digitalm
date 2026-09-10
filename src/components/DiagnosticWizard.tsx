@@ -8,6 +8,7 @@ import {
 } from "@/content/diagnostic";
 import { score, RESULT_CARDS, SELF_SERVE, type Scoring, type ServiceLine } from "@/lib/diagnosticScoring";
 import { useTurnstile } from "@/lib/useTurnstile";
+import { currentAttribution, attributionQuery } from "@/lib/attributionClient";
 
 type Answers = Record<string, string | string[]>;
 const DRAFT_KEY = "dm-enquiry-draft-v1";
@@ -111,12 +112,12 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       if (txt.trim()) merged[`${qid}_other`] = txt.trim();
     }
     try {
-      // ChatGPT Ads click id from the landing URL (?oppref=) — forwarded, never stored.
-      const oppref = new URLSearchParams(window.location.search).get("oppref") ?? undefined;
+      // Campaign attribution (utm_* / ChatGPT oppref) from the page URL — forwarded, never stored.
+      const attribution = currentAttribution();
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", oppref }),
+        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error("rejected");
@@ -285,8 +286,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     if (typeof answers.email === "string" && answers.email) bookParams.set("email", answers.email as string);
     if (typeof answers.phone === "string" && answers.phone) bookParams.set("phone", answers.phone as string);
     if (reference) bookParams.set("ref", reference);
-    const oppref = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("oppref") : null;
-    if (oppref) bookParams.set("oppref", oppref); // keep the ChatGPT Ads click id through the hand-off
+    // Keep campaign attribution (utm_* / oppref) through the hand-off to /book.
+    new URLSearchParams(attributionQuery()).forEach((v, k) => bookParams.set(k, v));
     const bookHref = `/${L}/book?${bookParams.toString()}`;
     return (
       <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">

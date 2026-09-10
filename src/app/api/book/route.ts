@@ -9,6 +9,7 @@ import { verifyTurnstile } from "@/lib/turnstile";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
+import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
 import { SITE_URL } from "@/lib/seo";
 
 export const runtime = "nodejs";
@@ -73,6 +74,11 @@ export async function POST(req: Request) {
   const proposed = str(body.proposed ?? body.preferred);
   const ref = str(body.ref).slice(0, 20); // diagnostic hand-off reference (DM-XXXXX)
   const locale = body.locale === "fr" ? "fr" : "en";
+  // Campaign attribution (utm_* / ChatGPT oppref) read from the page URL by the widget.
+  const attr = readAttribution(body.attribution);
+  if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
+  const via = attributionLabel(attr);
+  const source = attributionSource(attr) || "direct";
 
   if (!name || !EMAIL_RE.test(email) || !phone) {
     return NextResponse.json({ ok: false, error: "invalid" }, { status: 400 });
@@ -135,10 +141,10 @@ export async function POST(req: Request) {
       }) + ` (${BOOKING.tz})`;
 
     // Conversion event (server-side, adblock-proof) + instant phone ping.
-    serverTrack("booking_confirmed", { locale, ref: ref || "-" });
-    adsConversion("appointment_scheduled", { id: ref || `slot_${startMs}`, sourceUrl: `${SITE_URL}/${locale}/book`, oppref: body.oppref });
+    serverTrack("booking_confirmed", { locale, ref: ref || "-", source });
+    adsConversion("appointment_scheduled", { id: ref || `slot_${startMs}`, sourceUrl: `${SITE_URL}/${locale}/book`, oppref: attr.oppref });
     notifyTelegram(
-      `📅 BOOKING confirmed — ${when}\n${name}${company ? ` · ${company}` : ""}\n📞 ${phone}\n✉️ ${email}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
+      `📅 BOOKING confirmed — ${when}\n${name}${company ? ` · ${company}` : ""}${via ? `\n📣 via ${via}` : ""}\n📞 ${phone}\n✉️ ${email}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
     );
 
     // Notify contact@ that a new appointment was booked (in addition to the calendar event).
@@ -174,10 +180,10 @@ export async function POST(req: Request) {
   }
 
   // Fallback: no live calendar — email a call request to the team.
-  serverTrack("booking_requested", { locale, ref: ref || "-" });
-  adsConversion("lead_created", { id: ref || `call_${Date.now()}`, sourceUrl: `${SITE_URL}/${locale}/book`, oppref: body.oppref });
+  serverTrack("booking_requested", { locale, ref: ref || "-", source });
+  adsConversion("lead_created", { id: ref || `call_${Date.now()}`, sourceUrl: `${SITE_URL}/${locale}/book`, oppref: attr.oppref });
   notifyTelegram(
-    `📞 CALL REQUEST — ${name}${company ? ` · ${company}` : ""}\n📞 ${phone}\n✉️ ${email}${proposed ? `\nPreferred: ${proposed}` : ""}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
+    `📞 CALL REQUEST — ${name}${company ? ` · ${company}` : ""}${via ? `\n📣 via ${via}` : ""}\n📞 ${phone}\n✉️ ${email}${proposed ? `\nPreferred: ${proposed}` : ""}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
   );
   if (mailConfigured()) {
     const rows: [string, string][] = [
@@ -186,6 +192,7 @@ export async function POST(req: Request) {
       ["Phone", phone],
     ];
     if (company) rows.push(["Company", company]);
+    if (via) rows.push(["Source", via]);
     if (proposed) rows.push(["Preferred times", proposed]);
     if (needs) rows.push(["Topic", needs]);
     if (ref) rows.push(["Diagnostic ref", ref]);

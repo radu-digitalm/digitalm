@@ -4,6 +4,7 @@ import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { verifyTurnstile } from "@/lib/turnstile";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
+import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +35,8 @@ export async function POST(req: NextRequest) {
   const company = oneLine(body.company);
   const locale = oneLine(body.locale) || "en";
   const message = String(body.message ?? "").trim();
+  const attr = readAttribution(body.attribution);
+  const via = attributionLabel(attr);
 
   if (!name || !email || !message || !phone) {
     return NextResponse.json({ ok: false, error: "missing" }, { status: 422 });
@@ -61,6 +64,7 @@ export async function POST(req: NextRequest) {
   ];
   if (phone) rows.push(["Phone", phone]);
   if (company) rows.push(["Company", company]);
+  if (via) rows.push(["Source", via]);
   rows.push(["Language", locale]);
   if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);
 
@@ -72,9 +76,9 @@ export async function POST(req: NextRequest) {
 
   // Conversion event (server-side, adblock-proof) + instant phone ping — the
   // visitor gets an error if mail fails, but you still know they tried.
-  serverTrack("contact_message", { locale });
+  serverTrack("contact_message", { locale, source: attributionSource(attr) || "direct" });
   notifyTelegram(
-    `✉️ CONTACT message — ${name}${company ? ` · ${company}` : ""}${phone ? `\n📞 ${phone}` : ""}\n✉️ ${email}\n\n${message.slice(0, 400)}`,
+    `✉️ CONTACT message — ${name}${company ? ` · ${company}` : ""}${via ? `\n📣 via ${via}` : ""}${phone ? `\n📞 ${phone}` : ""}\n✉️ ${email}\n\n${message.slice(0, 400)}`,
   );
 
   try {

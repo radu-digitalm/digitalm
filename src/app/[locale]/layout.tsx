@@ -10,6 +10,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { CookieConsent } from "@/components/CookieConsent";
 import { ChatWidget } from "@/components/ChatWidget";
 import { Reveal } from "@/components/Reveal";
+import { CarryParams } from "@/components/CarryParams";
 import { localBusinessNode, FR_NAP_READY } from "@/lib/localBusiness";
 
 export const metadata: Metadata = {
@@ -109,6 +110,7 @@ export default async function LocaleLayout({
         <ChatWidget locale={loc} />
         <CookieConsent locale={loc} />
         <Reveal />
+        <CarryParams />
         {analyticsSrc ? (
           <script
             defer

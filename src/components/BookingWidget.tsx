@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
+import { currentAttribution } from "@/lib/attributionClient";
 
 type Copy = {
   eyebrow: string;
@@ -46,15 +47,13 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
 
   // Pre-fill from the diagnostic hand-off (?name=&email=&phone=&ref=) so the
   // lead doesn't retype what they just gave us. Read once on mount.
-  const [prefill, setPrefill] = useState<{ name?: string; email?: string; ref?: string; oppref?: string }>({});
+  const [prefill, setPrefill] = useState<{ name?: string; email?: string; ref?: string }>({});
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     setPrefill({
       name: p.get("name") ?? undefined,
       email: p.get("email") ?? undefined,
       ref: p.get("ref") ?? undefined,
-      // ChatGPT Ads click id (?oppref=) — forwarded with the booking, never stored.
-      oppref: p.get("oppref") ?? undefined,
     });
   }, []);
 
@@ -91,7 +90,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
           start: selected ?? "",
           locale,
           ref: prefill.ref,
-          oppref: prefill.oppref,
+          attribution: currentAttribution(),
           turnstile: token.current,
         }),
       });

@@ -41,6 +41,8 @@ export function enquiriesDb(): Database.Database {
     ["subject_summary", "TEXT"],
     ["mail_status", "TEXT"], // 'sent' | 'failed' | 'skipped'
     ["mail_error", "TEXT"],
+    ["source_utm", "TEXT"], // e.g. 'chatgpt' — utm_source (or oppref-derived) at submit time
+    ["attribution", "TEXT"], // JSON of utm_* / oppref as posted by the form
   ] as const) {
     if (!cols.has(name)) db.exec(`ALTER TABLE enquiries ADD COLUMN ${name} ${decl}`);
   }

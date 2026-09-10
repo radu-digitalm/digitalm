@@ -7,6 +7,7 @@ import { triageEnquiry } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
+import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
 import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
 
@@ -67,7 +68,8 @@ export async function POST(req: NextRequest) {
     answers?: Record<string, unknown>;
     turnstile?: string;
     website?: string;
-    oppref?: string; // ChatGPT Ads click id, read from the landing URL by the wizard
+    oppref?: string; // legacy field — now inside `attribution`
+    attribution?: unknown; // utm_* + oppref read from the page URL by the wizard
   };
   try {
     body = await req.json();
@@ -113,6 +115,9 @@ export async function POST(req: NextRequest) {
   const proposed = triage?.proposed ?? scoring.proposed;
 
   const reference = newReference();
+  const attr = readAttribution(body.attribution);
+  if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
+  const via = attributionLabel(attr);
   const company = String(answers.company ?? "").trim().slice(0, 200);
   const phone = String(answers.phone ?? "").trim().slice(0, 50);
   const source = String(answers.source ?? "").trim().slice(0, 100);
@@ -120,28 +125,30 @@ export async function POST(req: NextRequest) {
   try {
     enquiriesDb()
       .prepare(
-        `INSERT INTO enquiries (reference, locale, answers, scores, proposed, grade, urgent, flagged, first_name, email, company, phone, source, ip, reply_draft, note_for_radu, subject_summary)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO enquiries (reference, locale, answers, scores, proposed, grade, urgent, flagged, first_name, email, company, phone, source, ip, reply_draft, note_for_radu, subject_summary, source_utm, attribution)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         reference, locale, JSON.stringify(answers), JSON.stringify(scoring.scores),
         proposed.join("+") || "-", scoring.grade, scoring.urgent ? 1 : 0, flagged ? 1 : 0,
         firstName, email, company || null, phone || null, source || null, ip,
         triage?.replyDraft ?? null, triage?.noteForRadu ?? null, triage?.subjectSummary ?? null,
+        attributionSource(attr) || null, Object.keys(attr).length ? JSON.stringify(attr) : null,
       );
   } catch (e) {
     console.error("enquiry db insert failed", e);
     return NextResponse.json({ ok: false, error: "server" }, { status: 500 });
   }
 
-  serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale });
+  serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale, source: attributionSource(attr) || "direct" });
   // ChatGPT Ads conversion — only fires when the visitor landed from an ad (?oppref=).
-  adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, oppref: body.oppref });
+  adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, oppref: attr.oppref });
 
   // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
   const tgLines = [
     `🔔 ${scoring.grade}${scoring.urgent ? " · URGENT" : ""} lead — ${reference}`,
     `${firstName}${company ? ` · ${company}` : ""} · ${proposed.join("+") || "?"}`,
+    via ? `📣 via ${via}` : null,
     phone ? `📞 ${phone}` : null,
     `✉️ ${email}`,
     triage?.replyDraft ? `\n— ready reply —\n${triage.replyDraft}` : null,
@@ -161,6 +168,7 @@ export async function POST(req: NextRequest) {
     if (company) rows.push(["Company", company]);
     if (phone) rows.push(["Phone", phone]);
     if (source) rows.push(["Heard about us", labelFor(BY_ID.get("source")!, source)]);
+    if (via) rows.push(["Source", via]);
     rows.push(["Language", locale], ["IP", ip]);
 
     const body =
