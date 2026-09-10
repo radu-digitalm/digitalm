@@ -5,16 +5,8 @@
 // so node --test loads it (relative imports with extensions, `import type`
 // for every type; no enums or parameter properties).
 import type { AuditChecks, CheckKey, CheckResult, CheckStatus, FitSuggestion, Flag } from "../crm/types.ts";
-import {
-  CHECK_COPY,
-  FLAG_COPY,
-  PACKAGE_ACTIONS,
-  PACKAGE_LABELS,
-  STATUS_LABELS,
-  TRADE_LABELS,
-  type PackageKey,
-  type ReportLocale,
-} from "../../content/report.ts";
+import { CHECK_COPY, FLAG_COPY, INTERNAL_FLAGS, PACKAGE_ACTIONS, PACKAGE_LABELS, STATUS_LABELS, packageKeyFor } from "../../content/auditChecks.ts";
+import { TRADE_LABELS, type ReportLocale } from "../../content/report.ts";
 
 /** Display order of the ten checks (contract §7.2 table order). */
 export const CHECK_ORDER: readonly CheckKey[] = [
@@ -90,7 +82,7 @@ export function checkRows(checks: AuditChecks | null | undefined, flags: readonl
     const r = resultFor(checks, key);
     return {
       key,
-      name: CHECK_COPY[key].name[locale],
+      name: CHECK_COPY[key].label[locale],
       status: r.status,
       statusLabel: STATUS_LABELS[r.status][locale],
       text: checkText(key, r.status, flags, locale),
@@ -129,14 +121,14 @@ export function topFindings(
 
 /** Package label from /pme — WEB reads "Site + IA" when there is no site at all. */
 export function packageLabel(pkg: FitSuggestion["pkg"], flags: readonly Flag[], locale: ReportLocale): string {
-  const key: PackageKey = pkg === "WEB" && flags.includes("no-site") ? "WEB_NO_SITE" : pkg;
-  return PACKAGE_LABELS[key][locale];
+  return PACKAGE_LABELS[packageKeyFor(pkg, flags)][locale];
 }
 
 /** Plain words for a list of flags, internal flags dropped, order kept. */
 export function flagWords(flags: readonly Flag[], locale: ReportLocale): string[] {
   const out: string[] = [];
   for (const f of flags) {
+    if (INTERNAL_FLAGS.has(f)) continue;
     const w = FLAG_COPY[f]?.[locale];
     if (w && !out.includes(w)) out.push(w);
   }
@@ -153,7 +145,7 @@ export function firstSteps(fits: readonly FitSuggestion[] | null | undefined, fl
   const seen = new Set<string>();
   for (const fit of fits ?? []) {
     if (!fit || (fit.pkg !== "WEB" && fit.pkg !== "AGENT" && fit.pkg !== "AUTO" && fit.pkg !== "SEC")) continue;
-    const key: PackageKey = fit.pkg === "WEB" && flags.includes("no-site") ? "WEB_NO_SITE" : fit.pkg;
+    const key = packageKeyFor(fit.pkg, flags);
     const label = PACKAGE_LABELS[key][locale];
     // AGENT and AUTO share a label; two lines with the same label read as a
     // duplicate, so the second one is folded into the first.

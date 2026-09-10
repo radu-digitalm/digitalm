@@ -13,8 +13,9 @@ import { CALL_WHERE, READY_WHERE, parseJson } from "@/lib/crm/db";
 import { sqlNow } from "@/lib/crm/time";
 import { enqueue } from "@/lib/crm/jobs";
 import { newReference } from "@/lib/crm/refs";
-import type { ActivityKind, EmailKind, Prospect } from "@/lib/crm/types";
+import type { EmailKind, Prospect } from "@/lib/crm/types";
 import { enquiriesDb } from "@/lib/enquiries";
+import { addActivity } from "@/lib/inbox/leads";
 import { tradeKeyFor } from "@/lib/discover/categories";
 import { sameByNameAndPlace, type MergedBusiness } from "@/lib/discover/dedupe";
 import type { SearchResult } from "@/lib/discover/index";
@@ -133,23 +134,6 @@ export function getProspect(id: number): ProspectRecord | null {
 export function getProspectByReference(reference: string): ProspectRecord | null {
   const row = enquiriesDb().prepare("SELECT * FROM prospects WHERE reference = ?").get(reference) as Row | undefined;
   return row ? rowToProspect(row) : null;
-}
-
-// ---- activities (finder writes note + recollect only) ---------------------------------
-
-export function insertActivity(input: {
-  prospectId: number;
-  leadId?: number | null;
-  kind: ActivityKind;
-  channel?: "email" | "phone" | "web" | "telegram" | "system" | null;
-  summary: string;
-  payload?: Record<string, string | number | boolean | null> | null;
-  actor?: "admin" | "system";
-}): number {
-  const r = enquiriesDb()
-    .prepare("INSERT INTO activities (lead_id, prospect_id, kind, channel, summary, payload, actor) VALUES (?, ?, ?, ?, ?, ?, ?)")
-    .run(input.leadId ?? null, input.prospectId, input.kind, input.channel ?? "system", input.summary.slice(0, 500), input.payload ? JSON.stringify(input.payload) : null, input.actor ?? "admin");
-  return Number(r.lastInsertRowid);
 }
 
 // ---- already-saved marks ----------------------------------------------------------------
@@ -571,9 +555,10 @@ export function patchProspect(id: number, patch: ProspectPatch): ProspectRecord 
   sets.push("updated_at = datetime('now')");
   const apply = db.transaction(() => {
     db.prepare(`UPDATE prospects SET ${sets.join(", ")} WHERE id = ?`).run(...params, id);
-    for (const summary of notes) insertActivity({ prospectId: id, leadId: current.leadId, kind: "note", channel: "system", summary, actor: "admin" });
+    // Every activity goes through inbox's writer (lead resolution, last_activity_at bump).
+    for (const summary of notes) addActivity({ prospectId: id, leadId: current.leadId, kind: "note", channel: "system", summary, actor: "admin" });
     if (recollect) {
-      insertActivity({
+      addActivity({
         prospectId: id,
         leadId: current.leadId,
         kind: "recollect",

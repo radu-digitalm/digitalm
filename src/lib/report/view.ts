@@ -12,6 +12,7 @@ import { enquiriesDb } from "@/lib/enquiries";
 import { notifyTelegram } from "@/lib/notify";
 import { SITE_URL } from "@/lib/seo";
 import { serverTrack } from "@/lib/serverTrack";
+import { addActivity } from "@/lib/inbox/leads";
 import { safeDisplayName } from "@/lib/drafts/templates";
 import type { ReportLocale } from "@/content/report";
 import { tradeWords } from "./findings";
@@ -175,12 +176,8 @@ export function logView(report: ReportData, ip: string): void {
       db.prepare(
         "UPDATE audits SET report_views = report_views + 1, report_first_viewed_at = COALESCE(report_first_viewed_at, datetime('now')) WHERE id = ?",
       ).run(report.audit.id);
-      db.prepare(
-        "INSERT INTO activities (lead_id, prospect_id, kind, channel, summary, payload, actor) VALUES (?, ?, 'report_view', 'web', ?, ?, 'prospect')",
-      ).run(report.leadId, report.prospectId, `Report ${ref} opened`, JSON.stringify({ ipHash: ipHash(ip) }));
-      if (report.leadId !== null) {
-        db.prepare("UPDATE leads SET last_activity_at = datetime('now'), updated_at = datetime('now') WHERE id = ?").run(report.leadId);
-      }
+      // inbox's writer: resolves the lead, bumps last_activity_at.
+      addActivity({ leadId: report.leadId, prospectId: report.prospectId, kind: "report_view", channel: "web", summary: `Report ${ref} opened`, payload: { ipHash: ipHash(ip) }, actor: "prospect" });
       return before.report_first_viewed_at === null;
     })();
     serverTrack("report_view", { ref });

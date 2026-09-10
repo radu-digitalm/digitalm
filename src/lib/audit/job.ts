@@ -5,7 +5,10 @@
 // `audit_done` activity. Nothing crawled is stored as HTML; `audits.crawl`
 // keeps {url, status, bytes} only. A refused target (SsrfError) fails the audit
 // with an "ssrf:…" error and does NOT retry; unexpected errors fail the audit
-// row and rethrow so the runner retries.
+// row and rethrow so the runner retries — the retry re-opens the same audits
+// row, so one job costs one row and one cap unit however many attempts it
+// takes. Rows left 'running' by a timeout or a crash are failed as
+// "interrupted" by sweepStaleAudits() (every job start, every panel GET).
 import { randomBytes } from "node:crypto";
 import { enquiriesDb } from "@/lib/enquiries";
 import { newReference } from "@/lib/crm/refs";
@@ -14,6 +17,7 @@ import { intEnv, nextParisTime, sqlNow } from "@/lib/crm/time";
 import { apiUsage, countApiUsage } from "@/lib/crm/apiUsage";
 import { classifyEmail, coerceHttpUrl, domainOf } from "@/lib/crm/classify";
 import { notifyTelegram } from "@/lib/notify";
+import { addActivity } from "@/lib/inbox/leads";
 import type { AuditChecks, Job, PsiSummary, Score } from "@/lib/crm/types";
 import { fetchSite } from "@/lib/audit/crawler";
 import type { SiteCrawl } from "@/lib/audit/crawler";
@@ -57,6 +61,21 @@ export function newReportToken(): string {
   return randomBytes(32).toString("base64url");
 }
 
+/** A 'running' audit older than this has lost its job (timeout, crash) and is failed as interrupted. */
+export const AUDIT_STALE_MINUTES = 10;
+
+/**
+ * Fail every 'running' audit whose start is older than AUDIT_STALE_MINUTES
+ * (the runner abandons a timed-out handler; a crash re-queues the job but
+ * never touched the row). Called at every job start and by the panel GET, so
+ * the AuditBlock never shows "Running" for a row nobody is working on.
+ */
+export function sweepStaleAudits(): number {
+  return enquiriesDb()
+    .prepare(`UPDATE audits SET status = 'failed', error = 'interrupted', finished_at = ? WHERE status = 'running' AND (started_at IS NULL OR started_at < datetime('now', '-${AUDIT_STALE_MINUTES} minutes'))`)
+    .run(sqlNow()).changes;
+}
+
 function failAudit(auditId: number, auditRef: string, prospectRef: string, error: string, log: (m: string) => void): AuditJobResult {
   const msg = error.slice(0, 300);
   enquiriesDb().prepare("UPDATE audits SET status = 'failed', error = ?, finished_at = ? WHERE id = ?").run(msg, sqlNow(), auditId);
@@ -97,6 +116,8 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
   }
 
   const db = enquiriesDb();
+  const stale = sweepStaleAudits();
+  if (stale) ctx.log(`${stale} stale running audit(s) marked failed`);
   const prospect = db
     .prepare("SELECT id, reference, website, locale, sole_trader, domain_key, google_listing, personal_wiped_at, deleted_at, lead_id FROM prospects WHERE id = ?")
     .get(prospectId) as ProspectRow | undefined;
@@ -105,15 +126,35 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
     return { ok: false, auditId: null, reference: null, error: "prospect_missing" };
   }
 
-  countApiUsage("audit");
   const website = prospect.website ? coerceHttpUrl(prospect.website) : null;
-  const reference = newReference("AU");
-  const token = newReportToken();
-  const auditId = Number(
-    db
-      .prepare("INSERT INTO audits (reference, prospect_id, status, locale, website, report_token, started_at) VALUES (?, ?, 'running', ?, ?, ?, ?)")
-      .run(reference, prospectId, prospect.locale === "fr" ? "fr" : "en", website, token, sqlNow()).lastInsertRowid,
-  );
+  // One audits row and one cap unit per JOB: a retry re-opens the row its
+  // earlier attempt left 'running' or 'failed' instead of inserting another.
+  const previous =
+    job.attempts > 1
+      ? (db
+          .prepare("SELECT id, reference FROM audits WHERE prospect_id = ? AND status IN ('running', 'failed') AND created_at >= ? ORDER BY id DESC LIMIT 1")
+          .get(prospectId, job.createdAt) as { id: number; reference: string } | undefined)
+      : undefined;
+  let auditId: number;
+  let reference: string;
+  if (previous) {
+    auditId = previous.id;
+    reference = previous.reference;
+    db.prepare(
+      "UPDATE audits SET status = 'running', error = NULL, started_at = ?, finished_at = NULL, checks = NULL, score = NULL, grade = NULL, flags = '[]', fits = '[]', top = '[]', pagespeed = NULL, crawl = '[]', website = ?, locale = ? WHERE id = ?",
+    ).run(sqlNow(), website, prospect.locale === "fr" ? "fr" : "en", auditId);
+    ctx.log(`${reference} re-opened for attempt ${job.attempts}`);
+  } else {
+    countApiUsage("audit");
+    reference = newReference("AU");
+    auditId = Number(
+      db
+        .prepare("INSERT INTO audits (reference, prospect_id, status, locale, website, report_token, started_at) VALUES (?, ?, 'running', ?, ?, ?, ?)")
+        .run(reference, prospectId, prospect.locale === "fr" ? "fr" : "en", website, newReportToken(), sqlNow()).lastInsertRowid,
+    );
+  }
+  // Any other 'running' row of this prospect belongs to no job (concurrency is 1).
+  db.prepare("UPDATE audits SET status = 'failed', error = 'interrupted', finished_at = ? WHERE prospect_id = ? AND status = 'running' AND id <> ?").run(sqlNow(), prospectId, auditId);
   ctx.log(`${reference} for ${prospect.reference}${website ? ` (${domainOf(website) ?? "site"})` : " (no website)"}`);
 
   try {
@@ -181,13 +222,17 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
       ];
       if (site && extraction && website) sets.push(...prospectUpdates(prospect, website, extraction, site));
       db.prepare(`UPDATE prospects SET ${sets.map(([col]) => `${col} = ?`).join(", ")} WHERE id = ?`).run(...sets.map(([, v]) => v), prospectId);
-      db.prepare("INSERT INTO activities (lead_id, prospect_id, kind, channel, summary, payload, actor, created_at) VALUES (?, ?, 'audit_done', 'system', ?, ?, 'system', ?)").run(
-        prospect.lead_id,
+      // inbox's writer: resolves the lead, bumps last_activity_at.
+      addActivity({
+        leadId: prospect.lead_id,
         prospectId,
-        website ? `Audit ${reference} done — score ${score.score} (${score.grade})` : `Audit ${reference} done — no website`,
-        JSON.stringify({ auditId, reference, score: score.score, grade: score.grade, flags: score.flags }),
-        now,
-      );
+        kind: "audit_done",
+        channel: "system",
+        summary: website ? `Audit ${reference} done — score ${score.score} (${score.grade})` : `Audit ${reference} done — no website`,
+        payload: { auditId, reference, score: score.score, grade: score.grade, flags: score.flags },
+        actor: "system",
+        createdAt: now,
+      });
     });
     finish();
     ctx.log(`${reference} done: ${score.score} (${score.grade}) flags ${score.flags.join(",") || "—"}`);

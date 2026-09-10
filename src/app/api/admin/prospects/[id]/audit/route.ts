@@ -3,7 +3,7 @@ import { guardAdminPost, isResponse, requireAdminApi } from "@/lib/crm/auth";
 import { enqueue, queuePosition } from "@/lib/crm/jobs";
 import { parseJson } from "@/lib/crm/db";
 import { enquiriesDb } from "@/lib/enquiries";
-import { auditUsageToday } from "@/lib/audit/job";
+import { auditUsageToday, sweepStaleAudits } from "@/lib/audit/job";
 import type { Audit, AuditChecks, CheckKey, FitSuggestion, Flag, PsiSummary } from "@/lib/crm/types";
 
 export const runtime = "nodejs";
@@ -115,6 +115,7 @@ export async function GET(req: NextRequest, { params }: Params) {
   const prospect = loadProspect(id);
   if (!prospect) return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   const db = enquiriesDb();
+  sweepStaleAudits(); // a row nobody is working on must not read "Running"
   const latest = db.prepare("SELECT * FROM audits WHERE prospect_id = ? ORDER BY id DESC LIMIT 1").get(id) as AuditRow | undefined;
   const history = (
     db.prepare("SELECT id, reference, status, score, grade, finished_at, created_at FROM audits WHERE prospect_id = ? ORDER BY id DESC LIMIT 5").all(id) as Pick<

@@ -35,7 +35,7 @@ test("tampered, truncated, malformed cookies → null, never a throw", () => {
   const cookie = sessionCookie("password", "radu");
   const [v, payload, sig] = cookie.split(".") as [string, string, string];
   assert.equal(readSession(`${v}.${payload}.${sig.slice(0, -1)}`), null); // truncated signature
-  assert.equal(readSession(`${v}.${payload}.${sig.slice(0, -1)}A`), null); // flipped char
+  assert.equal(readSession(`${v}.${payload}.${sig.slice(0, -1)}${sig.endsWith("A") ? "B" : "A"}`), null); // flipped last char (never the same one)
   assert.equal(readSession(`${v}.${payload}x.${sig}`), null); // payload edited
   assert.equal(readSession(`v2.${payload}.${sig}`), null); // wrong format version
   assert.equal(readSession(`${payload}.${sig}`), null);
