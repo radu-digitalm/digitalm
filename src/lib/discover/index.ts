@@ -41,10 +41,6 @@ export const SOURCE_LABELS: Record<DiscoverySource, string> = {
   google: "Google",
 };
 
-/** Attribution line shown under every results table and in RegisterBlock (contract §6). */
-export const ATTRIBUTION =
-  "Données © les contributeurs d'OpenStreetMap (ODbL) · Sirene/RNE via API Recherche d'entreprises — Licence Ouverte 2.0 · Companies House — OGL v3";
-
 export const SEARCH_BUDGET_MS = 40_000;
 export const MAX_ROWS = 300;
 const MIN_ADAPTER_BUDGET_MS = 2_000;

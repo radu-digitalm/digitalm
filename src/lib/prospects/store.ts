@@ -11,7 +11,7 @@ import { coerceHttpUrl, domainOf, localeForCountry, normaliseEmail, normaliseNam
 import { CALL_WHERE, READY_WHERE, parseJson, sqlNow } from "@/lib/crm/db";
 import { enqueue } from "@/lib/crm/jobs";
 import { newReference } from "@/lib/crm/refs";
-import type { ActivityKind, DiscoverySource, EmailKind, Prospect } from "@/lib/crm/types";
+import type { ActivityKind, EmailKind, Prospect } from "@/lib/crm/types";
 import { enquiriesDb } from "@/lib/enquiries";
 import { tradeKeyFor } from "@/lib/discover/categories";
 import { sameByNameAndPlace, type MergedBusiness } from "@/lib/discover/dedupe";
@@ -643,6 +643,3 @@ export function setGoogleListing(id: number, listing: Prospect["googleListing"],
   ).run(listing, placeId, listing, id);
   return getProspect(id)!;
 }
-
-/** Sources an admin can pick in FindForm — mirrored here for the pages. */
-export const SOURCE_ORDER: readonly DiscoverySource[] = ["osm", "fr_register", "companies_house", "google"];
