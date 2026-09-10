@@ -5,7 +5,7 @@
 // without its own rule is "manual" (Appendix F): the panel warns and still
 // logs. Nothing touches the DB at module load.
 import { HttpError } from "@/lib/crm/http";
-import { sqlNow, sqlToMs } from "@/lib/crm/time";
+import { sqlToMs, toSql } from "@/lib/crm/time";
 import type { CallPolicy, Lead, Refusal } from "@/lib/crm/types";
 import { latestDraft } from "@/lib/drafts/store";
 import type { PhoneSource } from "@/lib/drafts/templates";
@@ -172,6 +172,8 @@ export interface LogCallInput {
   note?: string | null;
   /** GB: the owner attests the number was screened against TPS and CTPS today. */
   tpsChecked?: boolean;
+  /** Injected by tests; the routes leave it unset. */
+  now?: Date;
 }
 
 export type LogCallResult = { ok: true; activityId: number; lead: Lead | null; optedOut: boolean } | { ok: false; refusals: Refusal[] };
@@ -188,8 +190,8 @@ export async function logCall(input: LogCallInput): Promise<LogCallResult> {
   if (registerCheck?.checked) p = getProspect(input.prospectId) ?? p;
   const rule = ruleFor(p.country);
   const db = enquiriesDb();
-  const now = new Date();
-  const nowSql = sqlNow();
+  const now = input.now ?? new Date();
+  const nowSql = toSql(now);
 
   if (input.tpsChecked && rule.callAllowed === "screened") {
     db.prepare("UPDATE prospects SET tps_checked_at = ?, updated_at = ? WHERE id = ?").run(nowSql, nowSql, p.id);
