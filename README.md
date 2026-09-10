@@ -76,6 +76,6 @@ NODE_OPTIONS=--max-old-space-size=1536 npx tsc --noEmit   # memory-capped on thi
 
 Both scripts are mirrored to `/home/hermes/workspace/scripts/` (the path the schedulers use); keep the copies identical.
 
-**Outreach module status.** The outreach module (sends, opt-outs, calls, legal blocks, `/o/[token]`) is not merged; `src/lib/crm/features.ts` (`OUTREACH_MODULE = false`) hides every control that would contact a prospect. No prospect may be contacted from a build with the flag off. The privacy and notice sections, `docs/leadgen-lia.md` and `docs/leadgen-registre-art30.md` are drafted for Radu's signature.
+The outreach module (per-country contact rules, opt-out registry, legal footers, refusal engine) is merged; see `docs/leadgen-build-spec.md` §9.
 
 **Staging smoke (spec §13).** After `npm run build` and `systemctl --user restart digitalm-staging`: `/fr`, `/en`, `/fr/diagnostic` still 200; `/admin/login` 200; `curl -H 'RSC: 1' :3001/admin/leads` without a cookie → 307, never data; log in; every admin page 200; Add by URL → audit done → draft; `/r/x` → branded 404 with `X-Robots-Tag: noindex` and `Cache-Control: no-store`; `/api/admin/jobs` → 401 without a cookie; digest and purge scripts run on the staging DB with `--db`.
