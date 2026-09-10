@@ -80,11 +80,31 @@ export interface RobotsRules {
   groups: RobotsGroup[];
 }
 
+// Patterns are prospect-controlled input, so they are never compiled to a
+// regex (a handful of `*` in a Disallow line would otherwise backtrack for
+// minutes inside the process that serves the site). Rules are normalised at
+// parse time: runs of `*` collapse to one, a pattern longer than
+// MAX_ROBOTS_PATTERN or with more than MAX_ROBOTS_WILDCARDS stars is dropped,
+// and the tested path is capped at MAX_ROBOTS_PATH. Matching is a linear glob.
+export const MAX_ROBOTS_PATTERN = 200;
+export const MAX_ROBOTS_WILDCARDS = 5;
+export const MAX_ROBOTS_PATH = 500;
+export const MAX_ROBOTS_LINES = 5000;
+
+/** A rule pattern as stored: null when it cannot be honoured safely (the line is dropped). */
+export function normaliseRobotsPattern(raw: string): string | null {
+  const pattern = raw.replace(/\*{2,}/g, "*");
+  if (pattern.length > MAX_ROBOTS_PATTERN) return null;
+  let stars = 0;
+  for (let i = 0; i < pattern.length; i++) if (pattern.charCodeAt(i) === 42) stars++;
+  return stars > MAX_ROBOTS_WILDCARDS ? null : pattern;
+}
+
 export function parseRobots(text: string): RobotsRules {
   const groups: RobotsGroup[] = [];
   let current: RobotsGroup | null = null;
   let lastWasAgent = false;
-  for (const rawLine of text.split(/\r?\n/).slice(0, 5000)) {
+  for (const rawLine of text.split(/\r?\n/, MAX_ROBOTS_LINES)) {
     const line = rawLine.replace(/#.*$/, "").trim();
     if (!line) continue;
     const i = line.indexOf(":");
@@ -96,7 +116,7 @@ export function parseRobots(text: string): RobotsRules {
         current = { agents: [], rules: [] };
         groups.push(current);
       }
-      current.agents.push(value.toLowerCase());
+      current.agents.push(value.toLowerCase().slice(0, 200));
       lastWasAgent = true;
       continue;
     }
@@ -104,19 +124,52 @@ export function parseRobots(text: string): RobotsRules {
     if (!current) continue;
     if (key === "allow" || key === "disallow") {
       if (key === "disallow" && value === "") continue; // "Disallow:" alone allows everything
-      current.rules.push({ allow: key === "allow", pattern: value });
+      const pattern = normaliseRobotsPattern(value);
+      if (pattern !== null) current.rules.push({ allow: key === "allow", pattern });
     }
   }
   return { groups };
 }
 
-function patternToRegex(pattern: string): RegExp {
+/**
+ * Does a robots pattern match the path? Prefix semantics with `*` wildcards
+ * and an optional trailing `$` anchor, as Google documents them. Two-pointer
+ * glob walk: linear in practice, bounded by pattern × path (≤ 200 × 500) in
+ * the worst case — no regex, no exponential backtracking.
+ */
+export function robotsPatternMatches(pattern: string, path: string): boolean {
   const anchored = pattern.endsWith("$");
-  const body = (anchored ? pattern.slice(0, -1) : pattern)
-    .split("*")
-    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-    .join(".*");
-  return new RegExp(`^${body}${anchored ? "$" : ""}`);
+  const pat = anchored ? pattern.slice(0, -1) : pattern;
+  let p = 0;
+  let s = 0;
+  let starP = -1;
+  let starS = -1;
+  for (;;) {
+    if (p === pat.length) {
+      if (!anchored || s === path.length) return true;
+      // Anchored with path left over: stretch the last `*` by one character.
+      if (starP < 0) return false;
+      p = starP + 1;
+      s = ++starS;
+      if (s > path.length) return false;
+      continue;
+    }
+    if (pat.charCodeAt(p) === 42) {
+      starP = p;
+      starS = s;
+      p++;
+      continue;
+    }
+    if (s < path.length && pat.charCodeAt(p) === path.charCodeAt(s)) {
+      p++;
+      s++;
+      continue;
+    }
+    if (starP < 0) return false;
+    p = starP + 1;
+    s = ++starS;
+    if (s > path.length) return false;
+  }
 }
 
 /** The group for a product token: the longest matching user-agent, else "*", else null. */
@@ -141,21 +194,14 @@ export function robotsGroupFor(rules: RobotsRules, token: string): RobotsGroup |
   return best ?? star;
 }
 
-/** Longest-match evaluation of a path for a product token (allow wins ties; no rule → allowed). */
-export function robotsAllows(rules: RobotsRules | null, token: string, path: string): boolean {
-  if (!rules) return true;
-  const group = robotsGroupFor(rules, token);
+/** Longest-match evaluation of a path against one group's rules (allow wins ties; no rule → allowed). */
+export function groupAllows(group: RobotsGroup | null, path: string): boolean {
   if (!group) return true;
+  const p = path.length > MAX_ROBOTS_PATH ? path.slice(0, MAX_ROBOTS_PATH) : path;
   let verdict = true;
   let bestLen = -1;
   for (const r of group.rules) {
-    let re: RegExp;
-    try {
-      re = patternToRegex(r.pattern);
-    } catch {
-      continue;
-    }
-    if (!re.test(path)) continue;
+    if (!robotsPatternMatches(r.pattern, p)) continue;
     const len = r.pattern.length;
     if (len > bestLen || (len === bestLen && r.allow)) {
       bestLen = len;
@@ -163,6 +209,18 @@ export function robotsAllows(rules: RobotsRules | null, token: string, path: str
     }
   }
   return verdict;
+}
+
+/** A path tester for one product token — the group is selected once, then reused for every path of a crawl. */
+export function robotsMatcher(rules: RobotsRules | null, token: string): (path: string) => boolean {
+  if (!rules) return () => true;
+  const group = robotsGroupFor(rules, token);
+  return (path) => groupAllows(group, path);
+}
+
+/** Longest-match evaluation of a path for a product token (allow wins ties; no rule → allowed). */
+export function robotsAllows(rules: RobotsRules | null, token: string, path: string): boolean {
+  return robotsMatcher(rules, token)(path);
 }
 
 export const AI_BOTS = { gptbot: "GPTBot", claudebot: "ClaudeBot", perplexitybot: "PerplexityBot", googleExtended: "Google-Extended" } as const;
@@ -496,8 +554,10 @@ export async function fetchSite(website: string, opts: CrawlOptions = {}): Promi
 
   // 1. robots.txt on the input origin.
   let robots = await fetchRobots(origin0, opts, aux);
+  // Our group is picked once per robots.txt; every path of the crawl reuses it.
+  let allows = robotsMatcher(robots.rules, ROBOTS_TOKEN);
   const homePath = `${start.url.pathname}${start.url.search}`;
-  const homeBlockedByRobots = robots.rules !== null && !robotsAllows(robots.rules, ROBOTS_TOKEN, homePath);
+  const homeBlockedByRobots = robots.rules !== null && !allows(homePath);
 
   // 2. home page.
   let home: FetchResult | null = null;
@@ -523,7 +583,10 @@ export async function fetchSite(website: string, opts: CrawlOptions = {}): Promi
   const finalUrl = home?.finalUrl ?? null;
   const origin = finalUrl ? new URL(finalUrl).origin : origin0;
   const hostname = home?.target.hostname ?? start.hostname;
-  if (home && origin !== origin0) robots = await fetchRobots(origin, opts, aux);
+  if (home && origin !== origin0) {
+    robots = await fetchRobots(origin, opts, aux);
+    allows = robotsMatcher(robots.rules, ROBOTS_TOKEN);
+  }
   const httpsFinal = (finalUrl ?? website).startsWith("https://");
 
   // 3. TLS on the vetted IP (the final host, or the input host when the home never answered).
@@ -572,7 +635,7 @@ export async function fetchSite(website: string, opts: CrawlOptions = {}): Promi
     ] as const) {
       if (!u || (kind === "legal" && u === contactUrl)) continue;
       if (opts.signal?.aborted) break;
-      if (robots.rules && !robotsAllows(robots.rules, ROBOTS_TOKEN, pathOf(u))) {
+      if (robots.rules && !allows(pathOf(u))) {
         skipped.push({ url: u, reason: "robots" });
         continue;
       }
@@ -594,7 +657,7 @@ export async function fetchSite(website: string, opts: CrawlOptions = {}): Promi
 
   // 5. llms.txt on the final origin.
   let llmsTxt = false;
-  if (home && !opts.signal?.aborted && (!robots.rules || robotsAllows(robots.rules, ROBOTS_TOKEN, "/llms.txt"))) {
+  if (home && !opts.signal?.aborted && (!robots.rules || allows("/llms.txt"))) {
     try {
       const r = await fetchUrl(`${origin}/llms.txt`, { ua: opts.ua, accept: ACCEPT_TEXT, types: TEXT_TYPES, signal: opts.signal, lookup: opts.lookup, socket: opts.socket });
       aux.push(...r.hops);

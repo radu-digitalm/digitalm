@@ -1,8 +1,14 @@
 // Reduce crawled pages to scalars (contract §7.1 step 7). Nothing here keeps
 // HTML: titles ≤ 200, descriptions ≤ 300, URLs ≤ 500 through safeHttpUrl,
 // control characters stripped, email = first mailto: address matching EMAIL_RE.
-// Regex-based on purpose (no DOM dependency); every pattern is linear on the
-// 2 MB inputs the crawler can hand over. Pure: runs under node --test.
+//
+// The page is tokenised ONCE, linearly (indexOf-driven, ≤ 3 KB per tag, ≤ 50k
+// tags, ≤ 512 KB of HTML), and every attribute question is asked of a single
+// tag string — never of the whole document. Prospect HTML is hostile input
+// that runs inside the process serving the site, so no pattern here may
+// re-scan to the end of the document per opener. The only regexes applied to
+// the full text are literal alternations (CMS / booking / chat signatures)
+// or bounded lookarounds (copyright years). Pure: runs under node --test.
 import { EMAIL_RE, domainOf, safeHttpUrl } from "../crm/classify.ts";
 
 export interface PageLike {
@@ -47,6 +53,16 @@ export interface Extraction {
   pagesScanned: number;
 }
 
+// ---- limits ------------------------------------------------------------------------
+
+/** HTML handed to the extractor per page; the crawler's 2 MB cap is a transfer limit, this is the parse limit. */
+export const MAX_HTML = 512 * 1024;
+/** A "tag" longer than this is malformed input and is skipped whole (never re-scanned). */
+export const MAX_TAG = 3 * 1024;
+export const MAX_TAGS = 50_000;
+const MAX_SCRIPT_BODY = 200_000;
+const MAX_TAG_TEXT = 500;
+
 // ---- text helpers ------------------------------------------------------------------
 
 const CONTROL_RE = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g;
@@ -82,22 +98,6 @@ export function clean(s: string, max: number): string {
   return t.length > max ? t.slice(0, max) : t;
 }
 
-/** Visible text of an HTML document (scripts, styles and tags removed), whitespace collapsed. */
-export function htmlToText(html: string): string {
-  return stripControl(
-    decodeEntities(
-      html
-        .replace(/<!--[\s\S]*?-->/g, " ")
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, " ")
-        .replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, " ")
-        .replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript\s*>/gi, " ")
-        .replace(/<[^>]{0,5000}>/g, " "),
-    ),
-  )
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 /** Lower-case, accents folded — for matching French wording. */
 export function fold(s: string): string {
   return s
@@ -106,10 +106,153 @@ export function fold(s: string): string {
     .toLowerCase();
 }
 
-function attr(tag: string, name: string): string | null {
-  const m = tag.match(new RegExp(`\\s${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, "i"));
-  if (!m) return null;
-  return m[1] ?? m[2] ?? m[3] ?? null;
+// ---- tokeniser -----------------------------------------------------------------------
+
+export interface HtmlTag {
+  /** The tag as written, "<a href=…>" (≤ MAX_TAG chars). */
+  raw: string;
+  /** Lower-case element name; "" for a doctype or processing instruction. */
+  name: string;
+  close: boolean;
+  /** Text that follows this tag up to the next one (entities intact, ≤ 500 chars). */
+  text: string;
+  /** Raw body of a <script> element (≤ 200 KB); absent elsewhere. */
+  body?: string;
+  attrs?: Map<string, string>;
+}
+
+export interface HtmlTokens {
+  tags: HtmlTag[];
+  /** Visible text: comments, scripts, styles and noscript removed, entities intact. */
+  text: string;
+  /** The (capped) source, for literal signature scans only. */
+  html: string;
+}
+
+// Elements whose content is not markup: skipped to their closing tag in one indexOf.
+const RAW_TEXT = new Set(["script", "style", "noscript"]);
+const TAG_NAME_RE = /^<(\/?)([a-zA-Z][a-zA-Z0-9:-]*)/;
+
+function isSpace(c: number): boolean {
+  return c === 32 || c === 9 || c === 10 || c === 13 || c === 12;
+}
+
+/** Attributes of one tag, first occurrence wins, names lower-cased. Linear scan, no regex. */
+function parseAttrs(raw: string): Map<string, string> {
+  const out = new Map<string, string>();
+  const n = raw.length;
+  let i = 1;
+  while (i < n && !isSpace(raw.charCodeAt(i)) && raw[i] !== ">") i++; // "/name"
+  for (;;) {
+    while (i < n && (isSpace(raw.charCodeAt(i)) || raw[i] === "/")) i++;
+    if (i >= n || raw[i] === ">") break;
+    const nameStart = i;
+    while (i < n && !isSpace(raw.charCodeAt(i)) && raw[i] !== "=" && raw[i] !== ">" && raw[i] !== "/") i++;
+    const name = raw.slice(nameStart, i).toLowerCase();
+    if (!name) {
+      i++; // a stray "=" or quote: step over it so the scan always advances
+      continue;
+    }
+    while (i < n && isSpace(raw.charCodeAt(i))) i++;
+    let value = "";
+    if (raw[i] === "=") {
+      i++;
+      while (i < n && isSpace(raw.charCodeAt(i))) i++;
+      const q = raw[i];
+      if (q === '"' || q === "'") {
+        const end = raw.indexOf(q, i + 1);
+        value = raw.slice(i + 1, end < 0 ? n : end);
+        i = end < 0 ? n : end + 1;
+      } else {
+        const start = i;
+        while (i < n && !isSpace(raw.charCodeAt(i)) && raw[i] !== ">") i++;
+        value = raw.slice(start, i);
+      }
+    }
+    if (!out.has(name)) out.set(name, value);
+  }
+  return out;
+}
+
+function attr(tag: HtmlTag, name: string): string | null {
+  tag.attrs ??= parseAttrs(tag.raw);
+  return tag.attrs.get(name) ?? null;
+}
+
+/**
+ * One linear pass over the document: tags (≤ MAX_TAG each, ≤ MAX_TAGS),
+ * the visible text, and script bodies. A string is capped at MAX_HTML first;
+ * tokens passed back in are returned as they are, so callers share one parse.
+ */
+export function tokenise(input: string | HtmlTokens): HtmlTokens {
+  if (typeof input !== "string") return input;
+  const html = input.length > MAX_HTML ? input.slice(0, MAX_HTML) : input;
+  const lower = html.toLowerCase();
+  const tags: HtmlTag[] = [];
+  const textParts: string[] = [];
+  let last: HtmlTag | null = null;
+  const pushText = (s: string) => {
+    if (!s) return;
+    textParts.push(s);
+    if (last && last.text.length < MAX_TAG_TEXT) last.text += s.slice(0, MAX_TAG_TEXT - last.text.length);
+  };
+  let i = 0;
+  while (i < html.length) {
+    const lt = html.indexOf("<", i);
+    if (lt < 0) {
+      pushText(html.slice(i));
+      break;
+    }
+    pushText(html.slice(i, lt));
+    if (html.startsWith("<!--", lt)) {
+      const end = html.indexOf("-->", lt + 4);
+      i = end < 0 ? html.length : end + 3;
+      continue;
+    }
+    const gt = html.indexOf(">", lt + 1);
+    if (gt < 0) break; // unterminated: what follows is not a document
+    if (gt - lt > MAX_TAG) {
+      i = gt + 1; // malformed span: skipped whole, never re-scanned
+      continue;
+    }
+    const raw = html.slice(lt, gt + 1);
+    const m = TAG_NAME_RE.exec(raw);
+    const tag: HtmlTag = { raw, name: m ? m[2]!.toLowerCase() : "", close: !!m && m[1] === "/", text: "" };
+    i = gt + 1;
+    if (!tag.close && RAW_TEXT.has(tag.name) && !raw.endsWith("/>")) {
+      const end = lower.indexOf(`</${tag.name}`, i);
+      if (tag.name === "script") tag.body = html.slice(i, Math.min(end < 0 ? html.length : end, i + MAX_SCRIPT_BODY));
+      if (end < 0) i = html.length;
+      else {
+        const gt2 = html.indexOf(">", end);
+        i = gt2 < 0 ? html.length : gt2 + 1;
+      }
+    }
+    tags.push(tag);
+    last = tag;
+    if (tags.length >= MAX_TAGS) break;
+  }
+  return { tags, text: textParts.join(" "), html };
+}
+
+/** Text of an element: what follows its opening tag until its closing tag (a few tags deep). */
+function innerText(tags: HtmlTag[], at: number, maxTags = 40): string {
+  const open = tags[at]!;
+  let text = open.text;
+  for (let j = at + 1; j < tags.length && j <= at + maxTags; j++) {
+    const t = tags[j]!;
+    if (t.name === open.name) break; // its closing tag, or a nested opener of the same kind
+    text += ` ${t.text}`;
+    if (text.length > 4 * MAX_TAG_TEXT) break;
+  }
+  return text;
+}
+
+/** Visible text of an HTML document (scripts, styles and tags removed), whitespace collapsed. */
+export function htmlToText(html: string | HtmlTokens): string {
+  return stripControl(decodeEntities(tokenise(html).text))
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 // ---- links -------------------------------------------------------------------------
@@ -121,34 +264,36 @@ export interface Link {
   text: string;
 }
 
-const ANCHOR_RE = /<a\b([^>]{0,3000})>([\s\S]{0,500}?)<\/a\s*>/gi;
-const HREF_RE = /\shref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+const MAILTO_OR_TEL_RE = /^(mailto|tel):/i;
 
 /** Every href on the page, resolved against `baseUrl`; raw values kept for mailto:/tel: scans. */
-export function findLinks(html: string, baseUrl: string): Link[] {
+export function findLinks(html: string | HtmlTokens, baseUrl: string): Link[] {
+  const { tags } = tokenise(html);
   const out: Link[] = [];
   let base = baseUrl;
-  const baseTag = html.match(/<base\b[^>]*\shref\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+  const baseTag = tags.find((t) => t.name === "base" && !t.close && attr(t, "href"));
   if (baseTag) {
-    const b = safeHttpUrl(resolve(baseTag[1] ?? baseTag[2] ?? "", baseUrl) ?? "");
+    const b = safeHttpUrl(resolve(attr(baseTag, "href") ?? "", baseUrl) ?? "");
     if (b) base = b;
   }
   const seen = new Set<string>();
-  for (const m of html.matchAll(ANCHOR_RE)) {
-    const raw = decodeEntities(attr(` ${m[1]}`, "href") ?? "").trim();
+  for (let i = 0; i < tags.length && out.length < 2000; i++) {
+    const t = tags[i]!;
+    if (t.name !== "a" || t.close) continue;
+    const raw = decodeEntities(attr(t, "href") ?? "").trim();
     if (!raw) continue;
-    const text = clean(m[2]!.replace(/<[^>]*>/g, " "), 120);
+    const text = clean(innerText(tags, i), 120);
     const href = resolve(raw, base);
     const key = `${href ?? raw}|${text}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push({ href, raw, text });
-    if (out.length >= 2000) break;
   }
   // hrefs outside <a> (e.g. <link>, <area>) — raw only, for mailto/tel and social scans.
-  for (const m of html.matchAll(HREF_RE)) {
-    const raw = decodeEntities(m[1] ?? m[2] ?? m[3] ?? "").trim();
-    if (!raw || !/^(mailto|tel):/i.test(raw)) continue;
+  for (const t of tags) {
+    if (t.name === "a" || t.close) continue;
+    const raw = decodeEntities(attr(t, "href") ?? "").trim();
+    if (!raw || !MAILTO_OR_TEL_RE.test(raw)) continue;
     const key = `${raw}|`;
     if (seen.has(key)) continue;
     seen.add(key);
@@ -190,19 +335,29 @@ function stripHash(u: string): string {
 
 // ---- scalar extractors -------------------------------------------------------------
 
-// href="mailto:…" / href='tel:…' / bare href=mailto:… — quoted values may contain spaces.
-const MAILTO_RE = /href\s*=\s*(?:"\s*mailto:([^"]*)"|'\s*mailto:([^']*)'|mailto:([^\s>]+))/gi;
-const TEL_RE = /href\s*=\s*(?:"\s*tel:([^"]*)"|'\s*tel:([^']*)'|tel:([^\s>]+))/gi;
-
-/** First valid address of the first mailto: on the page ("mailto:a@x.fr,b@y.fr?subject=…" → a@x.fr). */
-export function firstMailto(html: string): string | null {
-  for (const m of html.matchAll(MAILTO_RE)) {
-    let value = decodeEntities(m[1] ?? m[2] ?? m[3] ?? "");
+/** Every href value on the page that starts with `scheme:` (mailto/tel), decoded, in document order. */
+function hrefsWithScheme(html: string | HtmlTokens, scheme: "mailto" | "tel"): string[] {
+  const out: string[] = [];
+  for (const t of tokenise(html).tags) {
+    if (t.close) continue;
+    const href = attr(t, "href");
+    if (href === null) continue;
+    let value = decodeEntities(href).trim();
+    if (!value.slice(0, scheme.length + 1).toLowerCase().startsWith(`${scheme}:`)) continue;
+    value = value.slice(scheme.length + 1);
     try {
       value = decodeURIComponent(value);
     } catch {
       /* keep as is */
     }
+    out.push(value);
+  }
+  return out;
+}
+
+/** First valid address of the first mailto: on the page ("mailto:a@x.fr,b@y.fr?subject=…" → a@x.fr). */
+export function firstMailto(html: string | HtmlTokens): string | null {
+  for (const value of hrefsWithScheme(html, "mailto")) {
     const beforeQuery = value.split("?")[0] ?? "";
     for (const part of beforeQuery.split(/[,;]/)) {
       const candidate = stripControl(part).trim().toLowerCase();
@@ -213,14 +368,8 @@ export function firstMailto(html: string): string | null {
 }
 
 /** First tel: link, normalised to digits with an optional leading "+" (≤ 24 chars). */
-export function firstTel(html: string): string | null {
-  for (const m of html.matchAll(TEL_RE)) {
-    let value = decodeEntities(m[1] ?? m[2] ?? m[3] ?? "");
-    try {
-      value = decodeURIComponent(value);
-    } catch {
-      /* keep as is */
-    }
+export function firstTel(html: string | HtmlTokens): string | null {
+  for (const value of hrefsWithScheme(html, "tel")) {
     let s = value.replace(/\(0\)/g, "").replace(/[^\d+]/g, "");
     if (s.startsWith("00")) s = `+${s.slice(2)}`;
     s = s.replace(/(?!^)\+/g, "");
@@ -282,18 +431,30 @@ const CMS_SIGNATURES: [string, RegExp][] = [
   ["WordPress", /wp-content\/|wp-includes\/|wp-json/i],
 ];
 
-/** CMS from the generator meta or well-known asset paths; shop platforms first. */
-export function detectCms(html: string): string | null {
-  const gen = html.match(/<meta\b[^>]*\sname\s*=\s*["']generator["'][^>]*\scontent\s*=\s*["']([^"']{1,80})["']/i)
-    ?? html.match(/<meta\b[^>]*\scontent\s*=\s*["']([^"']{1,80})["'][^>]*\sname\s*=\s*["']generator["']/i);
-  if (gen) {
-    const g = gen[1]!;
-    if (/woocommerce/i.test(html)) return "WooCommerce";
-    const known = CMS_SIGNATURES.find(([name]) => g.toLowerCase().includes(name.toLowerCase().split(" ")[0]!));
-    if (known) return known[0];
-    return clean(g.replace(/\s*[\d.]+.*$/, ""), 40) || null;
+/** The <meta> tags of the page whose name/property (lower-cased) equals `key`. */
+function metaTags(tokens: HtmlTokens, key: string): HtmlTag[] {
+  const out: HtmlTag[] = [];
+  for (const t of tokens.tags) {
+    if (t.name !== "meta" || t.close) continue;
+    const name = (attr(t, "name") ?? attr(t, "property") ?? "").trim().toLowerCase();
+    if (name === key) out.push(t);
   }
-  for (const [name, re] of CMS_SIGNATURES) if (re.test(html)) return name;
+  return out;
+}
+
+/** CMS from the generator meta or well-known asset paths; shop platforms first. */
+export function detectCms(html: string | HtmlTokens): string | null {
+  const tokens = tokenise(html);
+  const gen = metaTags(tokens, "generator")
+    .map((t) => (attr(t, "content") ?? "").trim())
+    .find((c) => c.length >= 1 && c.length <= 80);
+  if (gen) {
+    if (/woocommerce/i.test(tokens.html)) return "WooCommerce";
+    const known = CMS_SIGNATURES.find(([name]) => gen.toLowerCase().includes(name.toLowerCase().split(" ")[0]!));
+    if (known) return known[0];
+    return clean(gen.replace(/\s*[\d.]+.*$/, ""), 40) || null;
+  }
+  for (const [name, re] of CMS_SIGNATURES) if (re.test(tokens.html)) return name;
   return null;
 }
 
@@ -313,8 +474,9 @@ const BOOKING_PROVIDERS: [string, RegExp][] = [
 const BOOKING_PATH_RE = /\/(reservation|reservations|reserver|rendez-vous|rendezvous|rdv|prendre-rendez-vous|book|booking|book-now|book-online|appointment|appointments)(\/|$|\?|#|-|\.)/i;
 
 /** Booking provider key from links / embedded widgets, or a path-based hint; null when none. */
-export function detectBooking(html: string, links: Link[]): string | null {
-  for (const [name, re] of BOOKING_PROVIDERS) if (re.test(html)) return name;
+export function detectBooking(html: string | HtmlTokens, links: Link[]): string | null {
+  const source = tokenise(html).html;
+  for (const [name, re] of BOOKING_PROVIDERS) if (re.test(source)) return name;
   for (const l of links) {
     if (!l.href) continue;
     try {
@@ -337,67 +499,87 @@ const CHAT_PROVIDERS: [string, RegExp][] = [
   ["brevo", /brevo\.com|sibautomation|conversations-widget|sendinblue/i],
 ];
 
-export function detectChat(html: string): string | null {
-  for (const [name, re] of CHAT_PROVIDERS) if (re.test(html)) return name;
+export function detectChat(html: string | HtmlTokens): string | null {
+  const source = tokenise(html).html;
+  for (const [name, re] of CHAT_PROVIDERS) if (re.test(source)) return name;
   return null;
 }
 
 const COOKIE_RE = /tarteaucitron|axeptio|cookiebot|onetrust|didomi|complianz|cookieyes|usercentrics|iubenda|quantcast|cookie-law-info|cookie[-_]?consent|cookie[-_]?banner|cookie[-_]?notice|cookie[-_]?bar|cmp-container|cc-window/i;
 
-export function detectCookieBanner(html: string): boolean {
-  return COOKIE_RE.test(html);
+export function detectCookieBanner(html: string | HtmlTokens): boolean {
+  return COOKIE_RE.test(tokenise(html).html);
 }
 
-const EMAIL_INPUT_RE = /<input\b[^>]*\s(?:type\s*=\s*["']?email|name\s*=\s*["']?(?:e-?mail|courriel|mail|your-email)\b)/i;
+const EMAIL_INPUT_NAME_RE = /^(?:e-?mail|courriel|mail|your-email)\b/i;
 
-export function hasEmailForm(html: string): boolean {
-  return EMAIL_INPUT_RE.test(html);
+export function hasEmailForm(html: string | HtmlTokens): boolean {
+  for (const t of tokenise(html).tags) {
+    if (t.name !== "input" || t.close) continue;
+    if ((attr(t, "type") ?? "").trim().toLowerCase() === "email") return true;
+    if (EMAIL_INPUT_NAME_RE.test((attr(t, "name") ?? "").trim())) return true;
+  }
+  return false;
 }
 
-export function hasViewportMeta(html: string): boolean {
-  return /<meta\b[^>]*\sname\s*=\s*["']viewport["']/i.test(html);
+export function hasViewportMeta(html: string | HtmlTokens): boolean {
+  return metaTags(tokenise(html), "viewport").length > 0;
 }
 
-export function pageTitle(html: string): string | null {
-  const m = html.match(/<title\b[^>]*>([\s\S]{0,2000}?)<\/title\s*>/i);
-  const t = m ? clean(m[1]!, 200) : "";
+export function pageTitle(html: string | HtmlTokens): string | null {
+  const { tags } = tokenise(html);
+  const at = tags.findIndex((t) => t.name === "title" && !t.close);
+  if (at < 0) return null;
+  const t = clean(innerText(tags, at, 10), 200);
   return t || null;
 }
 
-export function metaDescription(html: string): string | null {
-  for (const m of html.matchAll(/<meta\b[^>]{0,2000}>/gi)) {
-    const tag = m[0];
-    const name = (attr(tag, "name") ?? attr(tag, "property") ?? "").toLowerCase();
-    if (name !== "description" && name !== "og:description") continue;
-    const content = attr(tag, "content");
-    if (content) {
-      const d = clean(content, 300);
-      if (d) return d;
+export function metaDescription(html: string | HtmlTokens): string | null {
+  const tokens = tokenise(html);
+  for (const key of ["description", "og:description"]) {
+    for (const t of metaTags(tokens, key)) {
+      const content = attr(t, "content");
+      if (content) {
+        const d = clean(content, 300);
+        if (d) return d;
+      }
     }
   }
   return null;
 }
 
 // Sub-resources only: <a href="http://…"> and <link rel="canonical"> are not mixed content.
-const MIXED_TAG_RE = /<(script|img|iframe|source|video|audio|embed|object|track)\b[^>]*\s(?:src|data|poster|srcset)\s*=\s*["']?http:\/\//gi;
-const MIXED_LINK_RE = /<link\b[^>]*\shref\s*=\s*["']?http:\/\/[^>]*>/gi;
+const MIXED_TAGS = new Set(["script", "img", "iframe", "source", "video", "audio", "embed", "object", "track"]);
+const MIXED_ATTRS = ["src", "data", "poster", "srcset"];
+const MIXED_LINK_REL_RE = /stylesheet|icon|preload|prefetch|modulepreload/i;
 const MIXED_CSS_RE = /url\(\s*["']?http:\/\//gi;
 
+function isPlainHttp(v: string | null): boolean {
+  return v !== null && /^\s*http:\/\//i.test(v);
+}
+
 /** Count http:// sub-resources (scripts, images, frames, stylesheets, css url()) — meaningful on https pages only. */
-export function countMixedContent(html: string): number {
+export function countMixedContent(html: string | HtmlTokens): number {
+  const tokens = tokenise(html);
   let n = 0;
-  for (const _m of html.matchAll(MIXED_TAG_RE)) n++;
-  for (const m of html.matchAll(MIXED_LINK_RE)) if (/rel\s*=\s*["']?[^"'>]*(stylesheet|icon|preload|prefetch|modulepreload)/i.test(m[0])) n++;
-  for (const _m of html.matchAll(MIXED_CSS_RE)) n++;
+  for (const t of tokens.tags) {
+    if (t.close) continue;
+    if (MIXED_TAGS.has(t.name)) {
+      if (MIXED_ATTRS.some((a) => isPlainHttp(attr(t, a)))) n++;
+    } else if (t.name === "link") {
+      if (isPlainHttp(attr(t, "href")) && MIXED_LINK_REL_RE.test(attr(t, "rel") ?? "")) n++;
+    }
+  }
+  for (const _m of tokens.html.matchAll(MIXED_CSS_RE)) n++;
   return n;
 }
 
 const COPYRIGHT_RE = /(?:©|&copy;|&#169;|&#xa9;|\(c\)|copyright)[^\d<]{0,60}?((?:19|20)\d\d)(?:\s*[-–—]\s*((?:19|20)\d\d))?/gi;
 
 /** Latest year written next to a copyright mark, or null. */
-export function copyrightYear(html: string): number | null {
+export function copyrightYear(html: string | HtmlTokens): number | null {
   let best: number | null = null;
-  for (const m of html.matchAll(COPYRIGHT_RE)) {
+  for (const m of tokenise(html).html.matchAll(COPYRIGHT_RE)) {
     for (const y of [m[1], m[2]]) {
       if (!y) continue;
       const n = Number.parseInt(y, 10);
@@ -466,10 +648,11 @@ function findWithin(node: unknown, key: string, depth: number): boolean {
   return Object.values(rec).some((v) => v && typeof v === "object" && findWithin(v, key, depth + 1));
 }
 
+const LD_JSON_TYPE_RE = /^\s*application\/ld\+json\s*$/i;
+
 /** Walk every JSON-LD block for a business-like node with telephone and opening hours. */
-export function summariseJsonLd(html: string): JsonLdSummary {
+export function summariseJsonLd(html: string | HtmlTokens): JsonLdSummary {
   const out: JsonLdSummary = { present: false, type: null, localBusiness: false, telephone: false, openingHours: false };
-  const blocks = html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]{0,200000}?)<\/script\s*>/gi);
   let budget = 400;
   const visit = (node: unknown, depth: number) => {
     if (budget-- <= 0 || depth > 6 || !node || typeof node !== "object") return;
@@ -490,8 +673,10 @@ export function summariseJsonLd(html: string): JsonLdSummary {
       if (k === "@graph" || (v && typeof v === "object")) visit(v, depth + 1);
     }
   };
-  for (const m of blocks) {
-    const raw = m[1]!.replace(/^\s*<!--/, "").replace(/-->\s*$/, "").replace(/^\s*\/\/<!\[CDATA\[|\/\/\]\]>\s*$/g, "").trim();
+  for (const t of tokenise(html).tags) {
+    if (t.name !== "script" || t.close || t.body === undefined) continue;
+    if (!LD_JSON_TYPE_RE.test(attr(t, "type") ?? "")) continue;
+    const raw = t.body.replace(/^\s*<!--/, "").replace(/-->\s*$/, "").replace(/^\s*\/\/<!\[CDATA\[|\/\/\]\]>\s*$/g, "").trim();
     if (!raw) continue;
     let json: unknown;
     try {
@@ -508,11 +693,11 @@ export function summariseJsonLd(html: string): JsonLdSummary {
 // ---- the reducer -------------------------------------------------------------------
 
 /**
- * Reduce the crawled pages (home first) to the Extraction scalars. `now` is
- * only used for the copyright rule by the caller; the year itself is returned.
+ * Reduce the crawled pages (home first) to the Extraction scalars. Each page
+ * is tokenised once and every extractor reads the same tokens. `now` is only
+ * used for the copyright rule by the caller; the year itself is returned.
  */
 export function extractSite(pages: PageLike[]): Extraction {
-  const home = pages[0] ?? null;
   const out: Extraction = {
     title: null,
     description: null,
@@ -536,43 +721,43 @@ export function extractSite(pages: PageLike[]): Extraction {
     forbidsExtraction: false,
     pagesScanned: 0,
   };
-  if (home && home.text) {
-    out.title = pageTitle(home.text);
-    out.description = metaDescription(home.text);
-    out.hasViewport = hasViewportMeta(home.text);
-    out.cms = detectCms(home.text);
-  }
-  for (const page of pages) {
-    const html = page.text;
-    if (!html) continue;
+  pages.forEach((page, index) => {
+    if (!page.text) return;
+    const tokens = tokenise(page.text);
+    if (index === 0) {
+      out.title = pageTitle(tokens);
+      out.description = metaDescription(tokens);
+      out.hasViewport = hasViewportMeta(tokens);
+      out.cms = detectCms(tokens);
+    }
     out.pagesScanned++;
-    const links = findLinks(html, page.finalUrl);
+    const links = findLinks(tokens, page.finalUrl);
     if (!out.email) {
-      const email = firstMailto(html);
+      const email = firstMailto(tokens);
       if (email) {
         out.email = email;
         out.emailPage = safeHttpUrl(page.finalUrl) ?? safeHttpUrl(page.url);
       }
     }
-    if (!out.phone) out.phone = firstTel(html);
-    if (/href\s*=\s*["']?\s*tel:/i.test(html)) out.hasTel = true;
-    if (/href\s*=\s*["']?\s*mailto:/i.test(html)) out.hasMailto = true;
-    if (hasEmailForm(html)) out.hasEmailForm = true;
+    if (!out.phone) out.phone = firstTel(tokens);
+    if (links.some((l) => /^tel:/i.test(l.raw))) out.hasTel = true;
+    if (links.some((l) => /^mailto:/i.test(l.raw))) out.hasMailto = true;
+    if (hasEmailForm(tokens)) out.hasEmailForm = true;
     for (const [k, v] of Object.entries(findSocials(links))) if (!out.socials[k]) out.socials[k] = v;
-    if (!out.booking) out.booking = detectBooking(html, links);
-    if (!out.chat) out.chat = detectChat(html);
+    if (!out.booking) out.booking = detectBooking(tokens, links);
+    if (!out.chat) out.chat = detectChat(tokens);
     if (!out.jsonLd.localBusiness) {
-      const j = summariseJsonLd(html);
+      const j = summariseJsonLd(tokens);
       if (j.present) out.jsonLd = { ...j, present: true };
     }
-    if (detectCookieBanner(html)) out.cookieBanner = true;
-    if (page.finalUrl.startsWith("https://")) out.mixedContent += countMixedContent(html);
-    const year = copyrightYear(html);
+    if (detectCookieBanner(tokens)) out.cookieBanner = true;
+    if (page.finalUrl.startsWith("https://")) out.mixedContent += countMixedContent(tokens);
+    const year = copyrightYear(tokens);
     if (year !== null && (out.copyrightYear === null || year > out.copyrightYear)) out.copyrightYear = year;
     if (links.some((l) => l.href && LEGAL_LINK_RE.test(fold(new URL(l.href).pathname)))) out.legalLink = true;
     if (links.some((l) => l.href && CART_RE.test(new URL(l.href).pathname))) out.ecommerce = true;
-    if (forbidsExtraction(htmlToText(html))) out.forbidsExtraction = true;
-  }
+    if (forbidsExtraction(htmlToText(tokens))) out.forbidsExtraction = true;
+  });
   if (out.cms && SHOP_CMS.has(out.cms)) out.ecommerce = true;
   return out;
 }

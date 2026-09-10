@@ -24,6 +24,8 @@ import {
   pickLink,
   stripControl,
   summariseJsonLd,
+  tokenise,
+  MAX_HTML,
 } from "./extract.ts";
 import type { PageLike } from "./extract.ts";
 
@@ -246,4 +248,36 @@ test("extractSite: home first, contact page supplies the email, e-commerce and f
   const shop = extractSite([page('<link href="/wp-content/plugins/woocommerce/x.css">')]);
   assert.equal(shop.cms, "WooCommerce");
   assert.equal(shop.ecommerce, true);
+});
+
+test("tokenise: tags, text, script bodies, caps", () => {
+  const { tags, text } = tokenise('<!doctype html><p class="a">Hi <b>there</b></p><!-- c --><script type="application/ld+json">{"a":1}</script><style>p{}</style>tail');
+  assert.deepEqual(tags.map((t) => [t.name, t.close]), [["", false], ["p", false], ["b", false], ["b", true], ["p", true], ["script", false], ["style", false]]);
+  assert.equal(tags[5]!.body, '{"a":1}');
+  assert.equal(text.replace(/\s+/g, " ").trim(), "Hi there tail");
+  assert.equal(tokenise("<a href='x'>unterminated").tags.length, 1);
+  assert.equal(tokenise("<a href='x").tags.length, 0);
+  // A 4 KB "tag" is malformed input: skipped whole, the document continues after it.
+  const junk = `<div ${"x".repeat(4000)}><p>after</p>`;
+  assert.deepEqual(tokenise(junk).tags.map((t) => t.name), ["p", "p"]);
+  const big = tokenise("x".repeat(MAX_HTML + 10));
+  assert.equal(big.html.length, MAX_HTML);
+});
+
+test("extraction stays linear on hostile pages: repeated openers up to 2 MB in well under a second", () => {
+  const cases = [
+    "<link ".repeat(2 * 1024 * 1024 / 6),
+    "<input ".repeat(2 * 1024 * 1024 / 7),
+    "<script>".repeat(2 * 1024 * 1024 / 8),
+    "<a href='".repeat(2 * 1024 * 1024 / 9),
+    `<meta ${"name=".repeat(600)}>`.repeat(600),
+    "<title>".repeat(200_000),
+  ];
+  for (const html of cases) {
+    const t0 = process.hrtime.bigint();
+    const x = extractSite([page(html), page(html, "https://www.example.fr/contact")]);
+    const ms = Number(process.hrtime.bigint() - t0) / 1e6;
+    assert.ok(ms < 1000, `${html.slice(0, 8)}… took ${ms.toFixed(0)} ms`);
+    assert.equal(x.pagesScanned, 2);
+  }
 });
