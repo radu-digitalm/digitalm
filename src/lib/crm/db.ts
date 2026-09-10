@@ -106,6 +106,10 @@ const HAS_PHONE = `(prospects.contact_phone_override IS NOT NULL OR prospects.we
 
 const LEAD_OPEN = `NOT EXISTS (SELECT 1 FROM leads l WHERE l.id = prospects.lead_id AND l.stage IN ('replied', 'meeting', 'proposal', 'won', 'lost', 'stop'))`;
 
+// Art. 14 one-month rule: contact is allowed only while the notice deadline
+// is ahead, once a notice went out, or once the personal fields were wiped.
+const NOTICE_OK = `(prospects.notice_sent_at IS NOT NULL OR prospects.notice_deadline_at > datetime('now') OR prospects.personal_wiped_at IS NOT NULL)`;
+
 /**
  * WHERE predicate (on the unaliased `prospects` table) for the "ready to send"
  * view — contract §6 Views. Callers add ORDER BY latest_score LIMIT 20.
@@ -119,7 +123,7 @@ export const READY_WHERE = [
   `prospects.latest_score < ${READY_SCORE_MAX}`,
   `EXISTS (SELECT 1 FROM audits a WHERE a.id = prospects.latest_audit_id AND a.finished_at > datetime('now', '-90 days'))`,
   `(prospects.last_emailed_at IS NULL OR prospects.last_emailed_at < datetime('now', '-90 days'))`,
-  `(prospects.notice_sent_at IS NOT NULL OR prospects.notice_deadline_at > datetime('now') OR prospects.personal_wiped_at IS NOT NULL)`,
+  NOTICE_OK,
   USABLE_EMAIL,
   `prospects.forbids_extraction = 0`,
   `prospects.country IN (${COUNTRY_LIST})`,
@@ -130,9 +134,10 @@ export const READY_WHERE = [
 
 /**
  * WHERE predicate for the call list: no usable email, a phone on file, fewer
- * than 4 call attempts in 30 days, same opt-out / register / lead-stage
- * exclusions. Every SendRule allows calls in some form (true|screened|manual),
- * so there is no country clause here.
+ * than 4 call attempts in 30 days, same opt-out / register / lead-stage /
+ * notice-deadline exclusions, and no site that forbids extraction unless the
+ * override reason is recorded. Every SendRule allows calls in some form
+ * (true|screened|manual), so there is no country clause here.
  */
 export const CALL_WHERE = [
   `prospects.deleted_at IS NULL`,
@@ -140,6 +145,8 @@ export const CALL_WHERE = [
   `prospects.opted_out_at IS NULL`,
   `prospects.diffusion <> 'partial'`,
   `prospects.register_status <> 'ceased'`,
+  NOTICE_OK,
+  `(prospects.forbids_extraction = 0 OR prospects.forbids_override_reason IS NOT NULL)`,
   `NOT ${USABLE_EMAIL}`,
   HAS_PHONE,
   `(SELECT COUNT(*) FROM activities ac WHERE ac.prospect_id = prospects.id AND ac.kind = 'call' AND ac.created_at > datetime('now', '-30 days')) < 4`,

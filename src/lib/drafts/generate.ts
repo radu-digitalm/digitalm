@@ -96,6 +96,7 @@ Writing rules:
 - Never use these words: ${BANNED_WORDS.join(", ")}.
 - For the AI-readability finding say "AI assistants cannot read your site" (in ${language}), never "error".
 - Never include an email address or a phone number anywhere. Never invent facts beyond the findings above. No legal text: it is added separately.
+- Close the email with the real follow-up rule: without a reply there will be exactly one reminder about a week later, then nothing more. Never promise "you will not hear from us again" or anything the reminder would break.
 - The call script must open with who we are, where the number came from and why we call, and must contain the sentence that they can refuse this call and we note it right now and will not call again.
 
 CRITICAL OUTPUT RULE: write all text as plain UTF-8 with normal accented characters (é, à, ç, ê…). NEVER use escape sequences, hex codes, or character references of any kind.`;

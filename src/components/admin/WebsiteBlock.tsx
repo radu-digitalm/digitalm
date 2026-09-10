@@ -176,7 +176,7 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
             void patch("email", { contact_email_override: emailOverride.trim() || null }, emailOverride.trim() ? "Email override saved" : "Email override cleared");
           }}
         >
-          <Field label="Email override" name="contact_email_override" value={emailOverride} onChange={(e) => setEmailOverride(e.target.value)} placeholder="contact@example.fr" hint="One business address; webmail is refused at send time" className="flex-1" autoComplete="off" />
+          <Field label="Email override" name="contact_email_override" value={emailOverride} onChange={(e) => setEmailOverride(e.target.value)} placeholder="contact@example.fr" hint="One business address; a webmail address (gmail, orange.fr…) is refused here and again at send time" className="flex-1" autoComplete="off" />
           <Button type="submit" loading={busy === "email"}>
             Save
           </Button>

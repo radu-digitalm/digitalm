@@ -281,7 +281,7 @@ export const REPORT_UI: Record<ReportLocale, ReportUi> = {
     ctaDiagnostic: "Faire le diagnostic gratuit (3 min)",
     ctaBook: "Prendre rendez-vous",
     methodNote:
-      "Ce rapport est établi automatiquement à partir de la lecture publique de votre site (trois pages au plus, dans le respect de votre fichier robots.txt) et de Google PageSpeed Insights. Il ne contient aucune donnée personnelle.",
+      "Ce rapport est établi automatiquement à partir de la lecture publique de votre site (trois pages au plus, dans le respect de votre fichier robots.txt) et de Google PageSpeed Insights. Il porte uniquement sur des constats techniques publics de votre site.",
     expiredHeading: "Ce rapport a expiré",
     expiredBody:
       "Les rapports restent consultables pendant 90 jours après leur envoi. Vous pouvez refaire un diagnostic gratuit en trois minutes.",
@@ -313,7 +313,7 @@ export const REPORT_UI: Record<ReportLocale, ReportUi> = {
     ctaDiagnostic: "Take the free diagnostic (3 min)",
     ctaBook: "Book a call",
     methodNote:
-      "This report is produced automatically from the public pages of your site (three at most, honouring your robots.txt) and Google PageSpeed Insights. It contains no personal data.",
+      "This report is produced automatically from the public pages of your site (three at most, honouring your robots.txt) and Google PageSpeed Insights. It covers only public technical facts about your website.",
     expiredHeading: "This report has expired",
     expiredBody: "Reports stay readable for 90 days after they are sent. You can run a free diagnostic again in three minutes.",
     expiredCta: "Take the free diagnostic",

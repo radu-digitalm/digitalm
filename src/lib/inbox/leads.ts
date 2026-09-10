@@ -5,6 +5,7 @@
 // Sort identifiers come from a fixed allowlist, values go through `?`, LIKE
 // terms are escaped with ESCAPE '\'. Nothing here touches the DB at load.
 import { enquiriesDb } from "@/lib/enquiries";
+import { allowed } from "@/lib/crm/allowlist";
 import { newReference } from "@/lib/crm/refs";
 import { parseJson, sqlNow } from "@/lib/crm/db";
 import { hashEmail, hashPhone } from "@/lib/crm/classify";
@@ -432,7 +433,7 @@ export function listLeads(query: LeadListQuery = {}): { rows: Lead[]; total: num
     where.push("(reference LIKE ? ESCAPE '\\' OR name LIKE ? ESCAPE '\\' OR company LIKE ? ESCAPE '\\' OR email LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR enquiry_reference LIKE ? ESCAPE '\\')");
     params.push(term, term, term, term, term, term);
   }
-  const column = LEAD_SORTS[query.sort ?? ""] ?? "last_activity_at";
+  const column = allowed(LEAD_SORTS, query.sort, "activity");
   const dir = query.dir === "asc" ? "ASC" : "DESC";
   // NULL next actions sink to the bottom whichever way the list is sorted.
   const order = column === "next_action_at" ? `next_action_at IS NULL, next_action_at ${dir}, id DESC` : `${column} ${dir}, id DESC`;

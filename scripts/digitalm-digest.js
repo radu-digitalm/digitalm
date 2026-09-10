@@ -134,6 +134,8 @@ const CALL_WHERE = [
   `prospects.opted_out_at IS NULL`,
   `prospects.diffusion <> 'partial'`,
   `prospects.register_status <> 'ceased'`,
+  `(prospects.notice_sent_at IS NOT NULL OR prospects.notice_deadline_at > datetime('now') OR prospects.personal_wiped_at IS NOT NULL)`,
+  `(prospects.forbids_extraction = 0 OR prospects.forbids_override_reason IS NOT NULL)`,
   `NOT ${USABLE_EMAIL}`,
   HAS_PHONE,
   `(SELECT COUNT(*) FROM activities ac WHERE ac.prospect_id = prospects.id AND ac.kind = 'call' AND ac.created_at > datetime('now', '-30 days')) < 4`,

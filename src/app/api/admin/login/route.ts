@@ -17,14 +17,21 @@ export const dynamic = "force-dynamic";
 const oneLine = (value: unknown) => String(value ?? "").replace(/[\r\n]+/g, " ").trim();
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const GLOBAL_CAP = 30;
+const WINDOW_MS = 10 * 60_000;
+
 // Shared-password login (contract §10): 5 attempts / 10 min per IP and 30 / 10
 // min overall, honeypot, shared Turnstile check, scrypt verify, 500 ms pause on
 // failure, cookie only on success. Nothing about the password is ever logged.
+//
+// Order matters: the per-IP bucket is the defence and runs first; the global
+// bucket is only charged for attempts that reached the password check (past
+// the honeypot and Turnstile), so an anonymous flood of empty POSTs cannot
+// lock the owner out — each counted attempt costs the attacker a solved
+// challenge. Tripping the global cap is logged so the lockout is visible.
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
-  const ipOk = rateLimit(`admin-login:${ip}`, 5, 10 * 60_000);
-  const allOk = rateLimit("admin-login:*", 30, 10 * 60_000);
-  if (!ipOk || !allOk) {
+  if (!rateLimit(`admin-login:${ip}`, 5, WINDOW_MS)) {
     return NextResponse.json({ ok: false, error: "rate" }, { status: 429 });
   }
   let body: Record<string, unknown>;
@@ -54,6 +61,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "verification" }, { status: 403 });
   }
   if (ts === "outage") console.warn("admin login: Turnstile outage — proceeding on password alone");
+
+  // Global bucket: counted only for attempts that reached this point.
+  if (!rateLimit("admin-login:*", GLOBAL_CAP, WINDOW_MS)) {
+    console.warn(`admin login: global cap (${GLOBAL_CAP}/10 min) reached — logins paused for everyone`);
+    return NextResponse.json({ ok: false, error: "rate" }, { status: 429 });
+  }
 
   const password = typeof body.password === "string" ? body.password : "";
   if (!verifyPassword(password)) {

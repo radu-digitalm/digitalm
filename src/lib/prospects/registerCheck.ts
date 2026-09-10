@@ -4,7 +4,9 @@
 // Companies House. Updates register_status, diffusion, register_checked_at,
 // legal_form and — for companies whose nature_juridique is not 1000 —
 // sole_trader = 0 (the notice deadline itself stays). A switch to partial
-// diffusion wipes the personal contact fields at once.
+// diffusion wipes the personal contact fields at once. An identifier the
+// register no longer knows is recorded as `ceased` (READY_WHERE and
+// CALL_WHERE exclude it), never as `unknown`, which would read as unchecked.
 import { HttpError } from "@/lib/crm/http";
 import { enquiriesDb } from "@/lib/enquiries";
 import { COMPANY_NUMBER_RE, companiesHouseKey, recheckCompany } from "@/lib/discover/companiesHouse";
@@ -60,8 +62,10 @@ export async function recheckRegister(input: ProspectRecord | Prospect | number)
   if (registry === "fr_register") {
     const r = await recheckSiret(p.registerId);
     if (!r.found) {
-      registerStatus = "unknown";
-      note = "SIRET not found in the register";
+      // A SIRET that has left the register is a hard refusal (plan step 6):
+      // treated as ceased, never as "not checked yet".
+      registerStatus = "ceased";
+      note = "SIRET no longer in the register — treated as ceased";
     } else {
       registerStatus = r.active ? "active" : "ceased";
       diffusion = r.diffusion;
@@ -72,8 +76,8 @@ export async function recheckRegister(input: ProspectRecord | Prospect | number)
     if (!companiesHouseKey()) throw new HttpError("companies_house_off", 0, "Companies House key not configured");
     const r = await recheckCompany(p.registerId);
     if (!r.found) {
-      registerStatus = "unknown";
-      note = "Company number not found at Companies House";
+      registerStatus = "ceased";
+      note = "Company number no longer at Companies House — treated as ceased";
     } else {
       registerStatus = r.active ? "active" : "ceased";
       soleTrader = false;

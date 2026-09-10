@@ -71,7 +71,9 @@ function prospectUpdates(p: ProspectRow, website: string, x: Extraction, site: S
   const sets: [string, string | number | null][] = [];
   const wiped = p.personal_wiped_at !== null;
   if (x.forbidsExtraction) {
-    sets.push(["forbids_extraction", 1], ["website_email", null], ["website_email_kind", null], ["website_email_page", null]);
+    // The site's stated opposition covers every contact detail taken from it
+    // (CNIL "moissonnage" guidance): email AND phone are left empty / cleared.
+    sets.push(["forbids_extraction", 1], ["website_email", null], ["website_email_kind", null], ["website_email_page", null], ["website_phone", null]);
   } else {
     // A fetched legal page that carries no clause clears an older flag; an unfetched one leaves it alone.
     if (site.legal) sets.push(["forbids_extraction", 0]);
@@ -79,8 +81,8 @@ function prospectUpdates(p: ProspectRow, website: string, x: Extraction, site: S
       const kind = classifyEmail(x.email, { domainKey: p.domain_key ?? domainOf(website), soleTrader: p.sole_trader === null ? null : p.sole_trader === 1 });
       sets.push(["website_email", x.email], ["website_email_kind", kind], ["website_email_page", x.emailPage]);
     }
+    if (!wiped && x.phone) sets.push(["website_phone", x.phone]);
   }
-  if (!wiped && x.phone) sets.push(["website_phone", x.phone]);
   if (Object.keys(x.socials).length > 0) sets.push(["website_socials", JSON.stringify(x.socials)]);
   if (x.cms) sets.push(["website_cms", x.cms.slice(0, 60)]);
   return sets;

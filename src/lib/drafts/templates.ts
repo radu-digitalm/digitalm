@@ -158,7 +158,8 @@ function bodyFr(input: DraftInput, findingsCount: number): string {
   else parts.push("Rien d'urgent : votre site est en bon état.");
   parts.push(`Le rapport complet tient sur une page : ${reportUrl}`);
   if (step) parts.push(`Ce que nous ferions en premier : ${step.label}. ${step.action}`);
-  parts.push("Si cela vous parle, répondez à cet e-mail ou prenez rendez-vous depuis le rapport. Sinon, aucune suite de notre part.");
+  // States the real rule: one reminder after a week, then nothing (followUp() is that reminder).
+  parts.push("Si cela vous parle, répondez à cet e-mail ou prenez rendez-vous depuis le rapport. Sans réponse de votre part, une seule relance dans une semaine, puis plus rien.");
   parts.push(sig);
   return parts.join("\n\n");
 }
@@ -182,7 +183,7 @@ function bodyEn(input: DraftInput, findingsCount: number): string {
   else parts.push("Nothing urgent: your site is in good shape.");
   parts.push(`The full report fits on one page: ${reportUrl}`);
   if (step) parts.push(`What we would do first: ${step.label}. ${step.action}`);
-  parts.push("If this speaks to you, reply to this email or book a call from the report. If not, you will not hear from us again.");
+  parts.push("If this speaks to you, reply to this email or book a call from the report. If not, one reminder in a week, then nothing more.");
   parts.push(sig);
   return parts.join("\n\n");
 }

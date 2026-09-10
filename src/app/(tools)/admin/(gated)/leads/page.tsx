@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import { allowedKey } from "@/lib/crm/allowlist";
 import { requireAdmin } from "@/lib/crm/auth";
-import { zonedToday } from "@/lib/crm/db";
+import { zonedToday } from "@/lib/crm/time";
 import { LEAD_SORTS, leadStageCounts, listLeads } from "@/lib/inbox/leads";
 import { isLeadKind, isLeadStage } from "@/lib/inbox/stages";
 import { AddLeadForm } from "@/components/admin/AddLeadForm";
@@ -30,7 +31,7 @@ export default async function LeadsPage({ searchParams }: { searchParams: Promis
     stage: stageRaw === "all" ? "all" : isLeadStage(stageRaw) ? stageRaw : "open",
     kind: isLeadKind(kindRaw) ? kindRaw : "",
     q: first(sp.q).slice(0, 100),
-    sort: sortRaw in LEAD_SORTS ? sortRaw : "activity",
+    sort: allowedKey(LEAD_SORTS, sortRaw, "activity"),
     dir: first(sp.dir) === "asc" ? "asc" : "desc",
     page: Number.isFinite(pageRaw) && pageRaw > 1 ? pageRaw : 1,
   };

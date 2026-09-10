@@ -6,8 +6,9 @@
 // Every stored value carries its source (source, website_source, geo_source,
 // provenance from dedupe). Sort/filter identifiers come from fixed allowlists;
 // values are always bound with ?.
+import { allowed } from "@/lib/crm/allowlist";
 import { cacheGet } from "@/lib/crm/apiCache";
-import { coerceHttpUrl, domainOf, localeForCountry, normaliseEmail, normaliseName, validEmail } from "@/lib/crm/classify";
+import { coerceHttpUrl, domainOf, isWebmailDomain, localeForCountry, normaliseEmail, normaliseName, validEmail } from "@/lib/crm/classify";
 import { CALL_WHERE, READY_WHERE, parseJson, sqlNow } from "@/lib/crm/db";
 import { enqueue } from "@/lib/crm/jobs";
 import { newReference } from "@/lib/crm/refs";
@@ -427,7 +428,7 @@ export function listProspects(opts: ListOptions = {}): { view: ProspectView; row
     offset = 0;
   } else {
     where = view === "not_fit" ? "prospects.deleted_at IS NULL AND prospects.fit = 'not_fit'" : "prospects.deleted_at IS NULL";
-    const col = SORTS[opts.sort ?? ""] ?? SORTS.saved!;
+    const col = allowed(SORTS, opts.sort, "saved");
     const dir = opts.dir === "asc" ? "ASC" : "DESC";
     order = `${col} IS NULL, ${col} ${dir}, prospects.id DESC`;
   }
@@ -532,6 +533,9 @@ export function patchProspect(id: number, patch: ProspectPatch): ProspectRecord 
     } else {
       const email = typeof patch.contact_email_override === "string" ? normaliseEmail(patch.contact_email_override) : null;
       if (!email) throw new ProspectError("bad_email", 422);
+      // Private webmail addresses are never emailed (plan rule): refused here so
+      // an override can never put one into "Ready to send"; the send path refuses again.
+      if (isWebmailDomain(email.slice(email.lastIndexOf("@") + 1))) throw new ProspectError("webmail", 422);
       set("contact_email_override", email);
     }
   }
