@@ -10,6 +10,23 @@ import type { AdminSession } from "./types.ts";
 
 export const MIN_SECRET_LENGTH = 32;
 
+// The ONLY readers of the two session env vars. auth.ts (Node) and
+// src/middleware.ts (edge) both go through these, so the two verifiers can
+// never normalise differently — a disagreement would send /admin into a
+// redirect loop (edge 307s to login, Node accepts the cookie and bounces back).
+// `env` is injectable for tests; the secret is taken verbatim (no trim) so a
+// rotated value behaves identically on both sides.
+type EnvLike = Record<string, string | undefined>;
+
+export function sessionSecretFromEnv(env: EnvLike = process.env): string {
+  return env.ADMIN_SESSION_SECRET ?? "";
+}
+
+/** Trimmed ADMIN_SESSION_VERSION, "1" when unset or blank. */
+export function sessionVersionFromEnv(env: EnvLike = process.env): string {
+  return (env.ADMIN_SESSION_VERSION ?? "").trim() || "1";
+}
+
 export function bytesToBase64url(bytes: Uint8Array): string {
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);

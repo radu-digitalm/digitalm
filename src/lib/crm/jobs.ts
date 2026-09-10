@@ -3,6 +3,13 @@
 // concurrency 1; claims with a single UPDATE so a second process (there is
 // none today) could never double-run a row. Every timestamp is a SQL UTC string
 // so comparisons happen inside SQLite.
+//
+// Timeouts: handlers must honour ctx.signal (contract §3, abort at 6 min), but
+// the runner no longer depends on it — run() races the handler against the
+// abort timer, so a handler stuck on a socket that ignores the signal still
+// frees the single runner slot. Its late DB writes are no-ops because every
+// status UPDATE is guarded by `WHERE id = ? AND claim_token = ?` and the
+// timeout path clears the claim token.
 import { randomBytes } from "node:crypto";
 import { enquiriesDb } from "@/lib/enquiries";
 import { parseJson, sqlNow, toSql } from "@/lib/crm/db";
@@ -229,6 +236,11 @@ async function run(job: Job): Promise<void> {
   const db = enquiriesDb();
   const ctl = new AbortController();
   const abortTimer = setTimeout(() => ctl.abort(new Error("job_timeout")), ABORT_MS);
+  // Rejects when the abort fires; raced against the handler below so the abort
+  // is a hard deadline even for a handler that never looks at `signal`.
+  const timeout = new Promise<never>((_, reject) => {
+    ctl.signal.addEventListener("abort", () => reject(ctl.signal.reason instanceof Error ? ctl.signal.reason : new Error("job_timeout")), { once: true });
+  });
   const heartbeat = () => {
     db.prepare("UPDATE jobs SET claimed_at = ? WHERE id = ? AND claim_token = ?").run(sqlNow(), job.id, job.claimToken);
   };
@@ -238,7 +250,9 @@ async function run(job: Job): Promise<void> {
   try {
     const handler = handlers[job.kind];
     if (!handler) throw new Error(`no_handler:${job.kind}`);
-    const result = await handler(job, { heartbeat, signal: ctl.signal, log });
+    // On timeout the handler's promise is abandoned (Promise.race keeps its
+    // rejection handled) and "job_timeout" takes the retry/failed path below.
+    const result = await Promise.race([handler(job, { heartbeat, signal: ctl.signal, log }), timeout]);
     db.prepare("UPDATE jobs SET status = 'done', result = ?, finished_at = ?, last_error = NULL WHERE id = ? AND claim_token = ?").run(
       result === undefined ? null : JSON.stringify(result),
       sqlNow(),

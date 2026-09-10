@@ -6,7 +6,7 @@
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
 import type { AdminSession } from "./types.ts";
-import { MIN_SECRET_LENGTH, parseSessionPayload } from "./authEdge.ts";
+import { MIN_SECRET_LENGTH, parseSessionPayload, sessionSecretFromEnv, sessionVersionFromEnv } from "./authEdge.ts";
 
 export const ADMIN_COOKIE = "dm_admin";
 export const SESSION_MAX_AGE = 604_800; // 7 days, seconds
@@ -17,11 +17,12 @@ export const SESSION_MAX_AGE = 604_800; // 7 days, seconds
 function siteUrl(): string {
   return (process.env.NEXT_PUBLIC_SITE_URL || "https://d3v.digitalm.eu").replace(/\/$/, "");
 }
+// Shared with the edge verifier (authEdge.ts) — never read the env directly here.
 function sessionSecret(): string {
-  return process.env.ADMIN_SESSION_SECRET ?? "";
+  return sessionSecretFromEnv();
 }
 function sessionVersion(): string {
-  return (process.env.ADMIN_SESSION_VERSION ?? "").trim() || "1";
+  return sessionVersionFromEnv();
 }
 
 /** False → login must answer 500 (contract: secret ≥ 32 chars). */

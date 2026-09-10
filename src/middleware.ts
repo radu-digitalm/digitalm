@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { locales, defaultLocale, isLocale } from "@/lib/i18n";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
-import { verifySessionEdge } from "@/lib/crm/authEdge";
+import { sessionSecretFromEnv, sessionVersionFromEnv, verifySessionEdge } from "@/lib/crm/authEdge";
 
 function resolveLocale(req: NextRequest): string {
   const cookie = req.cookies.get("NEXT_LOCALE")?.value;
@@ -27,11 +27,8 @@ export async function middleware(req: NextRequest) {
   // check below also covers RSC / soft-navigation requests, which skip shared
   // layouts — every (gated) page still calls requireAdmin() itself.
   if (isAdminPath(pathname) && !isLoginPath(pathname)) {
-    const session = await verifySessionEdge(
-      req.cookies.get("dm_admin")?.value,
-      process.env.ADMIN_SESSION_SECRET ?? "",
-      process.env.ADMIN_SESSION_VERSION || "1",
-    );
+    // Same env helpers as auth.ts readSession, so edge and Node agree (§10).
+    const session = await verifySessionEdge(req.cookies.get("dm_admin")?.value, sessionSecretFromEnv(), sessionVersionFromEnv());
     if (!session) {
       const login = req.nextUrl.clone();
       login.pathname = "/admin/login";

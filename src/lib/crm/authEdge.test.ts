@@ -1,8 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { AdminSession } from "./types.ts";
-import { base64urlToBytes, bytesToBase64url, parseSessionPayload, safeEqualStrings, verifySessionEdge } from "./authEdge.ts";
-import { sessionCookie, signSession, verifySession } from "./auth.ts";
+import {
+  base64urlToBytes,
+  bytesToBase64url,
+  parseSessionPayload,
+  safeEqualStrings,
+  sessionSecretFromEnv,
+  sessionVersionFromEnv,
+  verifySessionEdge,
+} from "./authEdge.ts";
+import { readSession, sessionCookie, signSession, verifySession } from "./auth.ts";
 
 const SECRET = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 process.env.ADMIN_SESSION_SECRET = SECRET;
@@ -50,6 +58,37 @@ test("version may be passed as a number or a string", async () => {
   assert.deepEqual(await verifySessionEdge(cookie, SECRET, "3", 1000), s);
   assert.deepEqual(await verifySessionEdge(cookie, SECRET, 3, 1000), s);
   assert.equal(await verifySessionEdge(cookie, SECRET, "1", 1000), null);
+});
+
+test("edge and node derive secret and version from the env identically", async () => {
+  // Pure helper: whitespace trimmed, blank and unset fall back to "1".
+  assert.equal(sessionVersionFromEnv({ ADMIN_SESSION_VERSION: " 2 " }), "2");
+  assert.equal(sessionVersionFromEnv({ ADMIN_SESSION_VERSION: "" }), "1");
+  assert.equal(sessionVersionFromEnv({}), "1");
+  assert.equal(sessionSecretFromEnv({ ADMIN_SESSION_SECRET: SECRET }), SECRET);
+  assert.equal(sessionSecretFromEnv({}), "");
+  // End to end: a cookie minted by Node under each env value must pass the
+  // exact call middleware.ts makes AND Node's readSession — a mismatch here is
+  // the /admin ↔ /admin/login redirect loop.
+  const savedVersion = process.env.ADMIN_SESSION_VERSION;
+  try {
+    for (const v of [" 2 ", "", undefined] as const) {
+      if (v === undefined) delete process.env.ADMIN_SESSION_VERSION;
+      else process.env.ADMIN_SESSION_VERSION = v;
+      const cookie = sessionCookie("password", "radu");
+      const edge = await verifySessionEdge(cookie, sessionSecretFromEnv(), sessionVersionFromEnv());
+      const node = readSession(cookie);
+      assert.ok(edge, `edge rejected under version ${JSON.stringify(v)}`);
+      assert.ok(node, `node rejected under version ${JSON.stringify(v)}`);
+      assert.deepEqual(edge, node);
+      // The normalised version is what is signed: " 2 " ≡ "2", "" ≡ "1".
+      assert.deepEqual(await verifySessionEdge(cookie, SECRET, v === " 2 " ? "2" : "1"), edge);
+      assert.equal(await verifySessionEdge(cookie, SECRET, v === " 2 " ? "1" : "2"), null);
+    }
+  } finally {
+    if (savedVersion === undefined) delete process.env.ADMIN_SESSION_VERSION;
+    else process.env.ADMIN_SESSION_VERSION = savedVersion;
+  }
 });
 
 test("base64url helpers and constant-time compare", () => {
