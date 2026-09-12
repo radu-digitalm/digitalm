@@ -35,6 +35,8 @@ export const HOSTS = {
   pagespeed: httpsFromEnv("PAGESPEED_URL"),
   geoGouv: "https://geo.api.gouv.fr",
   companiesHouse: "https://api.company-information.service.gov.uk",
+  /** Places API (New) — finder-google; the key travels in a header, never in the URL. */
+  googlePlaces: "https://places.googleapis.com",
 } as const;
 
 const ALLOWED_ORIGINS = new Set(

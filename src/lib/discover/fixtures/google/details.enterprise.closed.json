@@ -1,0 +1,86 @@
+{
+  "id": "ChIJ67T3ozlaQonU_v6iNABnjOD",
+  "businessStatus": "CLOSED_PERMANENTLY",
+  "websiteUri": "https://www.closed-example.invalid/",
+  "regularOpeningHours": {
+    "periods": [
+      {
+        "open": {
+          "day": 1,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 1,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 2,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 2,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 3,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 4,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 5,
+          "hour": 14,
+          "minute": 30
+        }
+      }
+    ]
+  },
+  "rating": 4.1,
+  "userRatingCount": 12,
+  "photos": [
+    {
+      "name": "places/ChIJIBxNYSoxOYL5rv5DTHPZl-x/photos/fixture-1",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "A Fixture Author",
+          "uri": "https://maps.google.com/maps/contrib/0",
+          "photoUri": "https://lh3.googleusercontent.com/fixture"
+        }
+      ]
+    }
+  ],
+  "attributions": []
+}

@@ -1,0 +1,1525 @@
+{
+  "places": [
+    {
+      "id": "ChIJlULQwByQ4reSONq05coYaUO",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "1 Boulevard Saturé, 09000 Foix, France",
+      "location": {
+        "latitude": 42.945317,
+        "longitude": 1.616499
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 1",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "1 Boulevard Saturé",
+          "shortText": "1 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJLjmQaOki4Vpiw0CHd8gNzuO",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "2 Boulevard Saturé, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.101598,
+        "longitude": 1.616795
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 2",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "2 Boulevard Saturé",
+          "shortText": "2 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJlLXNUqLxSDAOjigshJ7cntU",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "3 Boulevard Saturé, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.988025,
+        "longitude": 1.148525
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 3",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "3 Boulevard Saturé",
+          "shortText": "3 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJjduhKbHEegGrxmAQaLs9A6d",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "4 Boulevard Saturé, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.932648,
+        "longitude": 1.860711
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 4",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "4 Boulevard Saturé",
+          "shortText": "4 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJkOhzKQl68nbbre5DsonCyfF",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "5 Boulevard Saturé, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.835843,
+        "longitude": 1.616587
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 5",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "5 Boulevard Saturé",
+          "shortText": "5 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJeonaEWNVjCPX2NvqYeVeMra",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "6 Boulevard Saturé, 09500 Mirepoix, France",
+      "location": {
+        "latitude": 43.071961,
+        "longitude": 1.855193
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 6",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "6 Boulevard Saturé",
+          "shortText": "6 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Mirepoix",
+          "shortText": "Mirepoix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09500",
+          "shortText": "09500",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJSbF3v8fqU74illO3zwG6aDw",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "7 Boulevard Saturé, 09000 Foix, France",
+      "location": {
+        "latitude": 42.984391,
+        "longitude": 1.616621
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 7",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "7 Boulevard Saturé",
+          "shortText": "7 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJsPKcyNwkGl5QZxNHI16x_LB",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "8 Boulevard Saturé, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.101229,
+        "longitude": 1.599046
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 8",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "8 Boulevard Saturé",
+          "shortText": "8 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJOMCSnhneMTnS3pN_YC9PghX",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "9 Boulevard Saturé, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.988871,
+        "longitude": 1.156176
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 9",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "9 Boulevard Saturé",
+          "shortText": "9 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJIUo6Eg6hv2rAm4CO226L7FU",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "10 Boulevard Saturé, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.928637,
+        "longitude": 1.866134
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 10",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "10 Boulevard Saturé",
+          "shortText": "10 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJqdrRwzDVaA55eT1484E0VQD",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "11 Boulevard Saturé, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.828623,
+        "longitude": 1.591253
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 11",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "11 Boulevard Saturé",
+          "shortText": "11 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJzzekUZhP3WsZbz4rulMp1EK",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "12 Boulevard Saturé, 09500 Mirepoix, France",
+      "location": {
+        "latitude": 43.082502,
+        "longitude": 1.880111
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 12",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "12 Boulevard Saturé",
+          "shortText": "12 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Mirepoix",
+          "shortText": "Mirepoix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09500",
+          "shortText": "09500",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJLlEXnhg4RXNw7TDVy05MX6W",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "13 Boulevard Saturé, 09000 Foix, France",
+      "location": {
+        "latitude": 42.953567,
+        "longitude": 1.621986
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 13",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "13 Boulevard Saturé",
+          "shortText": "13 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ575-z5VnwsWKEcP77daFEbJ",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "14 Boulevard Saturé, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.113232,
+        "longitude": 1.5937
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 14",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "14 Boulevard Saturé",
+          "shortText": "14 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJSz_8ayYVxpA-DDxqekYpx4t",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "15 Boulevard Saturé, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.979258,
+        "longitude": 1.13636
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 15",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "15 Boulevard Saturé",
+          "shortText": "15 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ9nd4yW5BqwSC-a6vf4UBlrI",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "16 Boulevard Saturé, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.939997,
+        "longitude": 1.847698
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 16",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "16 Boulevard Saturé",
+          "shortText": "16 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ42RqjQbckGgbk90a7Y40Kvj",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "17 Boulevard Saturé, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.84042,
+        "longitude": 1.619631
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 17",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "17 Boulevard Saturé",
+          "shortText": "17 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJz2LbpUXe3xPZWAwJFmZV-OI",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "18 Boulevard Saturé, 09500 Mirepoix, France",
+      "location": {
+        "latitude": 43.084522,
+        "longitude": 1.88852
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 18",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "18 Boulevard Saturé",
+          "shortText": "18 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Mirepoix",
+          "shortText": "Mirepoix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09500",
+          "shortText": "09500",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ5Pxfxpky_tS4SCDnXVD-n1G",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "19 Boulevard Saturé, 09000 Foix, France",
+      "location": {
+        "latitude": 42.946252,
+        "longitude": 1.60681
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 19",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "19 Boulevard Saturé",
+          "shortText": "19 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJSmu5OH8ILYyTNfjtbLbu52Q",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "20 Boulevard Saturé, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.12719,
+        "longitude": 1.603134
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Saturated Place 20",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "20 Boulevard Saturé",
+          "shortText": "20 Boulevard Saturé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    }
+  ],
+  "nextPageToken": "CpQCAgEAAFxg8o-fixture-saturated-token"
+}
