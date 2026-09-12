@@ -1,24 +1,23 @@
-// OpenStreetMap discovery through the Overpass API (contract §6 "osm").
-// One POST per tile (≤ 0.25° a side) and category, sequential, ≥ 1 s apart,
-// one retry after 10 s on 429/504, cached 24 h per tile + category. Every
-// foreign value goes through coerceHttpUrl / validEmail before it leaves this
-// file; only the fields Business needs are kept (and cached).
+// OpenStreetMap discovery through the Overpass API (docs/finder-ux-spec.md
+// §2.5, §3.3). One POST per unit (an administrative area, an INSEE set, a
+// radius, or a tile clipped by the area), ≥ 1 s apart on the shared lane,
+// 20 / 40 / 80 s backoff when the service is busy, cached 24 h per unit +
+// trade. Every foreign value goes through coerceHttpUrl / safeHttpUrl /
+// validEmail before it leaves this file; only what Business needs is kept.
 import { DAY_MS, cached } from "@/lib/crm/apiCache";
 import { countApiUsage } from "@/lib/crm/apiUsage";
-import { coerceHttpUrl, validEmail } from "@/lib/crm/classify";
+import { coerceHttpUrl, safeHttpUrl, validEmail } from "@/lib/crm/classify";
 import { HOSTS, HttpError, fetchJson, spaced } from "@/lib/crm/http";
-import type { Area, Business, Category } from "@/lib/crm/types";
-import { tilesFor, type Bbox } from "./geocode";
-import { buildQuery } from "./overpassQuery";
-import type { AdapterResult, RichAdapter } from "./index";
+import type { AreaSelector, Business, Category } from "@/lib/crm/types";
+import { UNIT_LIMIT, countQuery, unitQuery, type Bbox } from "./areaQuery";
+import type { UnitError } from "./progress";
 
-export { buildQuery } from "./overpassQuery";
+export const OVERPASS_GAP_MS = 1000;
+export const BACKOFF_MS = [20_000, 40_000, 80_000] as const;
+const UNIT_TIMEOUT_MS = 60_000;
+const COUNT_TIMEOUT_MS = 35_000;
 
-const OVERPASS_GAP_MS = 1000;
-const RETRY_AFTER_MS = 10_000;
-const TILE_RESERVE_MS = 3_000; // leave this much budget before starting another tile
-
-type OverpassElement = {
+export type OverpassElement = {
   type: "node" | "way" | "relation";
   id: number;
   lat?: number;
@@ -26,6 +25,133 @@ type OverpassElement = {
   center?: { lat: number; lon: number };
   tags?: Record<string, string>;
 };
+
+/** A unit that could not be read after three tries; `error` is a word, never an HTTP code. */
+export class UnitFailure extends Error {
+  error: UnitError;
+  constructor(error: UnitError) {
+    super(error);
+    this.name = "UnitFailure";
+    this.error = error;
+  }
+}
+
+/** busy (429 / 5xx), timeout, or network — the only words the progress ever shows. */
+export function errorWord(e: unknown): UnitError {
+  if (e instanceof HttpError) {
+    if (e.code === "timeout") return "timeout";
+    if (e.status === 429 || e.status >= 500) return "busy";
+  }
+  return "network";
+}
+
+/** One Overpass POST on the shared 1 req/s lane. */
+export async function overpassPost<T = { elements?: OverpassElement[] }>(query: string, opts: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<T> {
+  const res = await spaced("overpass", OVERPASS_GAP_MS, () =>
+    fetchJson<T>(HOSTS.overpass, {
+      method: "POST",
+      headers: { "content-type": "application/x-www-form-urlencoded" },
+      body: `data=${encodeURIComponent(query)}`,
+      timeoutMs: opts.timeoutMs ?? UNIT_TIMEOUT_MS,
+      signal: opts.signal,
+    }),
+  );
+  return res.data;
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(done, ms);
+    function done() {
+      signal?.removeEventListener("abort", done);
+      clearTimeout(t);
+      resolve();
+    }
+    signal?.addEventListener("abort", done, { once: true });
+  });
+}
+
+/**
+ * Run an Overpass call with the spec's backoff: on busy / timeout / network
+ * wait 20 s, 40 s, 80 s (calling `onRetry` with the moment the wait ends)
+ * and try again; after the third failure throw UnitFailure. Aborts stop at once.
+ */
+export async function withBackoff<T>(fn: () => Promise<T>, opts: { signal?: AbortSignal; onRetry?: (untilIso: string | null) => void } = {}): Promise<T> {
+  let last: UnitError = "network";
+  for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+    if (opts.signal?.aborted) throw new HttpError("aborted");
+    try {
+      const out = await fn();
+      opts.onRetry?.(null);
+      return out;
+    } catch (e) {
+      if (e instanceof HttpError && e.code === "aborted") throw e;
+      last = errorWord(e);
+      if (attempt === BACKOFF_MS.length) break;
+      const wait = BACKOFF_MS[attempt]!;
+      opts.onRetry?.(new Date(Date.now() + wait).toISOString());
+      await sleep(wait, opts.signal);
+      if (opts.signal?.aborted) throw new HttpError("aborted");
+    }
+  }
+  opts.onRetry?.(null);
+  throw new UnitFailure(last);
+}
+
+function slim(elements: OverpassElement[] | undefined): OverpassElement[] {
+  return (elements ?? []).map((el) => ({ type: el.type, id: el.id, lat: el.lat, lon: el.lon, center: el.center, tags: el.tags }));
+}
+
+function categoryKeyOf(category: Category): string {
+  return category.osm.map((t) => `${t.k}=${t.v}`).join("|");
+}
+
+/**
+ * The estimate (§2.5): one `out count` on the whole area, cached 24 h by
+ * (selector, trade). Null when the service is busy or slow — the search still
+ * runs, the progress just shows "found so far".
+ */
+export async function overpassCount(selector: AreaSelector, category: Category, signal?: AbortSignal): Promise<{ expected: number | null; ms: number }> {
+  const started = Date.now();
+  const query = countQuery(category, selector);
+  try {
+    const { value, hit } = await cached<{ total: number }>("overpass_count", { selector, trade: categoryKeyOf(category) }, DAY_MS, async () => {
+      const data = await overpassPost<{ elements?: { tags?: Record<string, string> }[] }>(query, { timeoutMs: COUNT_TIMEOUT_MS, signal });
+      const total = Number(data.elements?.[0]?.tags?.total ?? Number.NaN);
+      if (!Number.isFinite(total)) throw new HttpError("bad_json");
+      return { total };
+    });
+    if (!hit) countApiUsage("overpass");
+    return { expected: value.total, ms: Date.now() - started };
+  } catch (e) {
+    if (e instanceof HttpError && e.code === "aborted") throw e;
+    return { expected: null, ms: Date.now() - started };
+  }
+}
+
+export type UnitRead = { elements: OverpassElement[]; readAt: string; truncated: boolean; hit: boolean };
+
+/**
+ * One unit's elements (centres + tags), cached 24 h by (selector, tile box,
+ * trade) so a continued or repeated search costs nothing for finished units.
+ * Throws UnitFailure after three tries, HttpError("aborted") on cancel.
+ */
+export async function fetchUnit(
+  unit: { selector: AreaSelector; bbox?: Bbox },
+  category: Category,
+  opts: { signal?: AbortSignal; onRetry?: (untilIso: string | null) => void } = {},
+): Promise<UnitRead> {
+  const query = unitQuery(category, unit.selector, unit.bbox);
+  const request = { selector: unit.selector, bbox: unit.bbox ? unit.bbox.map((n) => n.toFixed(5)) : null, trade: categoryKeyOf(category) };
+  const { value, hit } = await cached<{ elements: OverpassElement[]; readAt: string }>("overpass", request, DAY_MS, async () => {
+    const data = await withBackoff(() => overpassPost(query, { timeoutMs: UNIT_TIMEOUT_MS, signal: opts.signal }), opts);
+    return { elements: slim(data.elements), readAt: new Date().toISOString() };
+  });
+  if (!hit) countApiUsage("overpass");
+  return { elements: value.elements, readAt: value.readAt, truncated: value.elements.length >= UNIT_LIMIT, hit };
+}
+
+// ---- element mapping ------------------------------------------------------------------
 
 function firstOf(v: string | undefined): string | undefined {
   return v ? v.split(";")[0]?.trim() || undefined : undefined;
@@ -36,13 +162,39 @@ function cleanPhone(v: string | undefined): string | undefined {
   return p && p.replace(/\D/g, "").length >= 6 ? p.slice(0, 40) : undefined;
 }
 
+// Control characters (U+0000–U+001F, U+007F) become spaces; runs of whitespace collapse.
+const CONTROL_RE = new RegExp("[\\u0000-\\u001f\\u007f]", "g");
+
 function cleanText(v: string | undefined, max = 120): string | undefined {
-  const t = v?.replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim();
+  const t = v?.replace(CONTROL_RE, " ").replace(/\s+/g, " ").trim();
   return t ? t.slice(0, max) : undefined;
 }
 
-/** One OSM element → Business, or null when it has no name. */
-export function mapElement(el: OverpassElement, area: Area, category: Category): Business | null {
+const SOCIAL_KEYS = ["facebook", "instagram", "linkedin", "twitter"] as const;
+
+/** contact:facebook|instagram|linkedin|twitter → validated https URLs (a bare handle becomes the site URL). */
+export function socialsOf(tags: Record<string, string>): Record<string, string> | undefined {
+  const out: Record<string, string> = {};
+  const bases: Record<(typeof SOCIAL_KEYS)[number], string> = {
+    facebook: "https://www.facebook.com/",
+    instagram: "https://www.instagram.com/",
+    linkedin: "https://www.linkedin.com/company/",
+    twitter: "https://x.com/",
+  };
+  for (const k of SOCIAL_KEYS) {
+    const raw = firstOf(tags[`contact:${k}`] ?? tags[k]);
+    if (!raw) continue;
+    const handle = raw.replace(/^@/, "");
+    const url = safeHttpUrl(raw) ?? (/^[A-Za-z0-9_.-]{2,60}$/.test(handle) ? `${bases[k]}${handle}` : null);
+    if (url) out[k] = url;
+  }
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
+export type OsmBusiness = Business & { socials?: Record<string, string>; countrySource: "source" | "area" };
+
+/** One OSM element → Business (+ socials, country provenance), or null when it has no name. */
+export function mapElement(el: OverpassElement, area: { countryCode: string }, category: Category): OsmBusiness | null {
   const tags = el.tags ?? {};
   const name = cleanText(tags.name ?? tags["name:fr"] ?? tags["name:en"]);
   if (!name) return null;
@@ -53,9 +205,10 @@ export function mapElement(el: OverpassElement, area: Area, category: Category):
   const emailRaw = firstOf(tags.email ?? tags["contact:email"])?.toLowerCase();
   const email = emailRaw && validEmail(emailRaw) ? emailRaw : undefined;
   const addrCountry = (tags["addr:country"] ?? "").toUpperCase();
+  const countryFromSource = /^[A-Z]{2}$/.test(addrCountry);
   const matched = category.osm.find((t) => tags[t.k] === t.v);
   const addressLine = cleanText([tags["addr:housenumber"], tags["addr:street"]].filter(Boolean).join(" "));
-  return {
+  const b: OsmBusiness = {
     source: "osm",
     sourceId: `${el.type}/${el.id}`,
     sourceUrl: `https://www.openstreetmap.org/${el.type}/${el.id}`,
@@ -63,7 +216,8 @@ export function mapElement(el: OverpassElement, area: Area, category: Category):
     addressLine,
     postcode: cleanText(tags["addr:postcode"], 12),
     city: cleanText(tags["addr:city"], 80),
-    countryCode: /^[A-Z]{2}$/.test(addrCountry) ? addrCountry : area.countryCode,
+    countryCode: countryFromSource ? addrCountry : area.countryCode,
+    countrySource: countryFromSource ? "source" : "area",
     lat: hasGeo ? lat : undefined,
     lng: hasGeo ? lng : undefined,
     geoSource: hasGeo ? "source" : "none",
@@ -73,73 +227,7 @@ export function mapElement(el: OverpassElement, area: Area, category: Category):
     brand: cleanText(tags.brand, 60),
     tags: matched ? { [matched.k]: matched.v } : undefined,
   };
+  const socials = socialsOf(tags);
+  if (socials) b.socials = socials;
+  return b;
 }
-
-async function fetchTile(category: Category, tile: Bbox, signal: AbortSignal, deadline: number): Promise<{ elements: OverpassElement[]; hit: boolean }> {
-  const query = buildQuery(category, tile);
-  const request = { tile: tile.map((n) => n.toFixed(4)), osm: category.osm };
-  const post = () =>
-    fetchJson<{ elements?: OverpassElement[] }>(HOSTS.overpass, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-      timeoutMs: 30_000,
-      signal,
-    });
-  const { value, hit } = await cached<{ elements: OverpassElement[] }>("overpass", request, DAY_MS, async () => {
-    let res: { data: { elements?: OverpassElement[] } };
-    try {
-      res = await spaced("overpass", OVERPASS_GAP_MS, post);
-    } catch (e) {
-      const retryable = e instanceof HttpError && (e.status === 429 || e.status === 504);
-      if (!retryable || Date.now() + RETRY_AFTER_MS + TILE_RESERVE_MS > deadline || signal.aborted) throw e;
-      await new Promise((r) => setTimeout(r, RETRY_AFTER_MS));
-      res = await spaced("overpass", OVERPASS_GAP_MS, post);
-    }
-    // Slim the elements before caching: coordinates + tags only.
-    const elements = (res.data.elements ?? []).map((el) => ({ type: el.type, id: el.id, lat: el.lat, lon: el.lon, center: el.center, tags: el.tags }));
-    return { elements };
-  });
-  if (!hit) countApiUsage("overpass");
-  return { elements: value.elements, hit };
-}
-
-/** Tile-by-tile search; stops early (partial) when the budget runs out. */
-export async function searchOsm(area: Area, category: Category, opts: { budgetMs: number; signal: AbortSignal }): Promise<AdapterResult> {
-  const deadline = Date.now() + opts.budgetMs;
-  const tiles = tilesFor(area.bbox);
-  const rows: Business[] = [];
-  const notes: string[] = [];
-  let partial = false;
-  if (category.osm.length === 0) return { rows, partial, notes: ["OSM: no tag for this trade"] };
-  for (let i = 0; i < tiles.length; i++) {
-    if (opts.signal.aborted || Date.now() + TILE_RESERVE_MS > deadline) {
-      partial = true;
-      notes.push(`OSM: stopped after ${i} of ${tiles.length} tiles (time budget)`);
-      break;
-    }
-    try {
-      const { elements } = await fetchTile(category, tiles[i]!, opts.signal, deadline);
-      for (const el of elements) {
-        const b = mapElement(el, area, category);
-        if (b) rows.push(b);
-      }
-    } catch (e) {
-      partial = true;
-      const code = e instanceof HttpError ? e.code : "error";
-      notes.push(`OSM: tile ${i + 1} of ${tiles.length} failed (${code})`);
-      if (code === "timeout" || code === "aborted") break;
-    }
-  }
-  return { rows, partial, notes };
-}
-
-export const osmAdapter: RichAdapter = {
-  id: "osm",
-  enabled: () => true,
-  supports: () => true,
-  searchRich: searchOsm,
-  async search(area, category, opts) {
-    return (await searchOsm(area, category, opts)).rows;
-  },
-};

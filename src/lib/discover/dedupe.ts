@@ -21,6 +21,8 @@ export type MergedBusiness = Business & {
   key: string;
   sources: DiscoverySource[];
   provenance: Provenance;
+  /** "<source>:<sourceId>" of every row folded into this one (identity row first). */
+  members: string[];
 };
 
 /** Register sources win the identity of a merged row; OSM wins geo/contact. */
@@ -107,6 +109,7 @@ function mergeCluster(rows: Business[]): MergedBusiness {
     key: `${identity.source}:${identity.sourceId}`,
     sources,
     provenance,
+    members: [...new Set(byIdentity.map((r) => `${r.source}:${r.sourceId}`))],
     name: nameRow.name,
     legalName: registerRow.legalName ?? identity.legalName,
     enseigne: registerRow.enseigne ?? rows.find((r) => r.enseigne)?.enseigne ?? (nameRow !== identity ? nameRow.name : undefined),

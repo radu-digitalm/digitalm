@@ -1,0 +1,973 @@
+{
+ "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+ "captured": "Nominatim search?format=jsonv2&limit=5&addressdetails=1&extratags=1 on 12 Sep 2026 (local-language names; polygons omitted; extratags trimmed to ref:INSEE / ISO3166 / admin_level / place)",
+ "queries": {
+  "ariege": [
+   {
+    "osm_type": "relation",
+    "osm_id": 7439,
+    "lat": "42.9455368",
+    "lon": "1.4065544",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 12,
+    "importance": 0.6475948895014035,
+    "addresstype": "county",
+    "name": "Ariège",
+    "display_name": "Ariège, Occitanie, France métropolitaine, France",
+    "address": {
+     "county": "Ariège",
+     "ISO3166-2-lvl6": "FR-09",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q3184",
+     "ref:INSEE": "09",
+     "population": "153287",
+     "border_type": "departement",
+     "admin_level": "6"
+    },
+    "boundingbox": [
+     "42.5732416",
+     "43.3162514",
+     "0.8267506",
+     "2.1758135"
+    ]
+   }
+  ],
+  "Occitanie": [
+   {
+    "osm_type": "relation",
+    "osm_id": 3792883,
+    "lat": "43.6487851",
+    "lon": "2.3435684",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 8,
+    "importance": 0.7473569334534503,
+    "addresstype": "state",
+    "name": "Occitanie",
+    "display_name": "Occitanie, France métropolitaine, France",
+    "address": {
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q18678265",
+     "ref:INSEE": "76",
+     "population": "5933185",
+     "admin_level": "4"
+    },
+    "boundingbox": [
+     "42.3327551",
+     "45.0466382",
+     "-0.3272563",
+     "4.8455335"
+    ]
+   }
+  ],
+  "France": [
+   {
+    "osm_type": "relation",
+    "osm_id": 2202162,
+    "lat": "46.6033540",
+    "lon": "1.8883335",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 4,
+    "importance": 0.9781609870055644,
+    "addresstype": "country",
+    "name": "France",
+    "display_name": "France",
+    "address": {
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q142",
+     "population": "67852556",
+     "border_type": "territorial",
+     "ISO3166-1:alpha2": "FR",
+     "admin_level": "2"
+    },
+    "boundingbox": [
+     "-50.2187169",
+     "51.3055721",
+     "-178.3873749",
+     "172.3057152"
+    ]
+   }
+  ],
+  "Andorra": [
+   {
+    "osm_type": "relation",
+    "osm_id": 9407,
+    "lat": "42.5407167",
+    "lon": "1.5732033",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 4,
+    "importance": 0.7188249218295797,
+    "addresstype": "country",
+    "name": "Andorra",
+    "display_name": "Andorra",
+    "address": {
+     "country": "Andorra",
+     "country_code": "ad"
+    },
+    "extratags": {
+     "wikidata": "Q228",
+     "population": "83888",
+     "ISO3166-1:alpha2": "AD",
+     "admin_level": "2"
+    },
+    "boundingbox": [
+     "42.4288238",
+     "42.6558959",
+     "1.4077997",
+     "1.7868662"
+    ]
+   }
+  ],
+  "Foix": [
+   {
+    "osm_type": "relation",
+    "osm_id": 74088,
+    "lat": "42.9638998",
+    "lon": "1.6053807",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.5977649875243382,
+    "addresstype": "town",
+    "name": "Foix",
+    "display_name": "Foix, Ariège, Occitanie, France métropolitaine, 09000, France",
+    "address": {
+     "town": "Foix",
+     "municipality": "Foix",
+     "county": "Ariège",
+     "ISO3166-2-lvl6": "FR-09",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "09000",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "capital": "6",
+     "wikidata": "Q184392",
+     "ref:INSEE": "09122",
+     "population": "9472",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "42.9313833",
+     "43.0087506",
+     "1.5713114",
+     "1.6470594"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 2172304,
+    "lat": "42.8371300",
+    "lon": "1.5805719",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 14,
+    "importance": 0.5281779417542597,
+    "addresstype": "municipality",
+    "name": "Foix",
+    "display_name": "Foix, Ariège, Occitanie, France métropolitaine, France",
+    "address": {
+     "municipality": "Foix",
+     "county": "Ariège",
+     "ISO3166-2-lvl6": "FR-09",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q518212",
+     "ref:INSEE": "091",
+     "border_type": "arrondissement",
+     "admin_level": "7"
+    },
+    "boundingbox": [
+     "42.5732416",
+     "43.1013513",
+     "1.3509542",
+     "2.1758135"
+    ]
+   }
+  ],
+  "Cambridge": [
+   {
+    "osm_type": "relation",
+    "osm_id": 295355,
+    "lat": "52.1975846",
+    "lon": "0.1391537",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.6990058432201166,
+    "addresstype": "city",
+    "name": "Cambridge",
+    "display_name": "Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, United Kingdom",
+    "address": {
+     "city": "Cambridge",
+     "county": "Cambridgeshire",
+     "ISO3166-2-lvl6": "GB-CAM",
+     "state_district": "Cambridgeshire and Peterborough",
+     "state": "England",
+     "ISO3166-2-lvl4": "GB-ENG",
+     "country": "United Kingdom",
+     "country_code": "gb"
+    },
+    "extratags": {
+     "wikidata": "Q21713103",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "52.1579417",
+     "52.2372296",
+     "0.0686389",
+     "0.1845520"
+    ]
+   },
+   {
+    "osm_type": "node",
+    "osm_id": 20971094,
+    "lat": "52.2055314",
+    "lon": "0.1186637",
+    "category": "place",
+    "type": "city",
+    "place_rank": 16,
+    "importance": 0.6990058432201166,
+    "addresstype": "city",
+    "name": "Cambridge",
+    "display_name": "Cambridge, Cambridgeshire, Cambridgeshire and Peterborough, England, CB2 3NR, United Kingdom",
+    "address": {
+     "city": "Cambridge",
+     "county": "Cambridgeshire",
+     "ISO3166-2-lvl6": "GB-CAM",
+     "state_district": "Cambridgeshire and Peterborough",
+     "state": "England",
+     "ISO3166-2-lvl4": "GB-ENG",
+     "postcode": "CB2 3NR",
+     "country": "United Kingdom",
+     "country_code": "gb"
+    },
+    "extratags": {
+     "wikidata": "Q350",
+     "population": "145818"
+    },
+    "boundingbox": [
+     "52.0455314",
+     "52.3655314",
+     "-0.0413363",
+     "0.2786637"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 1933745,
+    "lat": "42.3656347",
+    "lon": "-71.1040018",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.6715655355820932,
+    "addresstype": "city",
+    "name": "Cambridge",
+    "display_name": "Cambridge, Middlesex County, Massachusetts, United States",
+    "address": {
+     "city": "Cambridge",
+     "county": "Middlesex County",
+     "state": "Massachusetts",
+     "ISO3166-2-lvl4": "US-MA",
+     "country": "United States",
+     "country_code": "us"
+    },
+    "extratags": {
+     "capital": "6",
+     "wikidata": "Q49111",
+     "population": "105162",
+     "border_type": "city",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "42.3524025",
+     "42.4042593",
+     "-71.1603989",
+     "-71.0639844"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 2062152,
+    "lat": "43.3600536",
+    "lon": "-80.3123023",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.4971620278740877,
+    "addresstype": "city",
+    "name": "Cambridge",
+    "display_name": "Cambridge, Region of Waterloo, Southwestern Ontario, Ontario, Canada",
+    "address": {
+     "city": "Cambridge",
+     "county": "Region of Waterloo",
+     "state_district": "Southwestern Ontario",
+     "state": "Ontario",
+     "ISO3166-2-lvl4": "CA-ON",
+     "country": "Canada",
+     "country_code": "ca"
+    },
+    "extratags": {
+     "place": "city",
+     "wikidata": "Q1028279",
+     "population": "138479",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "43.3323902",
+     "43.4723418",
+     "-80.4130780",
+     "-80.2514908"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 124865,
+    "lat": "41.3025257",
+    "lon": "-90.1962861",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.48333689371115596,
+    "addresstype": "village",
+    "name": "Cambridge",
+    "display_name": "Cambridge, Henry County, Illinois, United States",
+    "address": {
+     "village": "Cambridge",
+     "county": "Henry County",
+     "state": "Illinois",
+     "ISO3166-2-lvl4": "US-IL",
+     "country": "United States",
+     "country_code": "us"
+    },
+    "extratags": {
+     "capital": "6",
+     "wikidata": "Q512012",
+     "population": "2086",
+     "border_type": "village",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "41.2831130",
+     "41.3105700",
+     "-90.2082860",
+     "-90.1750700"
+    ]
+   }
+  ],
+  "Pyrénées": [
+   {
+    "osm_type": "way",
+    "osm_id": 1501963837,
+    "lat": "42.6687275",
+    "lon": "0.4202897",
+    "category": "natural",
+    "type": "mountain_range",
+    "place_rank": 18,
+    "importance": 0.6831061983715123,
+    "addresstype": "mountain_range",
+    "name": "Pyrénées / Pirineos / Pirineus / Pirineu / Pirinioak / Pirenèus",
+    "display_name": "Pyrénées / Pirineos / Pirineus / Pirineu / Pirinioak / Pirenèus, España",
+    "address": {
+     "mountain_range": "Pyrénées / Pirineos / Pirineus / Pirineu / Pirinioak / Pirenèus",
+     "country": "España",
+     "country_code": "es"
+    },
+    "extratags": {
+     "wikidata": "Q12431"
+    },
+    "boundingbox": [
+     "42.3833859",
+     "43.3174201",
+     "-1.6202273",
+     "2.4590274"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 3792883,
+    "lat": "43.6487851",
+    "lon": "2.3435684",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 8,
+    "importance": 0.7473569334534503,
+    "addresstype": "state",
+    "name": "Occitanie",
+    "display_name": "Occitanie, France métropolitaine, France",
+    "address": {
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q18678265",
+     "ref:INSEE": "76",
+     "population": "5933185",
+     "admin_level": "4"
+    },
+    "boundingbox": [
+     "42.3327551",
+     "45.0466382",
+     "-0.3272563",
+     "4.8455335"
+    ]
+   }
+  ],
+  "Prayols": [
+   {
+    "osm_type": "relation",
+    "osm_id": 2108863,
+    "lat": "42.9261437",
+    "lon": "1.6244530",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.5446709623036691,
+    "addresstype": "village",
+    "name": "Prayols",
+    "display_name": "Prayols, Foix, Ariège, Occitanie, France métropolitaine, 09000, France",
+    "address": {
+     "village": "Prayols",
+     "municipality": "Foix",
+     "county": "Ariège",
+     "ISO3166-2-lvl6": "FR-09",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "09000",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q567850",
+     "ref:INSEE": "09236",
+     "population": "367",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "42.9103659",
+     "42.9331592",
+     "1.5658547",
+     "1.6331617"
+    ]
+   }
+  ],
+  "Paris": [
+   {
+    "osm_type": "relation",
+    "osm_id": 71525,
+    "lat": "48.8534951",
+    "lon": "2.3483915",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 12,
+    "importance": 0.897098092136026,
+    "addresstype": "city",
+    "name": "Paris",
+    "display_name": "Paris, Île-de-France, France métropolitaine, France",
+    "address": {
+     "city": "Paris",
+     "ISO3166-2-lvl6": "FR-75C",
+     "state": "Île-de-France",
+     "ISO3166-2-lvl4": "FR-IDF",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "capital": "yes",
+     "wikidata": "Q90",
+     "ref:INSEE": "75",
+     "population": "2165423",
+     "admin_level": "6"
+    },
+    "boundingbox": [
+     "48.8155755",
+     "48.9021560",
+     "2.2241220",
+     "2.4697602"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 7444,
+    "lat": "48.8588897",
+    "lon": "2.3200410",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 15,
+    "importance": 0.897098092136026,
+    "addresstype": "suburb",
+    "name": "Paris",
+    "display_name": "Paris, Île-de-France, France métropolitaine, France",
+    "address": {
+     "suburb": "Paris",
+     "city_district": "Paris",
+     "city": "Paris",
+     "ISO3166-2-lvl6": "FR-75C",
+     "state": "Île-de-France",
+     "ISO3166-2-lvl4": "FR-IDF",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "capital": "yes",
+     "wikidata": "Q90",
+     "ref:INSEE": "75056",
+     "population": "2133111",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "48.8155755",
+     "48.9021560",
+     "2.2241220",
+     "2.4697602"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 115357,
+    "lat": "33.6617962",
+    "lon": "-95.5555130",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.5298648354283636,
+    "addresstype": "town",
+    "name": "Paris",
+    "display_name": "Paris, Lamar County, Texas, United States",
+    "address": {
+     "town": "Paris",
+     "county": "Lamar County",
+     "state": "Texas",
+     "ISO3166-2-lvl4": "US-TX",
+     "country": "United States",
+     "country_code": "us"
+    },
+    "extratags": {
+     "capital": "6",
+     "wikidata": "Q830149",
+     "population": "25171",
+     "border_type": "city",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "33.6206345",
+     "33.7383866",
+     "-95.6279396",
+     "-95.4354115"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 1641193,
+    "lat": "48.8588897",
+    "lon": "2.3200410",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 14,
+    "importance": 0.4594627538257798,
+    "addresstype": "city_district",
+    "name": "Paris",
+    "display_name": "Paris, Île-de-France, France métropolitaine, France",
+    "address": {
+     "city_district": "Paris",
+     "city": "Paris",
+     "ISO3166-2-lvl6": "FR-75C",
+     "state": "Île-de-France",
+     "ISO3166-2-lvl4": "FR-IDF",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q2863958",
+     "ref:INSEE": "751",
+     "admin_level": "7"
+    },
+    "boundingbox": [
+     "48.8155755",
+     "48.9021560",
+     "2.2241220",
+     "2.4697602"
+    ]
+   }
+  ],
+  "Toulouse": [
+   {
+    "osm_type": "relation",
+    "osm_id": 35738,
+    "lat": "43.6044638",
+    "lon": "1.4442433",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.7287053511182572,
+    "addresstype": "city",
+    "name": "Toulouse",
+    "display_name": "Toulouse, Haute-Garonne, Occitanie, France métropolitaine, France",
+    "address": {
+     "city": "Toulouse",
+     "municipality": "Toulouse",
+     "county": "Haute-Garonne",
+     "ISO3166-2-lvl6": "FR-31",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "capital": "4",
+     "wikidata": "Q7880",
+     "ref:INSEE": "31555",
+     "population": "504078",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "43.5326969",
+     "43.6687119",
+     "1.3503311",
+     "1.5153356"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 1649040,
+    "lat": "43.5792284",
+    "lon": "1.5033290",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 14,
+    "importance": 0.557795531522444,
+    "addresstype": "municipality",
+    "name": "Toulouse",
+    "display_name": "Toulouse, Haute-Garonne, Occitanie, France métropolitaine, France",
+    "address": {
+     "municipality": "Toulouse",
+     "county": "Haute-Garonne",
+     "ISO3166-2-lvl6": "FR-31",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q702642",
+     "ref:INSEE": "313",
+     "border_type": "arrondissement",
+     "admin_level": "7"
+    },
+    "boundingbox": [
+     "43.2369002",
+     "43.9215613",
+     "0.9523375",
+     "2.0482851"
+    ]
+   }
+  ],
+  "Wales": [
+   {
+    "osm_type": "relation",
+    "osm_id": 58437,
+    "lat": "52.2928116",
+    "lon": "-3.7389300",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 8,
+    "importance": 0.7833630083409433,
+    "addresstype": "state",
+    "name": "Cymru / Wales",
+    "display_name": "Cymru / Wales, United Kingdom",
+    "address": {
+     "state": "Cymru / Wales",
+     "ISO3166-2-lvl4": "GB-WLS",
+     "country": "United Kingdom",
+     "country_code": "gb"
+    },
+    "extratags": {
+     "wikidata": "Q25",
+     "admin_level": "4"
+    },
+    "boundingbox": [
+     "51.2290265",
+     "53.6350000",
+     "-5.8077297",
+     "-2.6498626"
+    ]
+   }
+  ],
+  "Bavaria": [
+   {
+    "osm_type": "relation",
+    "osm_id": 2145268,
+    "lat": "48.9467562",
+    "lon": "11.4038717",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 8,
+    "importance": 0.7882705725399922,
+    "addresstype": "state",
+    "name": "Bayern",
+    "display_name": "Bayern, Deutschland",
+    "address": {
+     "state": "Bayern",
+     "ISO3166-2-lvl4": "DE-BY",
+     "country": "Deutschland",
+     "country_code": "de"
+    },
+    "extratags": {
+     "wikidata": "Q980",
+     "population": "12520000",
+     "border_type": "state",
+     "admin_level": "4"
+    },
+    "boundingbox": [
+     "47.2701114",
+     "50.5647142",
+     "8.9763654",
+     "13.8396495"
+    ]
+   }
+  ],
+  "Le Bosc": [
+   {
+    "osm_type": "relation",
+    "osm_id": 164706,
+    "lat": "43.7091244",
+    "lon": "3.3846704",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.5530991498121381,
+    "addresstype": "village",
+    "name": "Le Bosc",
+    "display_name": "Le Bosc, Lodève, Hérault, Occitanie, France métropolitaine, 34700, France",
+    "address": {
+     "village": "Le Bosc",
+     "municipality": "Lodève",
+     "county": "Hérault",
+     "ISO3166-2-lvl6": "FR-34",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "34700",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q200659",
+     "ref:INSEE": "34036",
+     "population": "1376",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "43.6638605",
+     "43.7333815",
+     "3.3417309",
+     "3.4375357"
+    ]
+   },
+   {
+    "osm_type": "relation",
+    "osm_id": 2124334,
+    "lat": "42.9471182",
+    "lon": "1.4595868",
+    "category": "boundary",
+    "type": "administrative",
+    "place_rank": 16,
+    "importance": 0.5449105913092002,
+    "addresstype": "village",
+    "name": "Le Bosc",
+    "display_name": "Le Bosc, Foix, Ariège, Occitanie, France métropolitaine, 09000, France",
+    "address": {
+     "village": "Le Bosc",
+     "municipality": "Foix",
+     "county": "Ariège",
+     "ISO3166-2-lvl6": "FR-09",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "09000",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {
+     "wikidata": "Q589465",
+     "ref:INSEE": "09063",
+     "population": "114",
+     "admin_level": "8"
+    },
+    "boundingbox": [
+     "42.9054537",
+     "42.9647133",
+     "1.4103925",
+     "1.4817279"
+    ]
+   },
+   {
+    "osm_type": "node",
+    "osm_id": 4102662097,
+    "lat": "43.3501976",
+    "lon": "3.0325751",
+    "category": "natural",
+    "type": "peak",
+    "place_rank": 18,
+    "importance": 0.16006164568551154,
+    "addresstype": "peak",
+    "name": "Le Bosc",
+    "display_name": "Le Bosc, Capestang, Béziers, Hérault, Occitanie, France métropolitaine, 34310, France",
+    "address": {
+     "peak": "Le Bosc",
+     "village": "Capestang",
+     "municipality": "Béziers",
+     "county": "Hérault",
+     "ISO3166-2-lvl6": "FR-34",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "34310",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {},
+    "boundingbox": [
+     "43.3501476",
+     "43.3502476",
+     "3.0325251",
+     "3.0326251"
+    ]
+   },
+   {
+    "osm_type": "node",
+    "osm_id": 9514426602,
+    "lat": "43.6363858",
+    "lon": "3.0598104",
+    "category": "natural",
+    "type": "peak",
+    "place_rank": 18,
+    "importance": 0.16006154039826045,
+    "addresstype": "peak",
+    "name": "Le Bosc",
+    "display_name": "Le Bosc, Taussac-la-Billière, Béziers, Hérault, Occitanie, France métropolitaine, 34600, France",
+    "address": {
+     "peak": "Le Bosc",
+     "city": "Taussac-la-Billière",
+     "municipality": "Béziers",
+     "county": "Hérault",
+     "ISO3166-2-lvl6": "FR-34",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "34600",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {},
+    "boundingbox": [
+     "43.6363358",
+     "43.6364358",
+     "3.0597604",
+     "3.0598604"
+    ]
+   },
+   {
+    "osm_type": "node",
+    "osm_id": 9266148299,
+    "lat": "43.7333676",
+    "lon": "3.1608867",
+    "category": "natural",
+    "type": "peak",
+    "place_rank": 18,
+    "importance": 0.16006145647364003,
+    "addresstype": "peak",
+    "name": "Le Bosc",
+    "display_name": "Le Bosc, Avène, Béziers, Hérault, Occitanie, France métropolitaine, 34260, France",
+    "address": {
+     "peak": "Le Bosc",
+     "village": "Avène",
+     "municipality": "Béziers",
+     "county": "Hérault",
+     "ISO3166-2-lvl6": "FR-34",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "postcode": "34260",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {},
+    "boundingbox": [
+     "43.7333176",
+     "43.7334176",
+     "3.1608367",
+     "3.1609367"
+    ]
+   }
+  ],
+  "hamlet (synthetic)": [
+   {
+    "osm_type": "node",
+    "osm_id": 999999999,
+    "lat": "42.9000",
+    "lon": "1.5000",
+    "category": "place",
+    "type": "hamlet",
+    "place_rank": 20,
+    "importance": 0.25,
+    "addresstype": "hamlet",
+    "name": "Les Bordes",
+    "display_name": "Les Bordes, Ariège, Occitanie, France métropolitaine, France",
+    "address": {
+     "hamlet": "Les Bordes",
+     "county": "Ariège",
+     "ISO3166-2-lvl6": "FR-09",
+     "state": "Occitanie",
+     "ISO3166-2-lvl4": "FR-OCC",
+     "region": "France métropolitaine",
+     "country": "France",
+     "country_code": "fr"
+    },
+    "extratags": {},
+    "boundingbox": [
+     "42.8800",
+     "42.9200",
+     "1.4800",
+     "1.5200"
+    ]
+   }
+  ]
+ }
+}

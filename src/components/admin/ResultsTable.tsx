@@ -7,7 +7,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import type { DiscoverySource } from "@/lib/crm/types";
-import type { MergedBusiness, SearchResult } from "@/lib/discover/index";
+import type { ResultRow as MergedBusiness } from "@/lib/crm/types";
+import type { SearchResult } from "@/lib/discover/index";
 import { adminFetch, adminGet } from "./adminFetch";
 import { Badge } from "./Badge";
 import { Button } from "./Button";
@@ -187,7 +188,7 @@ export function ResultsTable({ result, onSaved }: { result: SearchResult; onSave
           </span>
         ))}
         {savedCount > 0 ? <span>{savedCount} already saved</span> : null}
-        {result.partial ? <Badge variant="warn">partial results</Badge> : null}
+        {result.progress.status === "partial" ? <Badge variant="warn">some areas missing</Badge> : null}
         <span className="flex-1" />
         <span>{picked.size} ticked</span>
         <Button variant="primary" size="sm" onClick={save} disabled={picked.size === 0} loading={saving}>
@@ -197,7 +198,7 @@ export function ResultsTable({ result, onSaved }: { result: SearchResult; onSave
       {result.notes.length > 0 ? (
         <ul className="list-disc space-y-0.5 pl-5 text-xs text-fg-muted">
           {result.notes.map((n, i) => (
-            <li key={i}>{n}</li>
+            <li key={i}>{n.text}</li>
           ))}
         </ul>
       ) : null}

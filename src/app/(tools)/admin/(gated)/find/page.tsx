@@ -67,7 +67,7 @@ export default async function FindPage({ searchParams }: { searchParams: Promise
                       {Object.entries(s.perSource)
                         .map(([k, n]) => `${k} ${n}`)
                         .join(" · ")}
-                      {s.partial ? <Badge variant="warn" className="ml-2">partial</Badge> : null}
+                      {s.status === "partial" ? <Badge variant="warn" className="ml-2">some areas missing</Badge> : null}
                     </td>
                     <td className="px-3 py-2 text-right">
                       {s.cached ? (

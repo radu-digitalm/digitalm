@@ -1,17 +1,16 @@
 // UK Companies House (advanced company search, OGL v3). Contract §6
-// "companies_house": only with COMPANIES_HOUSE_KEY and for GB areas; one GET
-// per SIC code, ≤ 2 req/s, cached 24 h. Registered offices only — no
-// coordinates, `registeredOfficeOnly = true` so the results table can say
-// "registered office, not the shop"; dedupe keeps OSM coordinates as geo truth.
+// "companies_house" + finder-ux §3.5: only with COMPANIES_HOUSE_KEY and for
+// GB towns (searched by locality); one GET per SIC code, ≤ 2 req/s, cached
+// 24 h. Registered offices only — no coordinates, `registeredOfficeOnly =
+// true` so the card can say "registered office, not necessarily the shop";
+// dedupe keeps OpenStreetMap coordinates as geo truth.
 import { DAY_MS, cached } from "@/lib/crm/apiCache";
 import { countApiUsage } from "@/lib/crm/apiUsage";
 import { HOSTS, HttpError, fetchJson, spaced } from "@/lib/crm/http";
 import type { Area, Business, Category } from "@/lib/crm/types";
-import type { AdapterResult, RichAdapter } from "./index";
 
 const GAP_MS = 500; // 2 req/s
 const PAGE_SIZE = 100;
-const REQUEST_RESERVE_MS = 2_000;
 
 export const COMPANY_NUMBER_RE = /^[A-Z0-9]{8}$/i;
 
@@ -78,7 +77,7 @@ export function mapCompany(c: ChItem): Business | null {
   };
 }
 
-async function fetchSic(sic: string, locality: string, key: string, signal: AbortSignal): Promise<ChItem[]> {
+async function fetchSic(sic: string, locality: string, key: string, signal?: AbortSignal): Promise<ChItem[]> {
   const qs = new URLSearchParams({ sic_codes: sic, location: locality, company_status: "active", size: String(PAGE_SIZE), start_index: "0" });
   const url = `${HOSTS.companiesHouse}/advanced-search/companies?${qs.toString()}`;
   const { value, hit } = await cached<{ items: ChItem[] }>("companies_house", { url }, DAY_MS, async () => {
@@ -89,53 +88,33 @@ async function fetchSic(sic: string, locality: string, key: string, signal: Abor
   return value.items;
 }
 
-export async function searchCompaniesHouse(area: Area, category: Category, opts: { budgetMs: number; signal: AbortSignal }): Promise<AdapterResult> {
-  const deadline = Date.now() + opts.budgetMs;
+/**
+ * Active companies with the trade's SIC codes registered in the area's
+ * locality (GB towns only). Throws HttpError when the key is refused or the
+ * service is unreachable; `truncatedSics` lists codes that hit the 100 cap.
+ */
+export async function searchCompaniesHouse(area: Pick<Area, "countryCode" | "label" | "admin">, category: Category, signal?: AbortSignal): Promise<{ rows: Business[]; truncatedSics: string[] }> {
   const rows: Business[] = [];
-  const notes: string[] = [];
-  let partial = false;
+  const truncatedSics: string[] = [];
   const key = companiesHouseKey();
-  if (!key) return { rows, partial, notes: ["Companies House is off (no COMPANIES_HOUSE_KEY)"] };
-  if (category.sic.length === 0) return { rows, partial, notes: ["Companies House: no SIC code for this trade"] };
-  const locality = (area.admin?.locality ?? area.label.split(",")[0] ?? "").trim();
-  if (!locality) return { rows, partial, notes: ["Companies House: no locality to filter on"] };
+  if (!key || area.countryCode !== "GB" || category.sic.length === 0) return { rows, truncatedSics };
+  const locality = (area.admin?.locality ?? "").trim();
+  if (!locality) return { rows, truncatedSics };
   const seen = new Set<string>();
   for (const sic of category.sic) {
-    if (opts.signal.aborted || Date.now() + REQUEST_RESERVE_MS > deadline) {
-      partial = true;
-      notes.push("Companies House: stopped early (time budget)");
-      break;
-    }
-    try {
-      const items = await fetchSic(sic, locality, key, opts.signal);
-      for (const it of items) {
-        const b = mapCompany(it);
-        if (b && !seen.has(b.sourceId)) {
-          seen.add(b.sourceId);
-          rows.push(b);
-        }
+    if (signal?.aborted) throw new HttpError("aborted");
+    const items = await fetchSic(sic, locality, key, signal);
+    for (const it of items) {
+      const b = mapCompany(it);
+      if (b && !seen.has(b.sourceId)) {
+        seen.add(b.sourceId);
+        rows.push(b);
       }
-      if (items.length >= PAGE_SIZE) notes.push(`Companies House: SIC ${sic} returned the first ${PAGE_SIZE} only`);
-    } catch (e) {
-      partial = true;
-      const code = e instanceof HttpError ? e.code : "error";
-      notes.push(`Companies House: request failed (${code})`);
-      if (code === "http_401" || code === "http_403") break;
     }
+    if (items.length >= PAGE_SIZE) truncatedSics.push(sic);
   }
-  if (rows.length > 0) notes.push(`Companies House: ${rows.length} registered office${rows.length === 1 ? "" : "s"} matched on "${locality}" — addresses are registered offices, not shops, and may fall outside the map area`);
-  return { rows, partial, notes };
+  return { rows, truncatedSics };
 }
-
-export const companiesHouseAdapter: RichAdapter = {
-  id: "companies_house",
-  enabled: () => companiesHouseKey() !== null,
-  supports: (area) => area.countryCode === "GB",
-  searchRich: searchCompaniesHouse,
-  async search(area, category, opts) {
-    return (await searchCompaniesHouse(area, category, opts)).rows;
-  },
-};
 
 export type CompanyCheck = { found: boolean; active: boolean; legalForm: string | null };
 

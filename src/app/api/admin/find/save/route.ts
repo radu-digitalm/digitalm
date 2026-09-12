@@ -4,12 +4,16 @@ import { ProspectError, saveFromSearch } from "@/lib/prospects/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// The exact-commune lookups (≤ 100 per save, 200 ms apart) fit under nginx's 60 s.
+export const maxDuration = 55;
 
 /**
  * { searchId, picks: string[] } — save the ticked rows of a cached search:
  * 30-day notice deadline on every row, audits enqueued for rows with a
- * website. 422 { error: "partial_diffusion", picks } when any pick is a
- * non-diffusible register row; 410 when the search cache has expired.
+ * website, the exact commune looked up for French rows whose town was
+ * approximate. 422 { error: "partial_diffusion", picks } for non-diffusible
+ * register rows; 409 { error: "hidden", picks } for dismissed rows; 410 when
+ * the search cache has expired. Returns `prospectIds` in the order of `references`.
  */
 export async function POST(req: NextRequest) {
   const guard = await guardAdminPost(req);
@@ -25,7 +29,7 @@ export async function POST(req: NextRequest) {
   const picks = Array.isArray(body.picks) ? body.picks.filter((p): p is string => typeof p === "string" && p.length <= 80).slice(0, 300) : [];
   if (picks.length === 0) return NextResponse.json({ ok: false, error: "no_picks" }, { status: 400 });
   try {
-    const result = saveFromSearch(searchId, picks);
+    const result = await saveFromSearch(searchId, picks);
     return NextResponse.json({ ok: true, ...result });
   } catch (e) {
     if (e instanceof ProspectError) {

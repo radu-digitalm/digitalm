@@ -2,7 +2,7 @@
 // "fr_register"): what we keep of a company and an establishment, and the
 // Business a row becomes. No network, no DB, relative imports only, so the
 // "dirigeants / finances never leave the adapter" promise is unit-tested.
-import type { Area, Business } from "../crm/types.ts";
+import type { Area, Business, ResolvedArea } from "../crm/types.ts";
 
 export const SIRET_RE = /^\d{14}$/;
 export const SOLE_TRADER_NATURE = "1000"; // entrepreneur individuel
@@ -115,4 +115,94 @@ export function mapEstablishment(c: SlimCompany, e: SlimEtab, area: Area): Busin
     diffusion: c.statut_diffusion === "diffusible" ? "full" : "partial",
     active: c.etat_administratif === "A",
   };
+}
+
+// ---- register scopes (docs/finder-ux-spec.md §3.4) ----------------------------------------
+
+export const MAX_SCOPE_POSTCODES = 12;
+export const MAX_RADIUS_KM = 50;
+export const POSTCODE_RE = /^\d{5}$/;
+export const DEPARTEMENT_RE = /^(0[1-9]|[1-8]\d|9[0-5]|2[AB]|97[1-6])$/;
+
+export type RegisterScopeSpec = {
+  id: string; // "cp:09000" | "dep:09" | "near:42.96,1.61"
+  label: string; // "09000" | "Ariège (09)" | "within 12 km of Foix"
+  mode: "postcode" | "departement" | "near_point";
+  params: Record<string, string>; // query-string fields for the register API
+};
+
+type ScopeArea = Pick<ResolvedArea, "kind" | "countryCode" | "label" | "center" | "radiusKm"> & { admin?: ResolvedArea["admin"] };
+
+function depLabel(code: string, names: Record<string, string>): string {
+  const name = names[code];
+  return name ? `${name} (${code})` : `Department ${code}`;
+}
+
+function nearPoint(area: ScopeArea): RegisterScopeSpec {
+  const radius = Math.min(MAX_RADIUS_KM, Math.max(1, Math.ceil(area.radiusKm || 1)));
+  return {
+    id: `near:${area.center.lat.toFixed(2)},${area.center.lng.toFixed(2)}`,
+    label: `within ${radius} km of ${area.label}`,
+    mode: "near_point",
+    params: { lat: area.center.lat.toFixed(5), long: area.center.lng.toFixed(5), radius: String(radius) },
+  };
+}
+
+function postcodeScopes(postcodes: readonly string[]): RegisterScopeSpec[] {
+  return [...new Set(postcodes.filter((p) => POSTCODE_RE.test(p)))].slice(0, MAX_SCOPE_POSTCODES).map((code_postal) => ({ id: `cp:${code_postal}`, label: code_postal, mode: "postcode", params: { code_postal } }));
+}
+
+/**
+ * Which register queries an area needs (§3.4): postcodes for a postcode /
+ * town with geo.gouv data, the department for a department, one department
+ * per OpenStreetMap unit that ran for regions and France (all of them when
+ * the area was a single unit), a radius for places and towns without codes.
+ * Non-FR areas get none. `ranUnits` are the units in run order whose state
+ * is `done`; `names` maps department codes to names for the labels.
+ */
+export function scopesFor(area: ScopeArea, ranUnits: readonly { code?: string; label?: string }[], names: Record<string, string> = {}, singleUnit = ranUnits.length <= 1): RegisterScopeSpec[] {
+  if (area.countryCode !== "FR") return [];
+  const admin = area.admin ?? {};
+  const postcodes = admin.postcodes ?? [];
+  if (area.kind === "postcode") {
+    const s = postcodeScopes(postcodes);
+    return s.length > 0 ? s : [nearPoint(area)];
+  }
+  if (area.kind === "town") {
+    const s = postcodes.length > 0 && postcodes.length <= MAX_SCOPE_POSTCODES ? postcodeScopes(postcodes) : [];
+    return s.length > 0 ? s : [nearPoint(area)];
+  }
+  if (area.kind === "department") {
+    const code = admin.departement;
+    return code && DEPARTEMENT_RE.test(code) ? [{ id: `dep:${code}`, label: depLabel(code, { ...names, [code]: names[code] ?? area.label }), mode: "departement", params: { departement: code } }] : [nearPoint(area)];
+  }
+  if (area.kind === "region" || area.kind === "country") {
+    const known = (admin.departements ?? []).filter((c) => DEPARTEMENT_RE.test(c));
+    const unitNames: Record<string, string> = { ...names };
+    for (const u of ranUnits) if (u.code && u.label && DEPARTEMENT_RE.test(u.code) && !unitNames[u.code]) unitNames[u.code] = u.label;
+    let codes: string[];
+    if (singleUnit) codes = known;
+    else {
+      const ran = ranUnits.map((u) => u.code ?? "").filter((c) => DEPARTEMENT_RE.test(c));
+      codes = known.length > 0 ? ran.filter((c) => known.includes(c)) : ran;
+    }
+    return [...new Set(codes)].map((code) => ({ id: `dep:${code}`, label: depLabel(code, unitNames), mode: "departement", params: { departement: code } }));
+  }
+  return [nearPoint(area)];
+}
+
+/**
+ * Where a register row lands (§3.4): rows with source coordinates are kept
+ * only inside the polygon; rows without coordinates sit at the area centre
+ * as "approx" under an administrative scope and are dropped under near_point.
+ */
+export function placeRegisterRow(
+  b: Pick<Business, "lat" | "lng" | "geoSource">,
+  mode: RegisterScopeSpec["mode"],
+  inside: (lng: number, lat: number) => boolean,
+): { keep: boolean; inside: "yes" | "approx" | "no" } {
+  if (b.geoSource === "source" && typeof b.lat === "number" && typeof b.lng === "number") {
+    return inside(b.lng, b.lat) ? { keep: true, inside: "yes" } : { keep: false, inside: "no" };
+  }
+  return mode === "near_point" ? { keep: false, inside: "no" } : { keep: true, inside: "approx" };
 }

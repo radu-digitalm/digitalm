@@ -286,6 +286,12 @@ export const EXTRA_COLUMNS: [table: string, column: string, decl: string][] = [
 
   // @@crm:finder
   ["prospects", "brand", "TEXT"], // chain / franchise name from OSM (badge "chain"); finder only
+  ["searches", "status", "TEXT"], // finder-ux: SearchStatus; NULL on legacy rows (read as done / partial)
+  ["searches", "progress", "TEXT"], // finder-ux: JSON SearchProgress
+  ["searches", "plan", "TEXT"], // finder-ux: JSON { expected, cap, units }
+  ["searches", "dismissed", "TEXT"], // finder-ux: JSON string[] of hidden row keys ("Not this one")
+  ["prospects", "city_approx", "INTEGER"], // finder-ux: 1 when the town came from the nearest commune centre
+  ["prospects", "source_socials", "TEXT"], // finder-ux: JSON { facebook, instagram, ... } from the source
 
   // @@crm:audit
 

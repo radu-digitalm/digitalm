@@ -99,7 +99,7 @@ export function FindForm({
       const r = await adminFetch<SearchResult>("/api/admin/find", { area: area.trim(), category, sources: [...sources], hint: hint.trim() || undefined });
       setResult(r);
       if (typeof window !== "undefined") window.history.replaceState(null, "", `/admin/find?search=${r.searchId}`);
-      if (r.partial) toast.push("Partial results — see the notes under the summary", "info");
+      if (r.progress.status === "partial") toast.push("Some areas are missing — see the notes under the summary", "info");
     } catch (err) {
       const code = (err as { code?: string }).code ?? "search_failed";
       setError(ERROR_TEXT[code] ?? `Search failed (${code}).`);
