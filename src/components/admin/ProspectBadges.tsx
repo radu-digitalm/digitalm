@@ -120,7 +120,9 @@ export function ProspectBadges({ prospect, max, className = "" }: { prospect: Ba
   );
 }
 
-/** Every badge word with its sentence — the "What the labels mean" list. */
-export function badgeGlossary(): { label: string; sentence: string }[] {
-  return Object.values(BADGE_TEXT).map((t) => ({ label: fill(t.label, { n: "N", stage: "stage" }), sentence: t.sentence }));
+/** Every badge word with its sentence — the "What the labels mean" list (one line for the two "Lead: …" keys). */
+export function badgeGlossary(): { key: string; label: string; sentence: string }[] {
+  return Object.entries(BADGE_TEXT)
+    .filter(([key]) => key !== "lead-closed")
+    .map(([key, t]) => ({ key, label: fill(t.label, { n: "N", stage: "stage" }), sentence: key === "lead-open" ? "A lead exists — its stage is shown (open, or closed with the outcome)." : t.sentence }));
 }

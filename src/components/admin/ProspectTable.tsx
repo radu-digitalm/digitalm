@@ -176,6 +176,7 @@ export function ProspectTable({
     {
       key: "site",
       header: "Website",
+      className: "whitespace-nowrap [&_a]:break-normal",
       render: (p) =>
         p.website ? (
           <span onClick={(e) => e.stopPropagation()}>
@@ -188,12 +189,13 @@ export function ProspectTable({
     {
       key: "contact",
       header: "Contact",
+      className: "min-w-[13rem]",
       render: (p) => {
         const email = usableEmail(p);
         const phone = anyPhone(p);
         return (
           <div className="text-[15px]">
-            {email ? <div className="break-all">{email}</div> : p.websiteEmail ? <div className="break-all text-fg-muted">{p.websiteEmail}</div> : null}
+            {email ? <div className="break-words">{email}</div> : p.websiteEmail ? <div className="break-words text-fg-muted">{p.websiteEmail}</div> : null}
             {phone ? <div className="whitespace-nowrap">{phone}</div> : null}
             {view === "call" ? <div className="text-[14px] text-fg-muted">{p.callAttempts30d} of 4 calls in 30 days</div> : null}
           </div>
@@ -297,7 +299,7 @@ export function ProspectTable({
         <summary className="cursor-pointer text-fg-muted">{PROSPECT_TEXT.labelsTitle}</summary>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
           {badgeGlossary().map((g) => (
-            <div key={g.label} className="grid grid-cols-[minmax(9rem,38%)_1fr] gap-2">
+            <div key={g.key} className="grid grid-cols-[minmax(9rem,38%)_1fr] gap-2">
               <dt className="text-fg-heading">{g.label}</dt>
               <dd className="text-fg-muted">{g.sentence}</dd>
             </div>

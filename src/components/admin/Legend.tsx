@@ -85,7 +85,7 @@ export function Legend({ className = "" }: { className?: string }) {
         ?
       </button>
       {open ? (
-        <div className="mt-2 w-[22rem] max-w-[calc(100vw-2rem)] rounded-xl border border-line bg-surface/95 p-4 text-[14px] text-fg shadow-2xl backdrop-blur">
+        <div className="mt-2 max-h-[min(70vh,34rem)] w-[22rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-line bg-surface/95 p-4 text-[14px] text-fg shadow-2xl backdrop-blur">
           <p className="mb-2 text-[15px] text-fg-heading">{LEGEND_TEXT.title}</p>
           <ul className="space-y-1.5">
             {ROWS.map((r, i) => (

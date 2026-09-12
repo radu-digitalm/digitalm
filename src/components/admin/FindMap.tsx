@@ -56,12 +56,13 @@ function isTouch(): boolean {
   return typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches === true;
 }
 
-type PinState = { selected: boolean; hovered: boolean; touch: boolean };
+type PinState = { selected: boolean; hovered: boolean; touch: boolean; mini?: boolean };
 
 /** The pin vocabulary of §5.3. */
 function pinStyle(r: ResultRow, s: PinState): L.CircleMarkerOptions {
   const base = s.touch ? 9 : 7;
   const active = s.selected || s.hovered;
+  if (s.mini) return { radius: 9, fillColor: PINK, fillOpacity: 1, color: "#ffffff", weight: 3, opacity: 1 };
   let fillColor = PINK;
   let fillOpacity = 1;
   let color = PINK;
@@ -272,7 +273,7 @@ export default function FindMap({ area, rows, units = [], running = false, progr
         pins.current.delete(key);
       }
     }
-    const state = (key: string): PinState => ({ selected: key === lastSelected.current, hovered: key === lastHover.current, touch: touch.current });
+    const state = (key: string): PinState => ({ selected: key === lastSelected.current, hovered: key === lastHover.current, touch: touch.current, mini });
     for (const [key, r] of next) {
       const existing = pins.current.get(key);
       if (existing) {
