@@ -501,6 +501,9 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     const hidden = new Set(parseJson<string[]>(readRow(searchId)?.dismissed, []));
     for (const r of rows) if (hidden.has(r.key)) r.hidden = true;
     rows = orderRows(rows);
+    // The cap is a promise about the list ("one search holds 2,000"): a big last unit or the register can overshoot it,
+    // so the ordered list is cut to the cap — the rows nearest the centre survive, which is what the capped note says.
+    if (capped && rows.length > cap) rows = rows.slice(0, cap);
     const assumed = rows.filter((r) => r.countrySource === "area").length;
     if (assumed > 0 && area.kind === "place") notes.push(note("country_assumed", { n: assumed }));
 
@@ -508,8 +511,10 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     const status = resolveStatus(progress, { cancelled, capped, timeLimit });
     const unitsDone = progress.units.filter((u) => u.state === "done");
     const failedUnits = progress.units.filter((u) => u.state === "failed");
-    if (status === "capped" && plan.expected !== null) {
-      notes.push(note("capped", { cap: fmtNum(cap), expected: fmtNum(plan.expected), trade, area: area.label, done: unitsDone.length, total: plan.units.length, list: listOf(unitsDone.map((u) => u.label)) }));
+    if (status === "capped") {
+      notes.push(
+        note("capped", { cap, expected: plan.expected === null ? "" : plan.expected, trade, area: area.label, done: unitsDone.length, total: plan.units.length, list: listOf(unitsDone.map((u) => u.label)) }),
+      );
     }
     if (failedUnits.length > 0) notes.push(note("units_failed", { list: listOf(failedUnits.map((u) => u.label)) }));
     if (timeLimit) notes.push(note("time_limit", { minutes: Math.round(maxMs / 60_000), done: unitsDone.length, total: plan.units.length }));

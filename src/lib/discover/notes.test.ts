@@ -48,6 +48,10 @@ test("the wording the spec pins", () => {
     note("capped", SAMPLE).text,
     "Showing 2,000 of about 12,000 restaurants in Ariège — the ones nearest the centre of Ariège (8 of 13 areas: Haute-Garonne, Ariège, Aude). Search a smaller area for full coverage.",
   );
+  assert.equal(
+    note("capped", { ...SAMPLE, expected: "" }).text,
+    "Showing 2,000 restaurants in Ariège — the ones nearest the centre of Ariège (8 of 13 areas: Haute-Garonne, Ariège, Aude). Search a smaller area for full coverage.",
+  );
   assert.equal(note("register_failed", { reason: "was busy" }).text, "The French company register could not be searched (it was busy). Businesses found on the map are shown without register details.");
   assert.equal(note("time_limit", { minutes: 10, done: 3, total: 13 }).text, "The search stopped after 10 minutes (3 of 13 areas). Continue to finish it.");
 });

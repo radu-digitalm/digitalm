@@ -63,7 +63,7 @@ export const NOTE_TEXT: Record<NoteCode, (p: NoteParams) => string> = {
   register_no_code: () => "French company register not searched for this trade (no activity code).",
   ch_off: () => "Companies House not searched (no API key).",
   capped: (p) =>
-    `Showing ${fmtNum(p.cap)} of about ${fmtNum(p.expected)} ${s(p, "trade")} in ${s(p, "area")} — the ones nearest the centre of ${s(p, "area")} (${fmtNum(p.done)} of ${fmtNum(p.total)} areas: ${s(p, "list")}). Search a smaller area for full coverage.`,
+    `Showing ${fmtNum(p.cap)}${p.expected === undefined || p.expected === null || p.expected === "" ? "" : ` of about ${fmtNum(p.expected)}`} ${s(p, "trade")} in ${s(p, "area")} — the ones nearest the centre of ${s(p, "area")} (${fmtNum(p.done)} of ${fmtNum(p.total)} areas: ${s(p, "list")}). Search a smaller area for full coverage.`,
   units_failed: (p) => `Some areas could not be searched because the map service was busy: ${s(p, "list")}. Use “Retry the missing areas”.`,
   unit_truncated: (p) => `${s(p, "unit")} has more than 5,000 ${s(p, "trade")}; the first 5,000 were read.`,
   register_pages_capped: (p) => `The register lists ${fmtNum(p.total)} ${s(p, "trade")} in ${s(p, "scope")}; the first 1,000 were checked.`,
