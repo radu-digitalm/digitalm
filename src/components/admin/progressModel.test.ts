@@ -133,3 +133,22 @@ test("the resolved line drops the country when it is the area itself", () => {
   assert.equal(resolvedText({ label: "Ariège", kind: "department", countryName: "France", countryCode: "FR" }, "department"), "Ariège — department, France");
   assert.equal(resolvedText({ label: "Andorra", kind: "country", countryName: "Andorra", countryCode: "AD" }, "country"), "Andorra — country");
 });
+
+test("the Google phase (finder-google §5.4) takes the gap before placing and says which part it is on; nothing changes without it", () => {
+  const google = { state: "running" as const, tiles: 9, tilesDone: 6, requests: 12, found: 80, matched: 50, only: 23, dropped: 7, pinsVersion: 0 };
+  const r = single({ stage: "google" as SearchResultV2["progress"]["stage"], google, units: [{ id: "r7439", label: "Ariège", center: { lat: 42.9, lng: 1.4 }, state: "done", found: 289 }], registerScopes: [{ id: "dep:09", label: "Ariège (09)", state: "done", pages: 18, totalPages: 18, found: 372 }] });
+  const f6 = progressFraction(r, ms(40))!;
+  assert.ok(f6 > BAR.registerEnd && f6 < BAR.placing, `Google share sits between the register's end and placing: ${f6}`);
+  const f2 = progressFraction({ ...r, progress: { ...r.progress, google: { ...google, tilesDone: 2 } } }, ms(40))!;
+  assert.ok(f2 < f6 && f2 >= BAR.registerEnd, `fills part by part: ${f2} < ${f6}`);
+  assert.equal(runningText(r, ms(40)), "Asking Google — 6 of 9 parts of Ariège · searching for 40 s");
+  assert.equal(etaSeconds(r, ms(40)), null);
+  // Without a register the share starts at the map phase's end.
+  const alone = { ...r, sources: ["osm", "google"] as SearchResultV2["sources"], area: { ...r.area, countryCode: "AD", countryName: "Andorra" } };
+  const fa = progressFraction(alone, ms(40))!;
+  assert.ok(fa > BAR.osmEndAlone && fa < BAR.placing, `map-only share: ${fa}`);
+  // The plain result knows nothing of Google: the same numbers as before.
+  const plain = single({ stage: "merge" });
+  assert.equal(progressFraction(plain, ms(40)), BAR.placing);
+  assert.equal(runningText(plain, ms(33)), "Placing on the map and removing duplicates… · searching for 33 s");
+});

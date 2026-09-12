@@ -1,6 +1,24 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { countryName, domainOf, formatDuration, formatEta, formatInt, formatKm, googleSearchUrl, localDate, localDateTime, openingHoursWords, plural, relativeOrLocal, shortDateTime, townLine, townParen } from "./format.ts";
+import { PLACE_ID_RE, googleMapsPlaceUrl, placeIdOk } from "./googleMaps.ts";
+
+test("googleMapsPlaceUrl is built from a validated place id only (docs/finder-google-spec.md §5.1)", () => {
+  const id27 = "ChIJN1t_tDeuEmsRUsoyG83frY4";
+  const id72 = "A".repeat(72);
+  assert.equal(id27.length, 27);
+  assert.equal(googleMapsPlaceUrl(id27), `https://www.google.com/maps/place/?q=place_id:${id27}`);
+  assert.equal(googleMapsPlaceUrl(id72), `https://www.google.com/maps/place/?q=place_id:${id72}`);
+  assert.equal(googleMapsPlaceUrl("A".repeat(73)), null);
+  assert.equal(googleMapsPlaceUrl("short"), null);
+  assert.equal(googleMapsPlaceUrl("ChIJ N1t_tDeuEmsRUsoyG83frY4"), null);
+  assert.equal(googleMapsPlaceUrl("<script>alert(1)</script>"), null);
+  assert.equal(googleMapsPlaceUrl(null), null);
+  assert.equal(googleMapsPlaceUrl(undefined), null);
+  assert.equal(googleMapsPlaceUrl(42), null);
+  assert.ok(placeIdOk(id27) && placeIdOk(id72) && !placeIdOk("A".repeat(9)) && !placeIdOk("A".repeat(73)));
+  assert.equal(String(PLACE_ID_RE), "/^[A-Za-z0-9_-]{10,72}$/");
+});
 
 test("opening hours read as words; unusual syntax is left alone", () => {
   assert.equal(openingHoursWords("Tu-Su 12:00-14:00,19:00-22:00; Mo off"), "Tue–Sun 12:00–14:00, 19:00–22:00 · Mon closed");

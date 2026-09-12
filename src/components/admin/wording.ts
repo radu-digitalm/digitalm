@@ -194,6 +194,7 @@ export const ERROR_TEXT = {
   search_expired: "This search is more than a day old and its results were cleared. Run it again.",
   not_continuable: "This search cannot be continued — run it again.",
   search_failed: "The search failed. Try again.",
+  suggestion_unresolved: "Google could not resolve that place — type the area instead.",
 } as const;
 
 /** Finder status words (list column and card). */
@@ -419,5 +420,86 @@ export const TODAY_TEXT = {
   sentToday: "{n} of {cap} sent today",
 } as const;
 
-/** Tokens that must never reach the admin UI (§7); wording.test.ts walks every string above. */
-export const FORBIDDEN_TOKENS: RegExp[] = [/\bOSM\b/i, /FR reg/i, /\bpartial\b/i, /http_/i, /GOOGLE_PLACES/i, /\btiles?\b/i, /Nominatim/i, /Overpass/i, /\bcaveat\b/i, /\bISO2\b/i, /\bCH\b/, /\b[a-z]+_[a-z_]+\b/];
+/**
+ * Every sentence of the Google features (docs/finder-google-spec.md §5.7): the Google
+ * map, the Area box suggestions, the Google-only card, the business card's Google
+ * section, the prospect page's Google listing section, the audit block's status
+ * words and the two Today lines. Status words are our audit result; signal words
+ * are rendered only inside the open Google section of the prospect page (§3.4).
+ * A listing is never described as claimed or otherwise owned — Google does not say.
+ */
+export const GOOGLE_TEXT = {
+  attribution: "Google Maps",
+  mapFailed: "The Google map could not be loaded — showing OpenStreetMap instead.",
+  osmAttribution: "© OpenStreetMap contributors",
+  onlyOnGoogle: "On Google only",
+  onlyOnGoogleSaved: "On Google only · saved as {reference}",
+  onlyOnGoogleChip: "Only on Google",
+  alsoOnGoogleCount: "{n} also on Google",
+  onlyOnGoogleCount: "{n} only on Google",
+  alsoOnGoogle: "Also on Google",
+  viewOnGoogleMaps: "View on Google Maps",
+  showListing: "Show the Google listing",
+  googleOnlyHint: "Google knows this business; OpenStreetMap and the French company register do not. Open the listing to find its website, then add the site — the name is taken from the site.",
+  addByWebsite: "Add by its website",
+  needsWebsite: "Only a business with a website can be saved from here — the audit needs one.",
+  panelFailed: "Google's listing panel could not be loaded",
+  panelLoading: "Loading Google's listing panel…",
+  savedAs: "Saved as {reference} · audit queued",
+  alreadySavedAttached: "Already saved as {reference} · Google listing attached",
+  alreadySaved: "Already saved as {reference}",
+  dataFrom: "Data: {names}",
+  legendPin: "Blue pin — on Google only (open it to see the listing)",
+  legendData: "Google data is shown by Google's own panels",
+  asking: "Asking Google — {done} of {total} parts of {area}",
+  runAgainHint: "Run again asks Google once more; the map and register answers are reused.",
+  sectionTitle: "Google listing",
+  summary: "Google listing · {status}",
+  statusMaintained: "Listing found · looks maintained",
+  statusUnmaintained: "Listing found · looks unmaintained",
+  statusFoundNoDetails: "Listing found — details not checked",
+  statusNotFound: "No listing found",
+  statusNoMatch: "No match found automatically — match manually or mark not found",
+  statusNoMatchShort: "No match found automatically",
+  statusNoLocation: "Not checked — no address or coordinates to match on",
+  statusNotChecked: "Not checked yet",
+  reasonAllowance: "the monthly Google allowance is used up",
+  reasonUnavailable: "Google did not answer",
+  checkedLine: "Checked {when} · {how}",
+  matchedAuto: "matched automatically",
+  confirmedByYou: "confirmed by you",
+  recheck: "checked {days} days ago — re-check",
+  signalOpen: "open according to Google",
+  signalClosed: "marked closed on Google",
+  signalWebsite: "website on the listing",
+  signalNoWebsite: "no website on the listing",
+  signalHours: "opening hours filled in",
+  signalNoHours: "no opening hours",
+  signalReviews: "{n} reviews",
+  signalReviewOne: "1 review",
+  signalPhotos: "{n} photos",
+  signalPhotoOne: "1 photo",
+  checkAgain: "Check again",
+  matchManually: "Match manually",
+  notThisListing: "Not this listing",
+  clear: "Clear",
+  use: "Use",
+  candidate: "{name} — {address} · {distance} m",
+  candidateNoDistance: "{name} — {address}",
+  noCandidates: "No Google listing matches this business",
+  usageLine: "{used} of {cap} listing checks this month",
+  toastOff: "Google is switched off for now",
+  toastMonthlyCap: "The monthly Google allowance is used up — try again next month.",
+  toastUnavailable: "Google did not answer. Try again later.",
+  toastRefused: "Google refused the request — the key's restrictions need a look.",
+  toastFailed: "The Google lookup failed. Try again later.",
+  listingRecorded: "Google listing recorded",
+  listingReset: "Google listing reset",
+  listingChecked: "Google listing checked",
+  todayUsage: "Google usage: {checks} of {checksCap} listing checks · {searches} of {searchesCap} searches this month",
+  todayUsageShort: "Google usage: {checks} of {checksCap} listing checks this month",
+  todayKeyMissing: "Google is switched on, but its key is missing.",
+} as const;
+
+/** Tokens that must never reach the admin UI (§7 and finder-google §3.8); wording.test.ts walks every string above. */
+export const FORBIDDEN_TOKENS: RegExp[] = [/\bOSM\b/i, /FR reg/i, /\bpartial\b/i, /http_/i, /GOOGLE_PLACES/i, /\btiles?\b/i, /Nominatim/i, /Overpass/i, /\bcaveat\b/i, /\bISO2\b/i, /\bCH\b/, /\b[a-z]+_[a-z_]+\b/, /\bclaimed\b/i, /\bverified\b/i, /Google My Business/i, /\bGMB\b/];
