@@ -1,6 +1,7 @@
 // Playwright acceptance of the map-first finder against staging
-// (docs/finder-ux-spec.md §10, items A12–A21). CommonJS on purpose: NODE_PATH
-// is ignored by ESM imports.
+// (docs/finder-ux-spec.md §10, items A12–A21; docs/finder-google-spec.md §9,
+// items G1, G8, G9 — skipped with "skipped — Google off" unless the finder
+// renders the Google map). CommonJS on purpose: NODE_PATH is ignored by ESM imports.
 //
 //   ADMIN_PASSWORD=… NODE_PATH=/home/hermes/.npm/_npx/fd3bca3c548369c0/node_modules \
 //     node scripts/e2e/finder.cjs
@@ -577,6 +578,191 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     }
     void why;
     return { pid, town, header: header.slice(0, 60) };
+  });
+
+  // ---- finder-google (docs/finder-google-spec.md §9): G1 off means unchanged · G8 Google map and cards ·
+  // G9 prospect page. G8/G9 run only when the finder renders the Google map (`data-map=google`); otherwise
+  // they print "skipped — Google off" (Google off, or the Google map fell back to Leaflet).
+  const GOOGLE_WORDS = ["claimed", "verified", "GMB", "Google My Business"];
+  let googleOn = false;
+  await step("G0", "Google map on?", async () => {
+    await goto("/admin/find");
+    googleOn = (await page.locator("[data-testid=find-map][data-map=google]").count()) === 1;
+    return { googleOn };
+  });
+  async function gstep(id, name, fn) {
+    if (ONLY && !ONLY.has(id)) return;
+    if (!googleOn) {
+      results.push({ id, name, ok: true, ms: 0, info: "skipped — Google off" });
+      console.log("SKIP", id, name, "skipped — Google off");
+      return;
+    }
+    await step(id, name, fn);
+  }
+  async function clickPin(key) {
+    const box = await page.locator("[data-testid=find-map]").boundingBox();
+    const pt = await page.evaluate((k) => window.__dmFindProject(k), key);
+    assert(pt, `pin ${key} is clustered or off the map`);
+    await page.mouse.click(box.x + pt.x, box.y + pt.y);
+    await sleep(600);
+  }
+
+  // ---- G1 off means unchanged ----------------------------------------------------------------------
+  await step("G1", "off means unchanged", async () => {
+    if (googleOn) return { skipped: "Google on" };
+    await goto("/admin/find");
+    assert((await page.locator(".leaflet-container").count()) === 1, "no Leaflet map with Google off");
+    assert((await page.locator("input[name=area]").count()) === 1, "the Area box is not a plain input");
+    assert((await page.locator("gmp-basic-place-autocomplete").count()) === 0, "a Google element is on the page with Google off");
+    const id = await ensureAriege();
+    const r = await api("GET", `/api/admin/find?id=${id}`);
+    assert(r.status === 200, `GET ?id ${r.status}`);
+    assert(!("googlePins" in r.json), "googlePins present with Google off");
+    assert(!(r.json.progress && "google" in r.json.progress), "progress.google present with Google off");
+    if (savedProspectId) {
+      await goto(`/admin/prospects/${savedProspectId}`);
+      assert((await page.locator("[data-testid=google-block]").count()) === 0, "google-block present with Google off");
+    }
+    return { id, prospect: savedProspectId };
+  });
+
+  // ---- G8 Google map and cards ---------------------------------------------------------------------
+  await gstep("G8", "Google map, pins, Google-only card", async () => {
+    const id = await ensureAriege();
+    await goto(`/admin/find?search=${id}`);
+    await sleep(4000);
+    await shot("G8-google-map");
+    assert((await page.locator(".leaflet-container").count()) === 0, "a Leaflet map rendered with Google on");
+    const region = page.locator('div[aria-label="Map of the businesses found"]');
+    assert((await region.count()) === 1, "no map region");
+    assert((await region.locator("gmp-advanced-marker, .dm-gcluster").count()) > 0, "no markers and no discs");
+    const pins = await page.evaluate(() => window.__dmFindPins);
+    assert(pins && pins.total >= 250, `pins ${JSON.stringify(pins)}`);
+    // A second search from the same page: the past-searches list opens one → still one Map instance.
+    const past = page.locator("[data-testid=past-searches]");
+    await past.locator("summary").click();
+    const rows = past.locator("li button");
+    if ((await rows.count()) > 0) {
+      await rows.first().click();
+      await sleep(3000);
+    }
+    const loads = await page.evaluate(() => window.__dmGmapLoads);
+    assert(loads === 1, `map loads ${loads}`);
+    await goto(`/admin/find?search=${id}`);
+    await sleep(4000);
+    const r = await api("GET", `/api/admin/find?id=${id}`);
+    const osm = (r.json.rows || []).find((x) => x.geoSource === "source" && !x.hidden && (x.key || "").startsWith("osm:"));
+    assert(osm, "no OpenStreetMap row with a pin");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    let opened = false;
+    for (let i = 0; i < 3 && !opened; i++) {
+      const pt = await page.evaluate((k) => window.__dmFindProject(k), osm.key);
+      if (!pt) {
+        // Clustered: select it from the list first (the selected pin leaves its cluster), then click the pin itself.
+        const row = page.locator(`[data-testid=find-row][data-key="${osm.key}"]`);
+        if ((await row.count()) === 0) break;
+        await row.scrollIntoViewIfNeeded();
+        await row.click();
+        await page.keyboard.press("Escape");
+        await sleep(600);
+        continue;
+      }
+      await clickPin(osm.key);
+      opened = (await page.locator("[data-testid=business-card]").count()) === 1;
+    }
+    assert(opened, "clicking an OpenStreetMap pin did not open the business card");
+    await page.keyboard.press("Escape");
+    await sleep(300);
+    const gp = (r.json.googlePins || []).find((p) => !p.hidden && !p.saved);
+    if (!gp) return { pins: pins.total, loads, note: "no Google-only pins in this search (discovery off)" };
+    const gkey = `google:${gp.placeId}`;
+    let pt = await page.evaluate((k) => window.__dmFindProject(k), gkey);
+    if (!pt) {
+      // Zoom in on the pin so it leaves its cluster.
+      await page.evaluate((p) => {
+        const el = document.querySelector("[data-testid=find-map] > div");
+        const m = el && el.__dmMap;
+        if (m) {
+          m.setCenter({ lat: p.lat, lng: p.lng });
+          m.setZoom(17);
+        }
+      }, gp);
+      await sleep(1500);
+      pt = await page.evaluate((k) => window.__dmFindProject(k), gkey);
+    }
+    assert(pt, "the Google-only pin could not be projected");
+    await clickPin(gkey);
+    const card = page.locator("[data-testid=google-only-card]");
+    assert((await card.count()) === 1, "no Google-only card");
+    await shot("G8-google-only-card");
+    const title = (await card.locator("h2").textContent()).trim();
+    assert(title === "On Google only", `card title "${title}"`);
+    assert((await card.locator("gmp-place-details").count()) === 1, "no full gmp-place-details element");
+    assert((await card.locator("gmp-place-details gmp-place-content-config").count()) === 1, "no gmp-place-content-config child");
+    assert((await card.locator('a[href*="google.com/maps/place/?q=place_id:"]').count()) >= 1, "no View on Google Maps link");
+    // No text node of the card outside Google's element equals the listing's heading (the panel shows the name, we never do).
+    const ours = await card.evaluate((el) => {
+      const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+      const out = [];
+      let n;
+      while ((n = walker.nextNode())) if (!n.parentElement.closest("gmp-place-details") && n.textContent.trim()) out.push(n.textContent.trim());
+      return out;
+    });
+    const heading = await card.locator("gmp-place-details").evaluate((el) => (el.shadowRoot && el.shadowRoot.querySelector("h1, h2, h3, [role=heading]") ? el.shadowRoot.querySelector("h1, h2, h3, [role=heading]").textContent.trim() : null));
+    if (heading) assert(!ours.includes(heading), `our text repeats the listing's name: ${heading}`);
+    await card.locator("[data-testid=google-add-by-url]").click();
+    await sleep(300);
+    assert((await card.locator("[data-testid=add-by-url] input[name=name]").count()) === 0, "the Add form has a name field");
+    assert((await card.locator("[data-testid=add-by-url] input[name=url]").count()) === 1, "the Add form has no website field");
+    await page.keyboard.press("Escape");
+    await sleep(300);
+    const before = (await page.evaluate(() => window.__dmFindPins)).total;
+    await page.locator("button", { hasText: /^Only on Google/ }).first().click();
+    await sleep(800);
+    const after = (await page.evaluate(() => window.__dmFindPins)).total;
+    assert(after < before, `the chip did not hide the blue pins (${before} → ${after})`);
+    return { pins: pins.total, loads, googlePins: (r.json.googlePins || []).length, ours: ours.length };
+  });
+
+  // ---- G9 prospect page ------------------------------------------------------------------------------
+  await gstep("G9", "prospect page Google section", async () => {
+    const id = await ensureAriege();
+    const r = await api("GET", `/api/admin/find?id=${id}`);
+    const row = (r.json.rows || []).find((x) => x.googlePlaceId && x.alreadySaved);
+    if (!row) return { note: "no saved row with a place id in this search" };
+    const pid = row.alreadySaved.prospectId;
+    await goto(`/admin/prospects/${pid}`);
+    await sleep(2500);
+    await shot("G9-prospect-google");
+    const block = page.locator("[data-testid=google-block]");
+    assert((await block.count()) === 1, "no google-block");
+    assert(await block.evaluate((el) => el.tagName === "DETAILS" && !el.open), "google-block is not a collapsed details");
+    const order = await page.evaluate(() => {
+      const els = [...document.querySelectorAll("main section, main details[data-testid=google-block]")];
+      const a = els.findIndex((e) => e.tagName === "SECTION" && /^Audit/.test((e.querySelector("h2") || {}).textContent || ""));
+      const g = els.findIndex((e) => e.dataset && e.dataset.testid === "google-block");
+      return { a, g };
+    });
+    assert(order.a >= 0 && order.g > order.a, `block order ${JSON.stringify(order)}`);
+    const before = await page.locator("main").textContent();
+    for (const w of ["website on the listing", "opening hours filled in", "no opening hours", "reviews", "photos"]) assert(!before.includes(w), `signal word before opening: ${w}`);
+    assert((await page.locator('main img[src*="google-maps-logo"]').count()) === 0, "a Google Maps logo before opening");
+    const mini = page.locator("[data-testid=mini-map]").first();
+    const hadMini = (await mini.count()) === 1;
+    await block.locator("summary").click();
+    await sleep(600);
+    if (hadMini) assert(!(await mini.isVisible()), "the mini map is still visible while the Google section is open");
+    const status = (await page.locator("[data-testid=google-status]").textContent()).trim();
+    assert(/^(Listing found|No listing found|No match found automatically|Not checked)/.test(status), `status "${status}"`);
+    assert((await page.locator("[data-testid=google-status] [data-testid=google-attribution]").count()) === 0, "an attribution mark next to the status word");
+    if ((await page.locator("[data-testid=google-signals]").count()) === 1) assert((await page.locator('[data-testid=google-signals] img[src*="google-maps-logo"]').count()) === 1, "signal words without the Google Maps logo");
+    assert((await page.locator("main a", { hasText: /^View on Google Maps$/ }).count()) >= 1, "no View on Google Maps link");
+    const text = await page.locator("main").textContent();
+    for (const w of GOOGLE_WORDS) assert(!new RegExp(`\\b${w}\\b`, w === "GMB" ? "" : "i").test(text), `forbidden word on the page: ${w}`);
+    await block.locator("summary").click();
+    await sleep(400);
+    if (hadMini) assert(await mini.isVisible(), "the mini map did not come back");
+    return { pid, status };
   });
 
   await browser.close();

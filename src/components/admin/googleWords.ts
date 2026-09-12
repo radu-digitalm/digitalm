@@ -25,13 +25,19 @@ function reasonOf(v: unknown): GoogleListingReason | null {
   return v === "no_match" || v === "no_location" || v === "allowance" || v === "unavailable" ? v : null;
 }
 
-/** From an audit's `google_listing` check: status words only, never a signal. */
+/**
+ * From an audit's `google_listing` check: status words only, never a signal. A
+ * pass or partial counts as measured only when the check carries the derived
+ * signals (`fetchedAt`); an audit stored before the check measured anything
+ * (`{ listing: "found" }` alone, a manual confirmation) reads "details not checked".
+ */
 export function googleStatusFromCheck(c: Pick<CheckResult, "status" | "details">): { status: GoogleStatus; reason: GoogleListingReason | null } {
   const listing = c.details.listing;
   const reason = reasonOf(c.details.reason);
   if (listing === "found") {
-    if (c.status === "pass") return { status: "maintained", reason: null };
-    if (c.status === "partial") return { status: "unmaintained", reason: null };
+    const measured = typeof c.details.fetchedAt === "string" || typeof c.details.websiteOnListing === "boolean";
+    if (c.status === "pass" && measured) return { status: "maintained", reason: null };
+    if (c.status === "partial" && measured) return { status: "unmaintained", reason: null };
     return { status: "found_no_details", reason };
   }
   if (listing === "not_found") return { status: "not_found", reason: null };

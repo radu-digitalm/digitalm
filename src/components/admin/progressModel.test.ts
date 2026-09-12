@@ -1,7 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import type { SearchResultV2 } from "../../lib/crm/types.ts";
+// The widened result shape (finder-google §4.1: `progress.google`, `googlePins`) — a type-only import, stripped under node.
+import type { SearchResultV2 } from "./finderApi.ts";
 import { BAR, doneText, etaSeconds, progressFraction, readFromCacheAt, resolvedText, resultsFromText, runningText, softUnitSeconds, summaryText, tradePlural } from "./progressModel.ts";
 
 const here = new URL(".", import.meta.url).pathname;

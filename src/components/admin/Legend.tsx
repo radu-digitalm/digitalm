@@ -4,8 +4,12 @@
 // outline and the status words, opened from the "?" button in the map corner.
 // The panel is positioned under the button (the button never moves); on the
 // phone it opens as a bottom sheet with its own scroll and a Close button.
+// With the Google map (docs/finder-google-spec.md §5.4) one more pin — blue,
+// on Google only — and one line saying Google data is shown by Google's own
+// panels, with the outlined Google Maps logo (the panel sits over the map).
 import { useEffect, useRef, useState } from "react";
-import { FIND_TEXT, LEGEND_TEXT } from "./wording";
+import { GoogleAttribution } from "./GoogleAttribution";
+import { FIND_TEXT, GOOGLE_TEXT, LEGEND_TEXT } from "./wording";
 
 function Pin({ fill, stroke, strokeWidth = 2, ring = false }: { fill: string; stroke: string; strokeWidth?: number; ring?: boolean }) {
   return (
@@ -16,13 +20,20 @@ function Pin({ fill, stroke, strokeWidth = 2, ring = false }: { fill: string; st
   );
 }
 
-const ROWS: { icon: React.ReactNode; text: string }[] = [
+type Row = { icon: React.ReactNode; text: React.ReactNode };
+
+const PIN_ROWS: Row[] = [
   { icon: <Pin fill="#ED1E79" stroke="#ED1E79" />, text: LEGEND_TEXT.pinWebsite },
   { icon: <Pin fill="transparent" stroke="#ED1E79" />, text: LEGEND_TEXT.pinNoWebsite },
   { icon: <Pin fill="#34d399" stroke="#34d399" />, text: LEGEND_TEXT.pinSaved },
   { icon: <Pin fill="rgba(160,168,180,0.4)" stroke="rgba(160,168,180,0.4)" />, text: LEGEND_TEXT.pinHidden },
   { icon: <Pin fill="#ED1E79" stroke="#fbbf24" />, text: LEGEND_TEXT.pinOutside },
   { icon: <Pin fill="#ED1E79" stroke="#ffffff" strokeWidth={3} />, text: LEGEND_TEXT.pinSelected },
+];
+
+const GOOGLE_PIN_ROW: Row = { icon: <Pin fill="#3B82F6" stroke="#3B82F6" />, text: GOOGLE_TEXT.legendPin };
+
+const MAP_ROWS: Row[] = [
   {
     icon: (
       <svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true" className="shrink-0">
@@ -55,7 +66,7 @@ const ROWS: { icon: React.ReactNode; text: string }[] = [
 
 const STATUS_ROWS = [LEGEND_TEXT.statusSaved, LEGEND_TEXT.statusNotListed, LEGEND_TEXT.statusClosed, LEGEND_TEXT.statusChain, LEGEND_TEXT.statusOutside];
 
-export function Legend({ className = "", phone = false }: { className?: string; phone?: boolean }) {
+export function Legend({ className = "", phone = false, google = false }: { className?: string; phone?: boolean; google?: boolean }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -76,9 +87,8 @@ export function Legend({ className = "", phone = false }: { className?: string; 
   }, [open]);
 
   // Desktop: two columns (pins · outline, dots, discs and the words) so the whole legend fits beside the map without scrolling.
-  const pinRows = ROWS.slice(0, 6);
-  const mapRows = ROWS.slice(6);
-  const list = (rows: typeof ROWS) => (
+  const pinRows = google ? [...PIN_ROWS, GOOGLE_PIN_ROW] : PIN_ROWS;
+  const list = (rows: Row[]) => (
     <ul className="space-y-1.5">
       {rows.map((r, i) => (
         <li key={i} className="flex items-start gap-2">
@@ -96,12 +106,18 @@ export function Legend({ className = "", phone = false }: { className?: string; 
           <li key={i}>{t}</li>
         ))}
       </ul>
+      {google ? (
+        <p className="mt-3 flex flex-wrap items-center gap-x-1 text-fg-muted" data-testid="legend-google">
+          <span>{GOOGLE_TEXT.legendData}</span>
+          <GoogleAttribution onMap />
+        </p>
+      ) : null}
     </>
   );
   const body = phone ? (
     <>
       <p className="mb-2 text-[16px] text-fg-heading">{LEGEND_TEXT.title}</p>
-      {list(ROWS)}
+      {list([...pinRows, ...MAP_ROWS])}
       {words}
     </>
   ) : (
@@ -110,7 +126,7 @@ export function Legend({ className = "", phone = false }: { className?: string; 
       <div className="grid grid-cols-2 gap-x-6">
         <div>{list(pinRows)}</div>
         <div>
-          {list(mapRows)}
+          {list(MAP_ROWS)}
           {words}
         </div>
       </div>

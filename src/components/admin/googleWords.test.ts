@@ -19,8 +19,11 @@ test("points follow the §4.6 table: 10 pass, 5 partial, 4 partial", () => {
 
 test("status words from an audit check: status words only, never a signal", () => {
   assert.deepEqual(googleStatusFromCheck({ status: "pass", details: { listing: "found", websiteOnListing: true, reviews: 37 } }), { status: "maintained", reason: null });
-  assert.deepEqual(googleStatusFromCheck({ status: "partial", details: { listing: "found" } }), { status: "unmaintained", reason: null });
+  assert.deepEqual(googleStatusFromCheck({ status: "partial", details: { listing: "found", fetchedAt: "2026-09-12T10:00:00.000Z", websiteOnListing: false } }), { status: "unmaintained", reason: null });
   assert.deepEqual(googleStatusFromCheck({ status: "not_measured", details: { listing: "found", reason: "allowance" } }), { status: "found_no_details", reason: "allowance" });
+  // An audit from before the check measured anything (manual confirmation, no signals): never "looks maintained".
+  assert.deepEqual(googleStatusFromCheck({ status: "pass", details: { listing: "found" } }), { status: "found_no_details", reason: null });
+  assert.deepEqual(googleStatusFromCheck({ status: "partial", details: { listing: "found" } }), { status: "found_no_details", reason: null });
   assert.deepEqual(googleStatusFromCheck({ status: "fail", details: { listing: "not_found" } }), { status: "not_found", reason: null });
   assert.deepEqual(googleStatusFromCheck({ status: "not_measured", details: { listing: "unverified", reason: "no_match" } }), { status: "no_match", reason: "no_match" });
   assert.deepEqual(googleStatusFromCheck({ status: "not_measured", details: { listing: "unverified", reason: "no_location" } }), { status: "no_location", reason: "no_location" });
