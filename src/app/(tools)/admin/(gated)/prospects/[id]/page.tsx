@@ -39,8 +39,9 @@ function foundBy(searchId: number | null): { area: string; trade: string; create
 const pill = "inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 px-3 py-1 text-[15px] text-fg-heading hover:border-line-strong";
 
 // Header + contact strip + mini map, then Identity & register, Website &
-// contact, the Google block (only while Google is on) and the four
-// self-loading panels owned by audit / report / outreach.
+// contact, the audit block, the Google listing section (only while Google is
+// on; below the fold, collapsed — docs/finder-google-spec.md §5.6) and the
+// three self-loading panels owned by report / outreach.
 export default async function ProspectPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: raw } = await params;
   await requireAdmin(`/admin/prospects/${raw}`);
@@ -139,9 +140,8 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
         <WebsiteBlock prospect={p} />
       </div>
 
-      <GoogleBlock prospect={p} enabled={googlePlacesOn()} />
-
       <AuditBlock prospectId={p.id} />
+      <GoogleBlock prospect={p} enabled={googlePlacesOn()} />
       <DraftPanel prospectId={p.id} />
       <SendPanel prospectId={p.id} />
       <CallPanel prospectId={p.id} />

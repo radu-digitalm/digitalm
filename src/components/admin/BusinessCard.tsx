@@ -5,13 +5,20 @@
 // as an overlay over the list pane (desktop), a right sheet (tablet) or a
 // full-height sheet (phone). role="dialog" named by the business name; Esc
 // closes and the workspace returns focus to the row.
+// A row Google also knows (docs/finder-google-spec.md §5.5) gets, under "Where
+// it came from", one line "Also on Google" with the Google Maps logo and "View
+// on Google Maps", and a collapsed "Show the Google listing" whose body is
+// Google's own compact listing panel (mounted only when opened).
 import Link from "next/link";
-import { useEffect, useRef } from "react";
-import { hasPin, unsavableReason, type ResolvedArea, type ResultRow } from "./finderApi";
+import { useEffect, useRef, useState } from "react";
+import { hasPin, onGoogle, unsavableReason, type ResolvedArea, type ResultRow } from "./finderApi";
 import { Button } from "./Button";
 import { ExtLink } from "./ExtLink";
 import { formatKm, googleSearchUrl, localDate, openingHoursWords, townLine } from "./format";
-import { CARD_TEXT, FIND_TEXT, fill, legalFormWords } from "./wording";
+import { GoogleAttribution } from "./GoogleAttribution";
+import { GoogleListingPanel } from "./GoogleListingPanel";
+import { googleMapsPlaceUrl } from "./googleMaps";
+import { CARD_TEXT, FIND_TEXT, GOOGLE_TEXT, fill, legalFormWords } from "./wording";
 
 export type CardLayout = "overlay" | "sheet" | "full";
 
@@ -105,9 +112,11 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
   const heading = useRef<HTMLHeadingElement>(null);
   const root = useRef<HTMLDivElement>(null);
   const titleId = `card-title-${r.key.replace(/[^a-z0-9]/gi, "-")}`;
+  const [listingOpen, setListingOpen] = useState(false);
 
   useEffect(() => {
     heading.current?.focus();
+    setListingOpen(false);
   }, [r.key]);
 
   useEffect(() => {
@@ -129,6 +138,7 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
   const km = formatKm(r.distanceKm);
   const about = aboutLines(r);
   const googleQuery = [r.name, r.city].filter(Boolean).join(" ");
+  const placeUrl = onGoogle(r) ? googleMapsPlaceUrl(r.googlePlaceId) : null;
 
   const frame =
     layout === "overlay"
@@ -237,7 +247,24 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
 
           <Section title={CARD_TEXT.register}>{registerSentences(r)}</Section>
 
-          <Section title={CARD_TEXT.origin}>{originSentences(r)}</Section>
+          <Section title={CARD_TEXT.origin}>
+            {originSentences(r)}
+            {placeUrl && r.googlePlaceId ? (
+              <>
+                <p className="flex flex-wrap items-center gap-x-2 gap-y-1" data-testid="card-also-on-google">
+                  <span>{GOOGLE_TEXT.alsoOnGoogle}</span>
+                  <GoogleAttribution />
+                  <a href={placeUrl} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
+                    {GOOGLE_TEXT.viewOnGoogleMaps}
+                  </a>
+                </p>
+                <details data-testid="card-google-listing" open={listingOpen} onToggle={(e) => setListingOpen(e.currentTarget.open)}>
+                  <summary className="cursor-pointer text-fg-muted">{GOOGLE_TEXT.showListing}</summary>
+                  {listingOpen ? <GoogleListingPanel placeId={r.googlePlaceId} variant="compact" className="mt-2" /> : null}
+                </details>
+              </>
+            ) : null}
+          </Section>
         </div>
         {/* The body scrolls under the button bar: a fade says so instead of a sliced line. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent" />

@@ -370,7 +370,8 @@
 .admin-root .leaflet-tooltip-top:before {
   border-top-color: #2e3645;
 }
-.admin-root .dm-pin-cluster {
+.admin-root .dm-pin-cluster,
+.admin-root .dm-gcluster {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -423,5 +424,120 @@
   100% {
     transform: translateX(250%);
   }
+}
+/* finder-google (docs/finder-google-spec.md §5): the Google map's pins and discs, the
+   OpenStreetMap credit on it, the Google Maps attribution mark, the UI Kit elements. */
+.admin-root .dm-gmap {
+  background: #1b2230;
+}
+.admin-root .dm-gpin {
+  box-sizing: border-box;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  border: 2px solid #ed1e79;
+  background: #ed1e79;
+  transform: translateY(50%);
+  cursor: pointer;
+  transition:
+    width 0.1s,
+    height 0.1s;
+}
+.admin-root .dm-gpin-touch {
+  width: 18px;
+  height: 18px;
+}
+.admin-root .dm-gpin-nowebsite {
+  background: transparent;
+}
+.admin-root .dm-gpin-google {
+  border-color: #3b82f6;
+  background: #3b82f6;
+}
+.admin-root .dm-gpin-saved {
+  border-color: #34d399;
+  background: #34d399;
+}
+.admin-root .dm-gpin-hidden {
+  border-color: rgba(160, 168, 180, 0.4);
+  background: rgba(160, 168, 180, 0.4);
+}
+.admin-root .dm-gpin-outside {
+  border-color: #fbbf24;
+}
+.admin-root .dm-gpin-hovered,
+.admin-root .dm-gpin-selected {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #ffffff;
+}
+.admin-root .dm-gpin-touch.dm-gpin-hovered,
+.admin-root .dm-gpin-touch.dm-gpin-selected {
+  width: 24px;
+  height: 24px;
+}
+.admin-root .dm-gcluster {
+  transform: translateY(50%);
+}
+.admin-root .dm-gunit {
+  width: 12px;
+  height: 12px;
+  transform: translateY(50%);
+}
+.admin-root .dm-osm-attr {
+  position: absolute;
+  left: 8px;
+  bottom: 30px;
+  z-index: 2;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #333;
+  font-size: 12px;
+  line-height: 18px;
+}
+.admin-root .dm-osm-attr:hover {
+  text-decoration: underline;
+}
+.admin-root .dm-google-attr {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  line-height: 1;
+  vertical-align: middle;
+  font-size: 14px;
+  color: #f4f6fa;
+}
+.admin-root .dm-google-attr img {
+  display: block;
+}
+.admin-root .dm-garea-box gmp-basic-place-autocomplete,
+.admin-root .dm-gplace {
+  display: block;
+  width: 100%;
+  --gmp-mat-color-surface: #232b3a;
+  --gmp-mat-color-surface-container: #1b2230;
+  --gmp-mat-color-on-surface: #f4f6fa;
+  --gmp-mat-color-on-surface-variant: #8b94a4;
+  --gmp-mat-color-outline: rgba(255, 255, 255, 0.1);
+  --gmp-mat-color-primary: #ee355e;
+  --gmp-mat-color-on-primary: #ffffff;
+  --gmp-mat-color-secondary-container: #2e3645;
+  --gmp-mat-font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  --gmp-mat-font-body-medium: 400 15px/1.5 var(--font-inter), ui-sans-serif, sans-serif;
+  --gmp-mat-font-body-small: 400 14px/1.4 var(--font-inter), ui-sans-serif, sans-serif;
+  --gmp-mat-font-label-large: 500 15px/1.4 var(--font-inter), ui-sans-serif, sans-serif;
+  --gmp-mat-font-title-medium: 500 17px/1.4 var(--font-inter), ui-sans-serif, sans-serif;
+  --gmp-mat-font-headline-medium: 500 22px/1.3 var(--font-inter), ui-sans-serif, sans-serif;
+  color-scheme: dark;
+  border-radius: 0.5rem;
+}
+.admin-root .dm-garea-box gmp-basic-place-autocomplete {
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #232b3a;
+}
+.admin-root .dm-gplace {
+  border-radius: 0.75rem;
+  overflow: hidden;
 }
 /* @@admin:end */

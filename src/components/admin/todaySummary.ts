@@ -4,7 +4,7 @@
 // `{ actions, week, housekeeping }` shape and the legacy card array of
 // summariseToday(), so the page renders the same five cards either way.
 import type { Tone } from "../../lib/inbox/stages.ts";
-import { TODAY_TEXT, fill } from "./wording.ts";
+import { GOOGLE_TEXT, TODAY_TEXT, fill } from "./wording.ts";
 
 export type TodayLine = { text: string; href?: string };
 export type TodayAction = { key: string; title: string; value: string; detail?: string; tone: Tone; href: string; lines?: TodayLine[] };
@@ -57,8 +57,17 @@ export function toTodaySummary(input: unknown): TodaySummary {
   if (stop && !/^0 /.test(stop.value)) housekeeping.push({ key: "stop", text: `STOP replies — check the mailbox (${stop.value})`, href: stop.href, tone: stop.tone });
   const purge = by.get("purge");
   if (purge) housekeeping.push({ key: "purge", text: `Purge last ran ${purge.value}`, tone: purge.tone === "bad" ? "bad" : "neutral" });
+  // docs/finder-google-spec.md §4.7: the `google` card exists only while Google is on ("12 / 900" + detail
+  // "40 / 4,500 searches") and is always shown, even at 0; `google-key` when the switch is on but the key is missing.
   const google = by.get("google");
-  if (google && google.value !== "0 / 900") housekeeping.push({ key: "google", text: `Google usage: ${google.value.replace(/\s*\/\s*/, " of ")} this month`, tone: google.tone });
+  if (google) {
+    const [checks = "0", checksCap = "900"] = google.value.split(/\s*\/\s*/);
+    const m = /^(\S+)\s*\/\s*(\S+)\s+searches$/.exec(google.detail ?? "");
+    const text = m ? fill(GOOGLE_TEXT.todayUsage, { checks, checksCap, searches: m[1]!, searchesCap: m[2]! }) : fill(GOOGLE_TEXT.todayUsageShort, { checks, checksCap });
+    housekeeping.push({ key: "google", text, tone: google.tone });
+  }
+  const googleKey = by.get("google-key");
+  if (googleKey) housekeeping.push({ key: "google-key", text: GOOGLE_TEXT.todayKeyMissing, tone: "warn" });
   const backfill = by.get("backfill");
   if (backfill) housekeeping.push({ key: "backfill", text: `Enquiries not yet in Leads: ${backfill.value}`, tone: "warn" });
   return { actions, week: { newLeads: Number(newLeads?.value ?? 0), bySource }, housekeeping };

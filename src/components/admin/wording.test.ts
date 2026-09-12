@@ -10,6 +10,7 @@ import {
   ERROR_TEXT,
   FIND_TEXT,
   FORBIDDEN_TOKENS,
+  GOOGLE_TEXT,
   LEAD_STAGE_WORDS,
   LEGAL_FORM_TEXT,
   LEGEND_TEXT,
@@ -31,11 +32,36 @@ function allStrings(): { path: string; text: string }[] {
     else if (v && typeof v === "object") for (const [k, x] of Object.entries(v as Record<string, unknown>)) walk(x, `${path}.${k}`);
   };
   walk(
-    { FIND_TEXT, CARD_TEXT, ERROR_TEXT, STATUS_WORDS, SEARCH_STATUS_WORDS, AREA_KIND_WORDS, CHILD_KIND_WORDS, LEGEND_TEXT, BADGE_TEXT, LEAD_STAGE_WORDS, REFUSAL_TEXT, LEGAL_FORM_TEXT, PROSPECT_TEXT, TODAY_TEXT, SOURCE_WORDS, ATTRIBUTION_TEXT },
+    { FIND_TEXT, CARD_TEXT, ERROR_TEXT, STATUS_WORDS, SEARCH_STATUS_WORDS, AREA_KIND_WORDS, CHILD_KIND_WORDS, LEGEND_TEXT, BADGE_TEXT, LEAD_STAGE_WORDS, REFUSAL_TEXT, LEGAL_FORM_TEXT, PROSPECT_TEXT, TODAY_TEXT, SOURCE_WORDS, ATTRIBUTION_TEXT, GOOGLE_TEXT },
     "wording",
   );
   return out;
 }
+
+test("the Google words (docs/finder-google-spec.md §3.8): forbidden tokens in force, every sentence walked", () => {
+  const sources = FORBIDDEN_TOKENS.map(String);
+  for (const re of ["/\\bclaimed\\b/i", "/\\bverified\\b/i", "/Google My Business/i", "/\\bGMB\\b/", "/\\btiles?\\b/i", "/\\bpartial\\b/i"]) assert.ok(sources.includes(re), `${re} missing from FORBIDDEN_TOKENS`);
+  assert.equal(FORBIDDEN_TOKENS.length, 16);
+  // Whole-word: "unverified" in a status token would not be caught, and is never shown as text anyway.
+  assert.ok(!FORBIDDEN_TOKENS.some((re) => re.test("unverified")));
+  assert.ok(FORBIDDEN_TOKENS.some((re) => re.test("This listing is claimed")));
+  assert.ok(FORBIDDEN_TOKENS.some((re) => re.test("a Verified listing")));
+  assert.ok(FORBIDDEN_TOKENS.some((re) => re.test("Google My Business")));
+  assert.ok(FORBIDDEN_TOKENS.some((re) => re.test("the GMB page")));
+  assert.ok(FORBIDDEN_TOKENS.some((re) => re.test("6 of 9 tiles")));
+  const google = allStrings().filter((s) => s.path.startsWith("wording.GOOGLE_TEXT"));
+  assert.ok(google.length >= 60, `walked ${google.length} Google strings`);
+  assert.equal(GOOGLE_TEXT.attribution, "Google Maps");
+  assert.equal(GOOGLE_TEXT.asking, "Asking Google — {done} of {total} parts of {area}");
+  assert.equal(fill(GOOGLE_TEXT.asking, { done: 6, total: 9, area: "Ariège" }), "Asking Google — 6 of 9 parts of Ariège");
+  assert.equal(GOOGLE_TEXT.mapFailed, "The Google map could not be loaded — showing OpenStreetMap instead.");
+  assert.equal(GOOGLE_TEXT.toastMonthlyCap, "The monthly Google allowance is used up — try again next month.");
+  assert.equal(GOOGLE_TEXT.statusMaintained, "Listing found · looks maintained");
+  assert.equal(GOOGLE_TEXT.statusNotFound, "No listing found");
+  assert.equal(fill(GOOGLE_TEXT.dataFrom, { names: "Example Data Co" }), "Data: Example Data Co");
+  assert.equal(fill(GOOGLE_TEXT.todayUsage, { checks: "12", checksCap: "900", searches: "40", searchesCap: "4,500" }), "Google usage: 12 of 900 listing checks · 40 of 4,500 searches this month");
+  assert.equal(GOOGLE_TEXT.todayKeyMissing, "Google is switched on, but its key is missing.");
+});
 
 const REFUSAL_CODES: RefusalCode[] = [
   "country_blocked",

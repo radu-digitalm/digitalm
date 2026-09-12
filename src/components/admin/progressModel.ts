@@ -4,9 +4,12 @@
 // map search, register, placing on the map — and never reads 100 % while
 // the search runs; a single-area search moves with time against a soft
 // estimate instead of sitting at 0 % then jumping to full.
-import type { SearchResultV2 } from "../../lib/crm/types.ts";
+// The Google phase (docs/finder-google-spec.md §5.4) runs after the register and
+// before placing; its share of the bar is the gap between the register's end and
+// "placing", filled part by part ("Asking Google — 6 of 9 parts of Ariège").
+import type { SearchResultV2 } from "./finderApi.ts";
 import { formatDuration, formatEta, formatInt, relativeOrLocal } from "./format.ts";
-import { FIND_TEXT, fill } from "./wording.ts";
+import { FIND_TEXT, GOOGLE_TEXT, fill } from "./wording.ts";
 
 /** "restaurants" from "Restaurant"; "bars / pubs" from "Bar / pub"; the singular (lower-case) when n is 1. */
 export function tradePlural(label: string, n = 2): string {
@@ -43,6 +46,17 @@ export function scopesDone(r: SearchResultV2): { done: number; total: number } {
 /** The French register runs after the map for French areas when it was asked for. */
 export function expectsRegister(r: SearchResultV2): boolean {
   return r.sources.includes("fr_register") && r.area.countryCode === "FR";
+}
+
+/** The Google phase exists only once it ran or is running (never with Google off). */
+export function expectsGoogle(r: SearchResultV2): boolean {
+  return r.progress.google !== undefined || r.progress.stage === "google";
+}
+
+/** Parts of the area Google was asked about ("6 of 9"). */
+export function googleParts(r: SearchResultV2): { done: number; total: number } {
+  const g = r.progress.google;
+  return { done: g?.tilesDone ?? 0, total: g?.tiles ?? 0 };
 }
 
 export function elapsedSeconds(r: SearchResultV2, now: number): number {
@@ -83,6 +97,13 @@ export function progressFraction(r: SearchResultV2, now = Date.now()): number | 
     const inner = running && running.totalPages ? Math.min(0.95, running.pages / running.totalPages) : 0;
     const frac = s.total > 0 ? Math.min(1, (s.done + inner) / s.total) : 0;
     return osmEnd + frac * (BAR.registerEnd - osmEnd);
+  }
+  if (p.stage === "google") {
+    // Google's share: from the end of the last phase that ran to "placing", part by part.
+    const from = reg ? BAR.registerEnd : osmEnd;
+    const g = googleParts(r);
+    const frac = g.total > 0 ? Math.min(0.98, g.done / g.total) : 0;
+    return from + frac * (BAR.placing - from);
   }
   return BAR.placing;
 }
@@ -139,6 +160,9 @@ export function runningText(r: SearchResultV2, now = Date.now()): string {
     parts.push(s.total <= 1 && current ? fill(FIND_TEXT.checkingRegister, { done: current.pages, total: current.totalPages ?? "?" }) : fill(FIND_TEXT.checkingRegisterScopes, { done: s.done, total: s.total }));
     const eta = formatEta(etaSeconds(r, now));
     if (eta) parts.push(fill(FIND_TEXT.eta, { s: eta }));
+  } else if (p.stage === "google") {
+    const g = googleParts(r);
+    parts.push(fill(GOOGLE_TEXT.asking, { done: g.done, total: g.total, area: r.area.label }));
   } else {
     parts.push(FIND_TEXT.placing);
   }
