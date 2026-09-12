@@ -44,6 +44,7 @@ import {
 } from "./finderApi";
 import { formatInt, relativeOrLocal } from "./format";
 import { Legend } from "./Legend";
+import { summaryText } from "./progressModel";
 import { useToast } from "./Toast";
 import { CUSTOM_KEY, type TradeOption } from "./TradePicker";
 import { ERROR_TEXT, FIND_TEXT, SEARCH_STATUS_WORDS, fill } from "./wording";
@@ -333,7 +334,10 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
 
   async function runSearch(body: FindBody, opts: { keepChildren?: GateChild[] | null } = {}) {
     resetForNewSearch();
-    lastBody.current = body;
+    // Remembered without `fresh`: a candidate pick or a gate child after a "Run again" reads from the cache as usual.
+    const { fresh: _fresh, ...remembered } = body;
+    void _fresh;
+    lastBody.current = remembered;
     setQuery(body.area);
     setPhase("resolving");
     setStart(null);
@@ -422,6 +426,12 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   function runAgain() {
     const body = lastBody.current ?? bodyFromForm(form);
     if (body) void runSearch(body);
+  }
+
+  /** "Run again" next to "Results from 1 h ago": the same search, every source read anew. */
+  function runFresh() {
+    const body = lastBody.current ?? bodyFromForm(form);
+    if (body) void runSearch({ ...body, fresh: true });
   }
 
   function openRunning(id: number) {
@@ -761,9 +771,10 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
             companiesHouseOn={companiesHouseOn}
             googleOn={googleOn}
             error={formError}
+            compact={result !== null || phase === "running" || phase === "gate"}
           />
         )}
-        <FindProgress phase={phase} query={query} start={start} result={result} error={error} expired={expired} onContinue={() => void continueSearch()} onRunAgain={runAgain} onOpenRunning={openRunning} onStopRunning={(id) => void stopRunning(id)} onPickAlternative={pickAlternative} onPickChild={pickChild} capChildren={capChildren} />
+        <FindProgress phase={phase} query={query} start={start} result={result} error={error} expired={expired} onContinue={() => void continueSearch()} onRunAgain={runAgain} onRunFresh={runFresh} onOpenRunning={openRunning} onStopRunning={(id) => void stopRunning(id)} onPickAlternative={pickAlternative} onPickChild={pickChild} capChildren={capChildren} />
       </div>
 
       {desktop ? (
@@ -790,7 +801,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
           >
             <button type="button" aria-label={sheetOpen ? FIND_TEXT.mapControl : FIND_TEXT.listControl} onClick={() => setSheetOpen((o) => !o)} className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-line-strong" />
             <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
-              <span className="truncate text-[16px] text-fg-heading">{result ? fill(result.total === 1 ? FIND_TEXT.summaryOne : FIND_TEXT.summary, { n: formatInt(result.total), area: result.area.label }) : FIND_TEXT.title}</span>
+              <span className="truncate text-[16px] text-fg-heading">{result ? summaryText(result) : FIND_TEXT.title}</span>
               <div className="flex overflow-hidden rounded-lg border border-line text-[14px]" role="group" aria-label="View">
                 <button type="button" onClick={() => setSheetOpen(true)} aria-pressed={sheetOpen} className={`px-3 py-1 ${sheetOpen ? "bg-surface-3 text-fg-heading" : "text-fg-muted"}`}>
                   {FIND_TEXT.listControl}

@@ -8,6 +8,17 @@ import type { SearchResultV2 } from "../../lib/crm/types.ts";
 import { formatDuration, formatEta, formatInt, relativeOrLocal } from "./format.ts";
 import { FIND_TEXT, fill } from "./wording.ts";
 
+/** "restaurants" from "Restaurant"; "bars / pubs" from "Bar / pub"; the singular (lower-case) when n is 1. */
+export function tradePlural(label: string, n = 2): string {
+  const lower = label.trim().toLowerCase();
+  if (n === 1 || !lower) return lower;
+  const one = (w: string) => (/(s|x|ch|sh)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`);
+  return lower
+    .split(" / ")
+    .map((part) => part.split(" and ").map(one).join(" and "))
+    .join(" / ");
+}
+
 /** Where each stage ends on the bar (0–1). The last few percent belong to "finished". */
 export const BAR = { start: 0.04, osmEndWithRegister: 0.6, osmEndAlone: 0.82, registerEnd: 0.88, placing: 0.95 } as const;
 
@@ -135,14 +146,9 @@ export function runningText(r: SearchResultV2, now = Date.now()): string {
   return parts.join(" · ");
 }
 
-function bothCount(r: SearchResultV2): number {
+/** Rows found on the map and matched to the register. */
+export function bothCount(r: SearchResultV2): number {
   return r.rows.filter((x) => x.sources.includes("osm") && x.sources.includes("fr_register")).length;
-}
-
-/** Duplicates the merge removed (from the runner's note), or 0. */
-export function duplicatesRemoved(r: SearchResultV2): number {
-  const n = Number(r.notes.find((x) => x.code === "duplicates_removed")?.params?.n ?? 0);
-  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 /**
@@ -162,24 +168,27 @@ export function readFromCacheAt(r: SearchResultV2): string | null {
   return created - newest > 60_000 ? new Date(newest).toISOString() : null;
 }
 
-/** "48 s" — or "results read 12 min ago (kept 24 hours)" when the unit cache answered. */
-export function durationText(r: SearchResultV2, now = new Date()): string {
-  const cachedAt = readFromCacheAt(r);
-  if (cachedAt) return fill(FIND_TEXT.fromEarlier, { when: relativeOrLocal(cachedAt, now) });
-  if (r.durationMs !== null && r.durationMs < 1000 && r.rows.length > 0) return "";
-  return formatDuration(r.durationMs);
+/** When the results date from: the map read time when the 24 h cache answered, else when the search ran. */
+export function resultsAt(r: SearchResultV2): string {
+  return readFromCacheAt(r) ?? r.createdAt;
 }
 
-export function doneText(r: SearchResultV2, now = new Date()): string {
-  const hasRegister = expectsRegister(r);
-  const duration = durationText(r, now);
-  const dup = duplicatesRemoved(r);
-  const extra = dup > 0 ? ` · ${fill(FIND_TEXT.duplicatesRemoved, { n: formatInt(dup) })}` : "";
-  const text = !hasRegister
-    ? fill(FIND_TEXT.doneNoRegister, { n: formatInt(r.total), area: r.area.label, onMap: formatInt(r.perSource.osm ?? 0), extra, duration })
-    : fill(FIND_TEXT.done, { n: formatInt(r.total), area: r.area.label, onMap: formatInt(r.perSource.osm ?? 0), inRegister: formatInt(r.perSource.fr_register ?? 0), inBoth: formatInt(bothCount(r)), extra, duration });
-  // No duration (legacy rows, or a sub-second cached run) → drop the trailing " · ." part.
-  return duration ? text : text.replace(/ · \.$/, ".");
+/** "Results from 1 h ago" once the results are older than a minute; "" while they are fresh. */
+export function resultsFromText(r: SearchResultV2, now = new Date()): string {
+  const at = resultsAt(r);
+  const t = Date.parse(at);
+  if (!Number.isFinite(t) || now.getTime() - t < 60_000) return "";
+  return fill(FIND_TEXT.resultsFrom, { when: relativeOrLocal(at, now) });
+}
+
+/** "572 restaurants" — the count with the trade in words (the sources split lives in the list pane). */
+export function doneText(r: SearchResultV2): string {
+  return fill(FIND_TEXT.found, { n: formatInt(r.total), trade: tradePlural(r.category.label.en || "business", r.total) });
+}
+
+/** "572 restaurants in Ariège" — the list pane's title and the phone sheet's. */
+export function summaryText(r: SearchResultV2): string {
+  return fill(FIND_TEXT.summary, { n: formatInt(r.total), trade: tradePlural(r.category.label.en || "business", r.total), area: r.area.label });
 }
 
 /** "Ariège — department, France"; the country is left out when it is the area itself ("Andorra — country"). */

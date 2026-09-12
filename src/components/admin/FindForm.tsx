@@ -91,6 +91,7 @@ export function FindForm({
   companiesHouseOn,
   googleOn,
   error,
+  compact = false,
 }: {
   trades: TradeOption[];
   value: FormValue;
@@ -104,6 +105,8 @@ export function FindForm({
   companiesHouseOn: boolean;
   googleOn: boolean;
   error: string | null;
+  /** Once a search exists the onboarding lines go, so the map and list get the height. */
+  compact?: boolean;
 }) {
   const busy = running || resolving;
   return (
@@ -118,7 +121,7 @@ export function FindForm({
       aria-label={FIND_TEXT.title}
     >
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto_auto] lg:items-start">
-        <AreaInput value={value.area} onChange={(area) => onChange({ ...value, area })} candidates={candidates} onPick={onPick} disabled={busy} />
+        <AreaInput value={value.area} onChange={(area) => onChange({ ...value, area })} candidates={candidates} onPick={onPick} disabled={busy} showHint={!compact} />
         <TradePicker trades={trades} value={value.categoryKey} onChange={(categoryKey) => onChange({ ...value, categoryKey })} custom={value.custom} onCustomChange={(custom) => onChange({ ...value, custom })} disabled={busy} />
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:col-span-2 lg:contents">
           <div className="min-w-0 lg:pt-[29px]">
@@ -131,14 +134,16 @@ export function FindForm({
           </div>
         </div>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-        <p className="text-[15px] text-fg-muted">{FIND_TEXT.helper}</p>
-        {error ? (
-          <p role="alert" className="text-[15px] text-accent-soft">
-            {error}
-          </p>
-        ) : null}
-      </div>
+      {compact && !error ? null : (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          {compact ? null : <p className="text-[15px] text-fg-muted">{FIND_TEXT.helper}</p>}
+          {error ? (
+            <p role="alert" className="text-[15px] text-accent-soft">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      )}
     </form>
   );
 }

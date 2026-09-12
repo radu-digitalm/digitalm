@@ -3,15 +3,15 @@
 // The list pane of the finder (docs/finder-ux-spec.md §5.4): summary header,
 // filter chips, search-within, sort, rows (pages of 200), bulk save and the
 // attribution footer. Rows are keyboard-navigable (↑/↓ move, Enter opens the
-// card, Space ticks). Every foreign value renders as text; websites go through
-// ExtLink.
+// card, Space ticks). Every foreign value renders as text; the whole row
+// opens the card — the website is plain text here and a link in the card.
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { rowStatus, savable, type ResultRow, type SearchResultV2 } from "./finderApi";
 import { Button } from "./Button";
-import { ExtLink } from "./ExtLink";
 import { inputClass } from "./Field";
 import { domainOf, formatInt, townLine } from "./format";
+import { bothCount, summaryText } from "./progressModel";
 import { ATTRIBUTION_TEXT, FIND_TEXT, STATUS_WORDS, fill } from "./wording";
 
 export type Chip = "savable" | "website" | "no_website" | "phone" | "email" | "register" | "saved" | "not_listed" | "hidden";
@@ -31,6 +31,9 @@ export const CHIP_LABEL: Record<Chip, string> = {
 
 /** The chips that reveal rows kept out of the way by default (off → those rows are not listed at all). */
 export const REVEAL_CHIPS: readonly Chip[] = ["not_listed", "hidden"];
+
+/** Always visible; the other chips sit behind "More filters" so the row never scrolls sideways. */
+export const PRIMARY_CHIPS: readonly Chip[] = ["savable", "website", "no_website"];
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "nearest", label: FIND_TEXT.sortNearest },
@@ -120,6 +123,7 @@ export function FindList(p: FindListProps) {
   const listEl = useRef<HTMLDivElement>(null);
   const rootEl = useRef<HTMLDivElement>(null);
   const [narrow, setNarrow] = useState(true);
+  const [moreFilters, setMoreFilters] = useState(false);
   const visible = rows.slice(0, p.shown);
 
   // Under ~620 px the row is two lines (name · status / town · phone · website); wider panes get four columns.
@@ -153,13 +157,17 @@ export function FindList(p: FindListProps) {
     }
   }
 
-  const total = result.total;
-  const summary = total === 1 ? fill(FIND_TEXT.summaryOne, { area: area.label }) : fill(FIND_TEXT.summary, { n: formatInt(total), area: area.label });
+  const summary = summaryText(result);
   const hasRegister = result.sources.includes("fr_register") && area.countryCode === "FR";
-  const perSource = fill(p.running && hasRegister ? FIND_TEXT.perSourceRunning : FIND_TEXT.perSource, { onMap: formatInt(result.perSource.osm ?? 0), inRegister: formatInt(result.perSource.fr_register ?? 0) });
+  // The sources split is shown here and nowhere else; without the register the title already says it all.
+  const perSource = hasRegister ? fill(p.running ? FIND_TEXT.perSourceRunning : FIND_TEXT.perSource, { onMap: formatInt(result.perSource.osm ?? 0), inRegister: formatInt(result.perSource.fr_register ?? 0), inBoth: formatInt(bothCount(result)) }) : "";
   const savableLine = fill(FIND_TEXT.summarySavable, { n: formatInt(p.counts.savable) });
 
   const chips: Chip[] = ["savable", "website", "no_website", "phone", "email", ...(p.showRegisterChip ? (["register"] as Chip[]) : []), "saved", ...(hasRegister ? (["not_listed"] as Chip[]) : []), "hidden"];
+  const secondaryChips = chips.filter((c) => !PRIMARY_CHIPS.includes(c));
+  // An active filter is never hidden behind the toggle.
+  const showAllChips = moreFilters || secondaryChips.some((c) => p.chips.has(c));
+  const shownChips = showAllChips ? chips : chips.filter((c) => PRIMARY_CHIPS.includes(c));
 
   // Town groups (sticky headers) when sorted by town.
   const groups = useMemo(() => {
@@ -262,10 +270,8 @@ export function FindList(p: FindListProps) {
               ) : null}
               {r.phone ? <span className="whitespace-nowrap">{r.phone}</span> : null}
               {r.website ? (
-                <span className="min-w-0 truncate" onClick={(e) => e.stopPropagation()}>
-                  <ExtLink href={r.website} className="link-accent">
-                    {domainOf(r.website)}
-                  </ExtLink>
+                <span className="min-w-0 truncate text-fg-muted" data-testid="row-site">
+                  {domainOf(r.website)}
                 </span>
               ) : null}
             </div>
@@ -286,10 +292,8 @@ export function FindList(p: FindListProps) {
             <div className="min-w-0 text-[15px] text-fg">
               {r.phone ? <div className="whitespace-nowrap">{r.phone}</div> : null}
               {r.website ? (
-                <div className="truncate" onClick={(e) => e.stopPropagation()}>
-                  <ExtLink href={r.website} className="link-accent">
-                    {domainOf(r.website)}
-                  </ExtLink>
+                <div className="truncate text-fg-muted" data-testid="row-site">
+                  {domainOf(r.website)}
                 </div>
               ) : null}
             </div>
@@ -310,16 +314,17 @@ export function FindList(p: FindListProps) {
           <div data-testid="find-summary">
             {p.compactHeader ? null : <div className="text-[18px] text-fg-heading">{summary}</div>}
             <div className="text-[15px] text-fg-muted">
-              <span className="text-fg">{savableLine}</span> · {perSource}
+              <span className="text-fg">{savableLine}</span>
+              {perSource ? ` · ${perSource}` : null}
             </div>
           </div>
           <Button variant="primary" size="sm" onClick={p.onSaveTicked} disabled={pickedCount === 0} loading={p.saving}>
             {fill(FIND_TEXT.saveTicked, { n: pickedCount })}
           </Button>
         </div>
-        {/* One row of chips: it scrolls sideways in a narrow pane instead of stacking three deep. */}
-        <div role="group" aria-label={FIND_TEXT.filtersLabel} className={narrow ? "flex flex-nowrap gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]" : "flex flex-wrap gap-1.5"}>
-          {chips.map((c) => {
+        {/* The chips wrap — never a sideways scroll: three primary ones, the rest behind "More filters". */}
+        <div role="group" aria-label={FIND_TEXT.filtersLabel} className="flex flex-wrap gap-1.5">
+          {shownChips.map((c) => {
             const on = p.chips.has(c);
             const reveal = REVEAL_CHIPS.includes(c);
             return (
@@ -329,12 +334,17 @@ export function FindList(p: FindListProps) {
                 aria-pressed={on}
                 onClick={() => p.onToggleChip(c)}
                 title={reveal ? `${CHIP_LABEL[c]} — off by default; switch on to list them (at the bottom)` : undefined}
-                className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[15px] transition-colors ${on ? "border-accent-magenta bg-accent-magenta/15 text-fg-heading" : "border-line text-fg-muted hover:border-line-strong hover:text-fg-heading"}`}
+                className={`whitespace-nowrap rounded-full border px-3 py-1 text-[15px] transition-colors ${on ? "border-accent-magenta bg-accent-magenta/15 text-fg-heading" : "border-line text-fg-muted hover:border-line-strong hover:text-fg-heading"}`}
               >
                 {CHIP_LABEL[c]} <span className="text-fg-muted">({formatInt(p.counts[c])})</span>
               </button>
             );
           })}
+          {secondaryChips.length > 0 ? (
+            <button type="button" aria-expanded={showAllChips} onClick={() => setMoreFilters(!showAllChips)} data-testid="more-filters" className="whitespace-nowrap rounded-full px-2 py-1 text-[15px] text-fg-muted underline-offset-2 hover:text-fg-heading hover:underline">
+              {showAllChips ? FIND_TEXT.fewerFilters : fill(FIND_TEXT.moreFilters, { n: secondaryChips.length })}
+            </button>
+          ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="search" value={p.text} onChange={(e) => p.onText(e.target.value)} placeholder={FIND_TEXT.filterPlaceholder} aria-label={FIND_TEXT.filterPlaceholder} className={`${inputClass} min-w-[10rem] flex-1`} />

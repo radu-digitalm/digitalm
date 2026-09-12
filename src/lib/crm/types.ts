@@ -408,6 +408,7 @@ export interface ResultRow extends Business {
 }
 export interface SearchResultV2 {
   version: 2;
+  rulesVersion?: number; // how the rows were derived (searchRepair.ts re-derives older cached results on read)
   searchId: number;
   queryArea: string;
   area: ResolvedArea;

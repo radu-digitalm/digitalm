@@ -13,6 +13,7 @@ export function AreaInput({
   candidates,
   onPick,
   disabled = false,
+  showHint = true,
   className = "",
 }: {
   value: string;
@@ -20,11 +21,13 @@ export function AreaInput({
   candidates: Candidate[] | null;
   onPick: (c: Candidate) => void;
   disabled?: boolean;
+  /** The onboarding hint under the box — shown until a search exists. */
+  showHint?: boolean;
   className?: string;
 }) {
   return (
     <div className={className}>
-      <Field label={FIND_TEXT.areaLabel} name="area" value={value} onChange={(e) => onChange(e.target.value)} placeholder={FIND_TEXT.areaPlaceholder} hint={candidates ? undefined : FIND_TEXT.areaHint} autoComplete="off" maxLength={120} disabled={disabled} required />
+      <Field label={FIND_TEXT.areaLabel} name="area" value={value} onChange={(e) => onChange(e.target.value)} placeholder={FIND_TEXT.areaPlaceholder} hint={candidates || !showHint ? undefined : FIND_TEXT.areaHint} autoComplete="off" maxLength={120} disabled={disabled} required />
       {candidates && candidates.length > 0 ? (
         <fieldset data-testid="area-candidates" className="mt-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
           <legend className="px-1 text-[15px] text-amber-200">{FIND_TEXT.candidatesTitle}</legend>

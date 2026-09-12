@@ -17,6 +17,7 @@ export type SlimEtab = {
   longitude?: string | number | null;
   liste_enseignes?: string[] | null;
   etat_administratif?: string;
+  statut_diffusion_etablissement?: string;
 };
 
 /** What we keep of a company (unité légale). */
@@ -46,7 +47,24 @@ export function slimEtab(e: unknown): SlimEtab | null {
     longitude: typeof o.longitude === "string" || typeof o.longitude === "number" ? o.longitude : null,
     liste_enseignes: Array.isArray(o.liste_enseignes) ? o.liste_enseignes.filter((x): x is string => typeof x === "string") : null,
     etat_administratif: str("etat_administratif"),
+    statut_diffusion_etablissement: str("statut_diffusion_etablissement"),
   };
+}
+
+/** The codes that mean "listed publicly": the live API answers "O" (ouvert); older answers spelled it out. */
+const FULL_DIFFUSION = new Set(["O", "diffusible"]);
+
+/**
+ * statut_diffusion → our two states. "O" (and the legacy "diffusible") is
+ * public; "P" / "partiellement_diffusible" / "N" and anything unknown mean
+ * the owner asked the register to hide the details. The establishment's own
+ * status counts when the API gives one; a hidden company hides its shops.
+ */
+export function diffusionOf(company: string | null | undefined, establishment?: string | null): "full" | "partial" {
+  const c = company?.trim() ?? "";
+  const e = establishment?.trim() ?? "";
+  if (e) return FULL_DIFFUSION.has(e) && (!c || FULL_DIFFUSION.has(c)) ? "full" : "partial";
+  return FULL_DIFFUSION.has(c) ? "full" : "partial";
 }
 
 /**
@@ -112,7 +130,7 @@ export function mapEstablishment(c: SlimCompany, e: SlimEtab, area: Area): Busin
     registerId: e.siret,
     legalForm: c.nature_juridique ?? undefined,
     soleTrader: c.nature_juridique === SOLE_TRADER_NATURE,
-    diffusion: c.statut_diffusion === "diffusible" ? "full" : "partial",
+    diffusion: diffusionOf(c.statut_diffusion, e.statut_diffusion_etablissement),
     active: c.etat_administratif === "A",
   };
 }

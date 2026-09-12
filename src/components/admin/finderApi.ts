@@ -16,7 +16,8 @@ export type Alternative = NonNullable<SearchResultV2["alternatives"]>[number];
 
 export type CustomTrade = { osmKey: string; osmValue: string; label?: string; naf?: string; sic?: string };
 export type Pick = { osmType: "relation" | "node" | "way"; osmId: number };
-export type FindBody = { area: string; category: string | CustomTrade; sources?: DiscoverySource[]; pick?: Pick; confirmCap?: boolean };
+/** `fresh`: "Run again" — every source is read anew instead of from the 24 h cache. */
+export type FindBody = { area: string; category: string | CustomTrade; sources?: DiscoverySource[]; pick?: Pick; confirmCap?: boolean; fresh?: boolean };
 
 /** A chip of the over-cap gate; `query` is what a click posts as the area (a department code, "Occitanie, France") — the label otherwise. */
 export type GateChild = { id: string; label: string; code?: string; countryCode: string; query?: string };

@@ -232,14 +232,20 @@ export type UnitRead = { elements: OverpassElement[]; readAt: string; truncated:
 export async function fetchUnit(
   unit: { selector: AreaSelector; bbox?: Bbox },
   category: Category,
-  opts: { signal?: AbortSignal; onRetry?: (untilIso: string | null) => void } = {},
+  opts: { signal?: AbortSignal; onRetry?: (untilIso: string | null) => void; fresh?: boolean } = {},
 ): Promise<UnitRead> {
   const query = unitQuery(category, unit.selector, unit.bbox);
   const request = { selector: unit.selector, bbox: unit.bbox ? unit.bbox.map((n) => n.toFixed(5)) : null, trade: categoryKeyOf(category) };
-  const { value, hit } = await cached<{ elements: OverpassElement[]; readAt: string }>("overpass", request, DAY_MS, async () => {
-    const data = await withBackoff(() => overpassPost(query, { timeoutMs: UNIT_TIMEOUT_MS, signal: opts.signal }), opts);
-    return { elements: slim(data.elements), readAt: new Date().toISOString() };
-  });
+  const { value, hit } = await cached<{ elements: OverpassElement[]; readAt: string }>(
+    "overpass",
+    request,
+    DAY_MS,
+    async () => {
+      const data = await withBackoff(() => overpassPost(query, { timeoutMs: UNIT_TIMEOUT_MS, signal: opts.signal }), opts);
+      return { elements: slim(data.elements), readAt: new Date().toISOString() };
+    },
+    { fresh: opts.fresh === true },
+  );
   if (!hit) countApiUsage("overpass");
   return { elements: value.elements, readAt: value.readAt, truncated: value.elements.length >= UNIT_LIMIT, hit };
 }

@@ -22,6 +22,7 @@ import { countryNameOf, finePolygon, frDepartements, frRegionDepartements, frReg
 import { googlePlacesOn } from "./google";
 import { fmtNum, listOf, note, plural } from "./notes";
 import { UnitFailure, fetchUnit, mapElement, overpassCount, type OsmBusiness } from "./overpass";
+import { RULES_VERSION, repairSearchResult } from "./searchRepair";
 import { CHILD_LEVELS, capReached, chooseLevel, findMaxMs, findMaxRows, findMaxUnits, needsSplit, overCap, planUnits, type ChildRel, type PlanMode, type PlanUnit } from "./plan";
 import { haversineKm, pointInPolygon } from "./polygon";
 import { applyEvent, initialProgress, isInterrupted, legacyStatus, resolveStatus, type ProgressEvent } from "./progress";
@@ -288,7 +289,7 @@ function writeResult(result: SearchResultV2): void {
 
 // ---- start / continue --------------------------------------------------------------------
 
-export type StartInput = { queryArea: string; area: ResolvedArea; category: Category; sources: DiscoverySource[]; plan: StoredPlan };
+export type StartInput = { queryArea: string; area: ResolvedArea; category: Category; sources: DiscoverySource[]; plan: StoredPlan; fresh?: boolean };
 
 /** Insert the `searches` row, seed the cache, kick the background run. Throws RunnerError search_running. */
 export function startSearch(input: StartInput): { searchId: number } {
@@ -304,6 +305,7 @@ export function startSearch(input: StartInput): { searchId: number } {
   const searchId = Number(r.lastInsertRowid);
   const result: SearchResultV2 = {
     version: 2,
+    rulesVersion: RULES_VERSION,
     searchId,
     queryArea: input.queryArea,
     area: input.area,
@@ -318,7 +320,7 @@ export function startSearch(input: StartInput): { searchId: number } {
     createdAt: now,
   };
   writeResult(result);
-  launch(searchId, { area: input.area, category: input.category, sources: input.sources, plan: input.plan, progress, createdAt: now, queryArea: input.queryArea });
+  launch(searchId, { area: input.area, category: input.category, sources: input.sources, plan: input.plan, progress, createdAt: now, queryArea: input.queryArea, fresh: input.fresh === true });
   return { searchId };
 }
 
@@ -338,7 +340,7 @@ export function continueSearch(id: number): { searchId: number } {
   const now = new Date().toISOString();
   const progress = applyEvent(parseJson<SearchProgress>(row.progress, initialProgress({ units: plan.units, expected: plan.expected, cap: plan.cap, at: now })), { type: "resumed", at: now });
   writeProgress(id, progress, 0, {}, null);
-  launch(id, { area, category: plan.category, sources: parseJson<DiscoverySource[]>(row.sources, ["osm", "fr_register"]), plan, progress, createdAt: isoOf(row.created_at), queryArea: row.query_area });
+  launch(id, { area, category: plan.category, sources: parseJson<DiscoverySource[]>(row.sources, ["osm", "fr_register"]), plan, progress, createdAt: isoOf(row.created_at), queryArea: row.query_area, fresh: false });
   return { searchId: id };
 }
 
@@ -353,7 +355,8 @@ export async function cancelSearch(id: number): Promise<{ status: SearchStatus }
   return { status: statusOf(readRow(id) ?? row) };
 }
 
-type RunContext = { area: ResolvedArea; category: Category; sources: DiscoverySource[]; plan: StoredPlan; progress: SearchProgress; createdAt: string; queryArea: string };
+/** `fresh`: a "Run again" — every unit and register page is read anew instead of from the 24 h cache. */
+type RunContext = { area: ResolvedArea; category: Category; sources: DiscoverySource[]; plan: StoredPlan; progress: SearchProgress; createdAt: string; queryArea: string; fresh: boolean };
 
 function launch(searchId: number, ctx: RunContext): void {
   const controller = new AbortController();
@@ -396,6 +399,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
 
   const skeleton = (): SearchResultV2 => ({
     version: 2,
+    rulesVersion: RULES_VERSION,
     searchId,
     queryArea: ctx.queryArea,
     area,
@@ -466,6 +470,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
       try {
         const read = await fetchUnit(unit, category, {
           signal,
+          fresh: ctx.fresh,
           onRetry: (until) => {
             emit({ type: "retrying", until, at: at() });
             saveProgress();
@@ -601,6 +606,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
       try {
         const read = await searchRegisterScope(scope, category, area, inside, {
           signal,
+          fresh: ctx.fresh,
           onPage: (pages, totalPages, found) => {
             emit({ type: "scope_page", id: scope.id, pages, totalPages, found, at: at() });
             saveProgress();
@@ -753,6 +759,8 @@ export function getSearch(searchId: number, slice?: { after: number | null; vers
   const raw = cacheGet<SearchResultV2 | LegacyResult>(`search:${searchId}`);
   if (!raw) return null;
   const row = readRow(searchId);
+  // A result cached under older derivation rules is brought up to date (and written back) before anything reads it.
+  if ("version" in raw && raw.version === 2) repairSearchResult(raw, `search:${searchId}`);
   const result: SearchResultV2 = "version" in raw && raw.version === 2 ? raw : upgradeLegacy(raw as LegacyResult, row);
   if (row) {
     const progress = parseJson<SearchProgress | null>(row.progress, null);

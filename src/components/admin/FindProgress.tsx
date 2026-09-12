@@ -10,10 +10,10 @@ import { useEffect, useState } from "react";
 import { isTerminal, type Alternative, type GateChild, type GatePlan, type ResolvedArea, type SearchResultV2 } from "./finderApi";
 import { Button } from "./Button";
 import { formatInt } from "./format";
-import { doneText, progressFraction, resolvedText, runningText, unitsDone } from "./progressModel";
+import { doneText, progressFraction, resolvedText, resultsFromText, runningText, tradePlural, unitsDone } from "./progressModel";
 import { AREA_KIND_WORDS, CHILD_KIND_WORDS, CHILD_KIND_WORDS_PLURAL, FIND_TEXT, fill } from "./wording";
 
-export { progressFraction } from "./progressModel";
+export { progressFraction, tradePlural } from "./progressModel";
 
 export type Phase = "idle" | "resolving" | "gate" | "running" | "finished";
 
@@ -21,20 +21,8 @@ export type FindErrorView = { text: string; running?: { searchId: number; area: 
 
 export type StartInfo = { area: ResolvedArea; expected: number | null; alternatives?: Alternative[] } | null;
 
-/** "restaurants" from "Restaurant"; "bars / pubs" from "Bar / pub". */
-export function tradePlural(label: string, n = 2): string {
-  const lower = label.trim().toLowerCase();
-  if (n === 1 || !lower) return lower;
-  const one = (w: string) => (/(s|x|ch|sh)$/.test(w) ? `${w}es` : /[^aeiou]y$/.test(w) ? `${w.slice(0, -1)}ies` : `${w}s`);
-  return lower
-    .split(" / ")
-    .map((part) => part.split(" and ").map(one).join(" and "))
-    .join(" / ");
-}
-
-/** Banner notes get the amber box; `duplicates_removed` is folded into the finished line; the rest go under "Details". */
+/** Banner notes get the amber box; the rest (duplicates removed, rows dropped…) go under "Details". */
 const BANNER_CODES = new Set(["capped", "units_failed", "register_failed", "interrupted", "expired", "time_limit", "unit_truncated"]);
-const INLINE_CODES = new Set(["duplicates_removed"]);
 
 /** A clock that ticks once a second while `on`. */
 function useNow(on: boolean): number {
@@ -57,6 +45,8 @@ export type FindProgressProps = {
   expired: boolean;
   onContinue: () => void;
   onRunAgain: () => void;
+  /** "Run again" next to "Results from 1 h ago": reads every source anew. */
+  onRunFresh: () => void;
   onOpenRunning: (id: number) => void;
   onStopRunning: (id: number) => void;
   onPickAlternative: (a: Alternative) => void;
@@ -81,7 +71,8 @@ export function FindProgress(p: FindProgressProps) {
   const alternatives = p.start?.alternatives ?? r?.alternatives ?? [];
   const notes = r?.notes ?? [];
   const banners = notes.filter((n) => BANNER_CODES.has(n.code));
-  const plain = notes.filter((n) => !BANNER_CODES.has(n.code) && !INLINE_CODES.has(n.code));
+  const plain = notes.filter((n) => !BANNER_CODES.has(n.code));
+  const resultsFrom = r && !running ? resultsFromText(r) : "";
 
   let action: React.ReactNode = null;
   if (!running && r) {
@@ -103,6 +94,22 @@ export function FindProgress(p: FindProgressProps) {
   const fraction = r ? progressFraction(r, now) : null;
   const valueNow = fraction === null ? 0 : Math.round(fraction * 100);
   const liveText = r ? runningText(r, now) : "";
+
+  // "Not this place?" sits right under the line that names the area: the resolved line while running, the status line once finished.
+  const alternativesLine =
+    alternatives.length > 0 && (p.phase === "running" || p.phase === "finished") ? (
+      <p className="text-[15px] text-fg-muted">
+        {FIND_TEXT.notThisPlace}{" "}
+        {alternatives.map((a, i) => (
+          <span key={`${a.osmType}${a.osmId}`}>
+            {i > 0 ? " · " : ""}
+            <button type="button" className="link-accent" onClick={() => p.onPickAlternative(a)}>
+              {a.label}
+            </button>
+          </span>
+        ))}
+      </p>
+    ) : null;
 
   return (
     <div className="space-y-1.5" aria-live="polite">
@@ -131,26 +138,14 @@ export function FindProgress(p: FindProgressProps) {
         </div>
       ) : null}
 
-      {area && (p.phase === "running" || p.phase === "finished") ? (
+      {area && running ? (
         <p className="text-[15px] text-fg">
           <span className="text-fg-heading">{resolvedLine}</span>
           {estimateLine ? <span className="text-fg-muted"> · {estimateLine}</span> : null}
         </p>
       ) : null}
 
-      {alternatives.length > 0 && (p.phase === "running" || p.phase === "finished") ? (
-        <p className="text-[15px] text-fg-muted">
-          {FIND_TEXT.notThisPlace}{" "}
-          {alternatives.map((a, i) => (
-            <span key={`${a.osmType}${a.osmId}`}>
-              {i > 0 ? " · " : ""}
-              <button type="button" className="link-accent" onClick={() => p.onPickAlternative(a)}>
-                {a.label}
-              </button>
-            </span>
-          ))}
-        </p>
-      ) : null}
+      {running ? alternativesLine : null}
 
       {running && r ? (
         <div>
@@ -172,25 +167,33 @@ export function FindProgress(p: FindProgressProps) {
 
       {!running && r && p.phase === "finished" ? (
         <div className="space-y-1.5">
+          {/* One line: the area as understood · the count · when the results date from, with the way to refresh them. */}
           {status === "done" || status === "capped" || status === "partial" ? (
-            r.total === 0 && status === "done" ? (
-              <p className="text-[15px] text-fg-heading" data-testid="find-status">
-                {fill(FIND_TEXT.empty, { trade: tradePlural(trade || "business"), area: r.area.label })}
-              </p>
-            ) : (
-              <p className="text-[15px] text-fg-heading" data-testid="find-status">
-                {doneText(r)}
-              </p>
-            )
+            <p className="text-[15px] text-fg" data-testid="find-status">
+              <span className="text-fg-heading">{resolvedLine}</span>
+              <span className="text-fg-muted"> · </span>
+              <span className="text-fg-heading">{r.total === 0 && status === "done" ? fill(FIND_TEXT.empty, { trade: tradePlural(trade || "business"), area: r.area.label }) : doneText(r)}</span>
+              {resultsFrom ? (
+                <>
+                  <span className="text-fg-muted"> · {resultsFrom} · </span>
+                  <button type="button" className="link-accent" onClick={p.onRunFresh} data-testid="run-again">
+                    {FIND_TEXT.runAgain}
+                  </button>
+                </>
+              ) : null}
+            </p>
           ) : status === "cancelled" ? (
-            <p className="text-[15px] text-fg-heading" data-testid="find-status">
-              {fill(FIND_TEXT.cancelled, { done: unitsDone(r).done, total: unitsDone(r).total, n: formatInt(r.total) })}
+            <p className="text-[15px] text-fg" data-testid="find-status">
+              <span className="text-fg-heading">{resolvedLine}</span>
+              <span className="text-fg-muted"> · </span>
+              <span className="text-fg-heading">{fill(FIND_TEXT.cancelled, { done: unitsDone(r).done, total: unitsDone(r).total, n: formatInt(r.total) })}</span>
             </p>
           ) : status === "failed" ? (
             <p className="text-[15px] text-accent-soft" data-testid="find-status" role="alert">
               {ERROR_FALLBACK}
             </p>
           ) : null}
+          {alternativesLine}
           {banners.length > 0 || action ? (
             <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[15px] text-amber-200">
               {banners.map((n, i) => (

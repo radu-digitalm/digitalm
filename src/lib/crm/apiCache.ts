@@ -34,14 +34,29 @@ export function cacheDelete(key: string): void {
   enquiriesDb().prepare("DELETE FROM api_cache WHERE cache_key = ?").run(key);
 }
 
-/** Read-through helper: `hit` tells callers whether a network call was made (usage counters). */
-export async function cached<T>(provider: string, request: unknown, ttlMs: number, fetcher: () => Promise<T>): Promise<{ value: T; hit: boolean }> {
+/**
+ * Read-through helper: `hit` tells callers whether a network call was made
+ * (usage counters). `fresh` skips the stored answer (a "Run again" search)
+ * but still stores the new one.
+ */
+export async function cached<T>(provider: string, request: unknown, ttlMs: number, fetcher: () => Promise<T>, opts: { fresh?: boolean } = {}): Promise<{ value: T; hit: boolean }> {
   const key = cacheKey(provider, request);
-  const existing = cacheGet<T>(key);
+  const existing = opts.fresh ? null : cacheGet<T>(key);
   if (existing !== null) return { value: existing, hit: true };
   const value = await fetcher();
   cacheSet(key, provider, value, ttlMs);
   return { value, hit: false };
+}
+
+/** Replace the payload of a live entry without touching its expiry (a repaired search result); false when the key is gone. */
+export function cacheUpdatePayload(key: string, payload: unknown): boolean {
+  return enquiriesDb().prepare("UPDATE api_cache SET payload = ? WHERE cache_key = ? AND expires_at > ?").run(JSON.stringify(payload ?? null), key, sqlNow()).changes > 0;
+}
+
+/** Every live payload stored under a provider (register pages, to re-derive a cached search). */
+export function cacheListByProvider<T>(provider: string): T[] {
+  const rows = enquiriesDb().prepare("SELECT payload FROM api_cache WHERE provider = ? AND expires_at > ?").all(provider, sqlNow()) as { payload: string }[];
+  return rows.map((r) => parseJson<T | null>(r.payload, null)).filter((x): x is T => x !== null);
 }
 
 /** Drop expired rows; returns how many went (the purge script calls this too). */

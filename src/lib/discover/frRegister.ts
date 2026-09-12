@@ -9,9 +9,9 @@ import { DAY_MS, cached } from "@/lib/crm/apiCache";
 import { countApiUsage } from "@/lib/crm/apiUsage";
 import { HOSTS, HttpError, fetchJson, spaced } from "@/lib/crm/http";
 import type { Business, Category, ResolvedArea } from "@/lib/crm/types";
-import { SIRET_RE, SOLE_TRADER_NATURE, mapEstablishment, placeRegisterRow, slimCompany, type RegisterScopeSpec, type SlimCompany } from "./frRegisterMap";
+import { SIRET_RE, SOLE_TRADER_NATURE, diffusionOf, mapEstablishment, placeRegisterRow, slimCompany, type RegisterScopeSpec, type SlimCompany } from "./frRegisterMap";
 
-export { SIRET_RE, SOLE_TRADER_NATURE, mapEstablishment, scopesFor, slimCompany } from "./frRegisterMap";
+export { SIRET_RE, SOLE_TRADER_NATURE, diffusionOf, mapEstablishment, scopesFor, slimCompany } from "./frRegisterMap";
 export type { RegisterScopeSpec, SlimCompany, SlimEtab } from "./frRegisterMap";
 
 type SearchPage = { results: SlimCompany[]; total_results: number; total_pages: number; page: number };
@@ -20,7 +20,7 @@ const GAP_MS = 200; // 5 req/s
 const PER_PAGE = 25;
 export const MAX_PAGES = 40; // 1,000 establishments per scope
 
-async function fetchPage(url: string, signal?: AbortSignal): Promise<SearchPage> {
+async function fetchPage(url: string, signal?: AbortSignal, fresh = false): Promise<SearchPage> {
   const { value, hit } = await cached<SearchPage>("fr_register", { url }, DAY_MS, async () => {
     const res = await spaced("fr_register", GAP_MS, () => fetchJson<Record<string, unknown>>(url, { timeoutMs: 15_000, signal }));
     const d = res.data;
@@ -31,7 +31,7 @@ async function fetchPage(url: string, signal?: AbortSignal): Promise<SearchPage>
       total_pages: Number(d.total_pages ?? 1) || 1,
       page: Number(d.page ?? 1) || 1,
     };
-  });
+  }, { fresh });
   if (!hit) countApiUsage("fr_register");
   return value;
 }
@@ -56,7 +56,7 @@ export async function searchRegisterScope(
   category: Category,
   area: ResolvedArea,
   inside: (lng: number, lat: number) => boolean,
-  opts: { signal?: AbortSignal; onPage?: (pages: number, totalPages: number, found: number) => void } = {},
+  opts: { signal?: AbortSignal; onPage?: (pages: number, totalPages: number, found: number) => void; fresh?: boolean } = {},
 ): Promise<ScopeRead> {
   const rows: RegisterRow[] = [];
   const seen = new Set<string>();
@@ -73,7 +73,7 @@ export async function searchRegisterScope(
       per_page: String(PER_PAGE),
       ...scope.params,
     });
-    const data = await fetchPage(`${HOSTS.frRegister}${path}?${qs.toString()}`, opts.signal);
+    const data = await fetchPage(`${HOSTS.frRegister}${path}?${qs.toString()}`, opts.signal, opts.fresh === true);
     totalPages = Math.max(1, data.total_pages);
     totalResults = data.total_results;
     for (const c of data.results) {
@@ -113,7 +113,7 @@ export async function recheckSiret(siret: string): Promise<SiretCheck> {
   return {
     found: true,
     active,
-    diffusion: c.statut_diffusion === "diffusible" ? "full" : "partial",
+    diffusion: diffusionOf(c.statut_diffusion, etab?.statut_diffusion_etablissement),
     soleTrader: c.nature_juridique ? c.nature_juridique === SOLE_TRADER_NATURE : null,
     legalForm: c.nature_juridique ?? null,
   };

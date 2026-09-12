@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import type { SearchResultV2 } from "../../lib/crm/types.ts";
-import { BAR, doneText, durationText, etaSeconds, progressFraction, readFromCacheAt, resolvedText, runningText, softUnitSeconds } from "./progressModel.ts";
+import { BAR, doneText, etaSeconds, progressFraction, readFromCacheAt, resolvedText, resultsFromText, runningText, softUnitSeconds, summaryText, tradePlural } from "./progressModel.ts";
 
 const here = new URL(".", import.meta.url).pathname;
 const sample = JSON.parse(readFileSync(`${here}../../lib/discover/fixtures/search-ariege.sample.json`, "utf8")) as { running: SearchResultV2; done: SearchResultV2 };
@@ -100,22 +100,33 @@ test("the running sentence says the stage, the elapsed time, and never '0 so far
   assert.match(reg, /^Checking the French company register — 7 of 18 pages · about \d+ s left · searching for 40 s$/);
 });
 
-test("the finished line explains a drop in the total and replaces a 0 s duration for cached results", () => {
+test("the finished line is the count with the trade; the sources split and the duplicates stay out of it", () => {
   const done = { ...sample.done, sources: ["osm", "fr_register"] as SearchResultV2["sources"], notes: [{ code: "duplicates_removed", text: "15 duplicates removed — …", params: { n: 15 } }] };
-  const line = doneText(done, new Date(Date.parse(done.createdAt) + 60_000));
-  assert.match(line, /in both · 15 duplicates removed · /);
+  assert.equal(doneText(done), "572 restaurants");
+  assert.equal(doneText({ ...done, total: 1 }), "1 restaurant");
+  assert.equal(summaryText(done), "572 restaurants in Ariège");
+  assert.equal(summaryText({ ...done, total: 1 }), "1 restaurant in Ariège");
+  assert.equal(tradePlural("Bar / pub"), "bars / pubs");
+  assert.equal(tradePlural("Bakery"), "bakeries");
+  assert.equal(tradePlural("Bakery", 1), "bakery");
+  assert.equal(tradePlural("Beauty salon and spa"), "beauty salons and spas");
+});
+
+test("freshness is a sentence only after a minute, dated from the map read when the 24 h cache answered", () => {
   // Rows read an hour before the search started → the cache answered.
   const created = "2026-09-12T12:00:00.000Z";
   const cached: SearchResultV2 = { ...sample.done, createdAt: created, durationMs: 0, rows: sample.done.rows.map((r) => ({ ...r, readAt: "2026-09-12T11:00:00.000Z" })) };
   assert.equal(readFromCacheAt(cached), "2026-09-12T11:00:00.000Z");
-  assert.equal(durationText(cached, new Date("2026-09-12T12:12:00.000Z")), "map read 1 h ago (kept 24 hours)");
+  assert.equal(resultsFromText(cached, new Date("2026-09-12T12:12:00.000Z")), "Results from 1 h ago");
   // Register rows are read afresh every time: they never hide a cached map.
   const mixed: SearchResultV2 = { ...cached, rows: [...cached.rows, { ...cached.rows[0]!, key: "fr_register:x", sources: ["fr_register"], readAt: "2026-09-12T12:00:30.000Z" }] };
   assert.equal(readFromCacheAt(mixed), "2026-09-12T11:00:00.000Z");
-  assert.ok(!/0 s\.$/.test(doneText(cached, new Date("2026-09-12T12:12:00.000Z"))));
+  // A fresh run says nothing for its first minute, then dates from the run itself.
   const fresh: SearchResultV2 = { ...sample.done, createdAt: created, durationMs: 48_000, rows: sample.done.rows.map((r) => ({ ...r, readAt: "2026-09-12T12:00:20.000Z" })) };
   assert.equal(readFromCacheAt(fresh), null);
-  assert.equal(durationText(fresh), "48 s");
+  assert.equal(resultsFromText(fresh, new Date("2026-09-12T12:00:48.000Z")), "");
+  assert.equal(resultsFromText(fresh, new Date("2026-09-12T14:30:00.000Z")), "Results from 2 h ago");
+  assert.equal(resultsFromText(fresh, new Date("2026-09-14T14:30:00.000Z")), "Results from 12 Sep, 14:00");
 });
 
 test("the resolved line drops the country when it is the area itself", () => {

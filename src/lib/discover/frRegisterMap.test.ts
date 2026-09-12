@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SIRET_RE, SOLE_TRADER_NATURE, mapEstablishment, slimCompany, slimEtab } from "./frRegisterMap.ts";
+import { SIRET_RE, SOLE_TRADER_NATURE, diffusionOf, mapEstablishment, slimCompany, slimEtab } from "./frRegisterMap.ts";
 import type { Area } from "../crm/types.ts";
 
 const area: Area = { label: "Foix", countryCode: "FR", center: { lat: 42.9655, lng: 1.6053 }, bbox: [42.9, 1.5, 43.0, 1.7], provider: "geo_gouv" };
@@ -13,15 +13,16 @@ const apiCompany = {
   nature_juridique: "1000",
   activite_principale: "10.71C",
   etat_administratif: "A",
-  statut_diffusion: "diffusible",
+  statut_diffusion: "O", // the live API answers a letter: O = listed publicly, P = the owner asked for the details to be hidden
   dirigeants: [{ nom: "MARTIN", prenoms: "PAUL", date_de_naissance: "1980-01" }],
   finances: { 2024: { ca: 120000 } },
   complements: { est_ess: false },
   collectivite_territoriale: null,
-  siege: { siret: "12345678900011", adresse: "1 RUE DU PONT 09000 FOIX", code_postal: "09000", libelle_commune: "FOIX", latitude: "42.96", longitude: "1.60", liste_enseignes: ["LE FOURNIL"], etat_administratif: "A", dirigeant: "x" },
+  siege: { siret: "12345678900011", adresse: "1 RUE DU PONT 09000 FOIX", code_postal: "09000", libelle_commune: "FOIX", latitude: "42.96", longitude: "1.60", liste_enseignes: ["LE FOURNIL"], etat_administratif: "A", statut_diffusion_etablissement: "O", dirigeant: "x" },
   matching_etablissements: [
-    { siret: "12345678900029", adresse: "2 RUE HAUTE 09000 FOIX", code_postal: "09000", libelle_commune: "FOIX", latitude: null, longitude: null, liste_enseignes: null, etat_administratif: "A" },
+    { siret: "12345678900029", adresse: "2 RUE HAUTE 09000 FOIX", code_postal: "09000", libelle_commune: "FOIX", latitude: null, longitude: null, liste_enseignes: null, etat_administratif: "A", statut_diffusion_etablissement: "O" },
     { siret: "12345678900037", adresse: "x", code_postal: "09000", libelle_commune: "FOIX", latitude: "42.9", longitude: "1.6", liste_enseignes: ["FERME"], etat_administratif: "F" },
+    { siret: "12345678900045", adresse: "3 RUE BASSE 09000 FOIX", code_postal: "09000", libelle_commune: "FOIX", latitude: "42.95", longitude: "1.61", liste_enseignes: ["LE FOURNIL 2"], etat_administratif: "A", statut_diffusion_etablissement: "P" },
   ],
 };
 
@@ -33,8 +34,8 @@ test("slimCompany keeps the contract's fields and drops dirigeants / finances / 
   assert.equal(JSON.stringify(c).includes("finances"), false);
   assert.equal(JSON.stringify(c).includes("date_de_naissance"), false);
   assert.equal(c.siege?.siret, "12345678900011");
-  assert.deepEqual(Object.keys(c.siege!).sort(), ["adresse", "code_postal", "etat_administratif", "latitude", "libelle_commune", "liste_enseignes", "longitude", "siret"]);
-  assert.equal(c.matching_etablissements?.length, 2);
+  assert.deepEqual(Object.keys(c.siege!).sort(), ["adresse", "code_postal", "etat_administratif", "latitude", "libelle_commune", "liste_enseignes", "longitude", "siret", "statut_diffusion_etablissement"]);
+  assert.equal(c.matching_etablissements?.length, 3);
   assert.equal(slimCompany(null), null);
   assert.equal(slimCompany("x"), null);
   assert.equal(slimEtab(42), null);
@@ -68,15 +69,33 @@ test("mapEstablishment: enseigne as name, legal name kept apart, sole trader fro
 
   assert.equal(mapEstablishment(c, c.matching_etablissements![1]!, area), null); // closed establishment
   assert.equal(mapEstablishment(c, { siret: "123" }, area), null);
+  // an establishment the owner asked to hide, under a public company
+  assert.equal(mapEstablishment(c, c.matching_etablissements![2]!, area)!.diffusion, "partial");
 });
 
-test("mapEstablishment: companies (nature ≠ 1000), partial diffusion and ceased units", () => {
-  const c = slimCompany({ ...apiCompany, nature_juridique: "5710", statut_diffusion: "partiellement_diffusible", etat_administratif: "C" })!;
+test("diffusionOf: the API's letters (O public, P hidden) and the legacy words; unknown means hidden; the establishment's own status counts", () => {
+  assert.equal(diffusionOf("O"), "full");
+  assert.equal(diffusionOf("diffusible"), "full");
+  assert.equal(diffusionOf("P"), "partial");
+  assert.equal(diffusionOf("N"), "partial");
+  assert.equal(diffusionOf("partiellement_diffusible"), "partial");
+  assert.equal(diffusionOf(undefined), "partial");
+  assert.equal(diffusionOf(""), "partial");
+  assert.equal(diffusionOf("O", "O"), "full");
+  assert.equal(diffusionOf("O", "P"), "partial");
+  assert.equal(diffusionOf("P", "O"), "partial");
+  assert.equal(diffusionOf(undefined, "O"), "full");
+});
+
+test("mapEstablishment: companies (nature ≠ 1000), hidden diffusion (P) and ceased units", () => {
+  const c = slimCompany({ ...apiCompany, nature_juridique: "5710", statut_diffusion: "P", etat_administratif: "C", siege: { ...apiCompany.siege, statut_diffusion_etablissement: "P" } })!;
   const b = mapEstablishment(c, c.siege!, area)!;
   assert.equal(b.soleTrader, false);
   assert.equal(b.diffusion, "partial");
   assert.equal(b.active, false);
   assert.equal(b.legalForm, "5710");
+  const legacy = slimCompany({ ...apiCompany, statut_diffusion: "partiellement_diffusible", siege: { ...apiCompany.siege, statut_diffusion_etablissement: undefined } })!;
+  assert.equal(mapEstablishment(legacy, legacy.siege!, area)!.diffusion, "partial");
   assert.equal(SIRET_RE.test("12345678900011"), true);
   assert.equal(SIRET_RE.test("1234567890001"), false);
 });

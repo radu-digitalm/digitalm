@@ -8,6 +8,7 @@
 // values are always bound with ?.
 import { allowed } from "@/lib/crm/allowlist";
 import { cacheGet } from "@/lib/crm/apiCache";
+import { repairSearchResult } from "@/lib/discover/searchRepair";
 import { communeContaining } from "@/lib/discover/adminChildren";
 import { coerceHttpUrl, domainOf, isWebmailDomain, localeForCountry, normaliseEmail, normaliseName, validEmail } from "@/lib/crm/classify";
 import { CALL_WHERE, READY_WHERE, parseJson } from "@/lib/crm/db";
@@ -316,6 +317,8 @@ type SaveRow = MergedBusiness & Partial<Pick<ResultRow, "cityApprox" | "socials"
 export async function saveFromSearch(searchId: number, picks: string[]): Promise<SaveResult> {
   const result = cacheGet<SearchResultV2 | { rows: SaveRow[]; category: SearchResultV2["category"] }>(`search:${searchId}`);
   if (!result) throw new ProspectError("search_expired", 410);
+  // A result cached under older derivation rules (register diffusion codes) is brought up to date before the 422 check.
+  if ("version" in result && result.version === 2) repairSearchResult(result, `search:${searchId}`);
   const wanted = new Set(picks.filter((k): k is string => typeof k === "string"));
   const rows = (result.rows as SaveRow[]).filter((r) => wanted.has(r.key));
   const dismissedRow = enquiriesDb().prepare("SELECT dismissed FROM searches WHERE id = ?").get(searchId) as { dismissed: string | null } | undefined;

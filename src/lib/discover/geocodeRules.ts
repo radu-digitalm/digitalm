@@ -43,6 +43,10 @@ export type Classified = {
   /** Region / county for labels ("Cambridge, England") */
   state?: string;
   county?: string;
+  /** What tells two places of the same name apart in a chooser line. */
+  adminLevel?: number; // boundary admin_level (FR: 7 arrondissement, 8 commune)
+  population?: number;
+  postcode?: string;
 };
 
 export type Candidate = { osmType: OsmType; osmId: number; label: string; kind: AreaKind; countryCode: string; countryName: string };
@@ -185,6 +189,12 @@ export function classifyHit(h: NominatimHit): Classified | null {
     state: a.state?.trim() || undefined,
     county: a.county?.trim() || undefined,
   };
+  const adminLevel = Number.parseInt(x.admin_level ?? "", 10);
+  if (Number.isInteger(adminLevel) && adminLevel > 0) out.adminLevel = adminLevel;
+  const population = Number.parseInt((x.population ?? "").replace(/[^\d]/g, ""), 10);
+  if (Number.isInteger(population) && population > 0) out.population = population;
+  const postcode = a.postcode?.trim();
+  if (postcode && /^[A-Za-z0-9 -]{3,12}$/.test(postcode)) out.postcode = postcode;
   if (out.countryCode === "FR") {
     const ref = (x["ref:INSEE"] ?? "").trim();
     if (kind === "department") out.departement = (DEPARTEMENT_CODE_RE.test(ref) ? ref : null) ?? departementFromIso(a["ISO3166-2-lvl6"]) ?? undefined;
@@ -209,12 +219,42 @@ export function kindWord(c: Pick<Classified, "kind" | "addresstype">): string {
   return t;
 }
 
-/** "Cambridge — city, United Kingdom"; `where` adds the county/state to tell same-country duplicates apart. */
+/** "9,500 people" */
+function peopleWords(n: number): string {
+  return `${n.toLocaleString("en-GB")} people`;
+}
+
+/**
+ * "Cambridge — city, United Kingdom"; `where` adds the county/state to tell
+ * same-country duplicates apart. French communes carry their postcode and
+ * population ("Foix — town, 09000 (9,500 people), France") and a French
+ * arrondissement says what it is in plain words, so "Foix" the town and
+ * "Foix" the district around it never read alike.
+ */
 export function candidateLabel(c: Classified, where = false): string {
-  const parts = [kindWord(c)];
+  const fr = c.countryCode === "FR";
+  const parts: string[] = [];
+  if (fr && c.osmType === "relation" && c.adminLevel === 7) parts.push(`arrondissement (${c.name} and the communes around it)`);
+  else {
+    parts.push(kindWord(c));
+    if (fr && c.adminLevel === 8) {
+      if (c.postcode && c.population) parts.push(`${c.postcode} (${peopleWords(c.population)})`);
+      else if (c.postcode) parts.push(c.postcode);
+      else if (c.population) parts.push(peopleWords(c.population));
+    }
+  }
   if (where && (c.county || c.state)) parts.push(c.county ?? c.state!);
   if (c.countryName) parts.push(c.countryName);
   return `${c.name} — ${parts.join(", ")}`;
+}
+
+/** Two boundary relations whose bounding boxes coincide (within 2 % of the span, at least 0.002°) draw the same area — one of them is noise. */
+export function sameOutline(a: Classified, b: Classified): boolean {
+  if (a.osmType !== "relation" || b.osmType !== "relation") return false;
+  const [as, aw, an, ae] = a.bbox;
+  const [bs, bw, bn, be] = b.bbox;
+  const tol = Math.max(0.002, 0.02 * Math.max(an - as, ae - aw));
+  return Math.abs(as - bs) <= tol && Math.abs(aw - bw) <= tol && Math.abs(an - bn) <= tol && Math.abs(ae - be) <= tol;
 }
 
 /** The area's label: the name, plus ", <state>" for towns and places outside France. */
@@ -227,10 +267,10 @@ function toCandidate(c: Classified, where: boolean): Candidate {
   return { osmType: c.osmType, osmId: c.osmId, label: candidateLabel(c, where), kind: c.kind, countryCode: c.countryCode, countryName: c.countryName };
 }
 
-/** Labels made unique by adding the county/state where two candidates would otherwise read the same. */
+/** Same name in the same country but another county/state → the county is added, so two "Le Bosc" read apart at a glance. */
 function labelled(list: Classified[]): Candidate[] {
-  const plain = list.map((c) => candidateLabel(c));
-  return list.map((c, i) => toCandidate(c, plain.filter((l) => l === plain[i]).length > 1));
+  const whereOf = (c: Classified) => c.county ?? c.state ?? "";
+  return list.map((c) => toCandidate(c, list.some((o) => o !== c && o.name === c.name && o.countryCode === c.countryCode && whereOf(o) !== whereOf(c))));
 }
 
 /**
@@ -267,7 +307,8 @@ export function chooseHit(hits: NominatimHit[]): Choice | null {
   const countries = new Set(kept.map((c) => c.countryCode));
   const kinds = new Set(kept.map((c) => c.kind));
   if (kept.length > 1 && (countries.size > 1 || kinds.size > 1)) return { ambiguous: true, candidates: labelled(kept.slice(0, MAX_CANDIDATES)) };
-  const rest = all.filter((c) => c !== top);
+  // An alternative that draws the same outline as the choice (a duplicate boundary) is not an alternative.
+  const rest = all.filter((c) => c !== top && !sameOutline(top, c));
   const labels = labelled([top, ...rest]);
   const seen = new Set<string>([labels[0]!.label]);
   const alternatives: Candidate[] = [];

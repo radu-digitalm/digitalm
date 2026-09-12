@@ -40,7 +40,7 @@ function parsePick(v: unknown): AreaPick | null {
 }
 
 /**
- * { area, category, sources?, pick?, confirmCap? } → resolve the area, estimate,
+ * { area, category, sources?, pick?, confirmCap?, fresh? } → resolve the area, estimate,
  * gate large areas, start the background search (§4):
  *   202 started · 200 gate over_cap · 409 ambiguous / search_running ·
  *   404 area_not_found · 502 geocode_failed · 400 bad_area / bad_category / bad_request.
@@ -62,13 +62,14 @@ export async function POST(req: NextRequest) {
   if (!category) return NextResponse.json({ ok: false, error: "bad_category" }, { status: 400 });
   const sources = parseSources(body.sources);
   const confirmCap = body.confirmCap === true;
+  const fresh = body.fresh === true; // "Run again": read every source anew instead of the 24 h cache
 
   try {
     const { area, alternatives } = await resolveArea(queryArea, pick ?? undefined);
     const outcome = await planSearch(area, category, { confirmCap });
     if (outcome.gate === "over_cap") return NextResponse.json({ ok: true, gate: "over_cap", area, plan: outcome.plan });
     // A bare department code ("09", posted by the gate's chips) is remembered by its name, so past searches read "Ariège".
-    const { searchId } = startSearch({ queryArea: !queryArea || /^(0[1-9]|[1-8]\d|9[0-5]|2[AB]|97[1-6])$/i.test(queryArea) ? area.label : queryArea, area, category, sources, plan: outcome.plan });
+    const { searchId } = startSearch({ queryArea: !queryArea || /^(0[1-9]|[1-8]\d|9[0-5]|2[AB]|97[1-6])$/i.test(queryArea) ? area.label : queryArea, area, category, sources, plan: outcome.plan, fresh });
     return NextResponse.json(
       {
         ok: true,

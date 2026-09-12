@@ -8,6 +8,8 @@ import {
   areaLabel,
   candidateLabel,
   chooseHit,
+  sameOutline,
+  type Classified,
   circleKmFor,
   classifyHit,
   collapseDuplicates,
@@ -116,16 +118,18 @@ test("ambiguity rule: Cambridge asks, Ariège and Foix do not, Le Bosc picks the
   assert.equal(foix.ambiguous, false); // town 0.598 vs arrondissement 0.528 — same kind, same country
   if (!foix.ambiguous) {
     assert.equal(foix.chosen.osmId, 74088);
+    // The alternative says what it is in user terms: the arrondissement (a district of the department), not "municipality".
     assert.deepEqual(
       foix.alternatives.map((a) => a.label),
-      ["Foix — municipality, France"],
+      ["Foix — arrondissement (Foix and the communes around it), France"],
     );
+    assert.equal(candidateLabel(foix.chosen), "Foix — town, 09000 (9,472 people), France");
   }
   const bosc = chooseHit(shapes["Le Bosc"]!)!;
   assert.equal(bosc.ambiguous, false);
   if (!bosc.ambiguous) {
     assert.equal(bosc.chosen.osmId, 164706);
-    assert.equal(bosc.alternatives[0]!.label, "Le Bosc — village, Ariège, France"); // same name in France → county added
+    assert.equal(bosc.alternatives[0]!.label, "Le Bosc — village, 09000 (114 people), Ariège, France"); // same name in France → postcode, size and county tell them apart
     assert.ok(bosc.alternatives.length <= 3);
     assert.equal(new Set(bosc.alternatives.map((a) => a.label)).size, bosc.alternatives.length);
   }
@@ -133,6 +137,16 @@ test("ambiguity rule: Cambridge asks, Ariège and Foix do not, Le Bosc picks the
   assert.equal(pyr.ambiguous, true); // a mountain range in Spain vs a French region
   assert.equal(chooseHit([]), null);
   assert.equal(chooseHit([{ lat: "1", lon: "2", addresstype: "postcode" }]), null);
+});
+
+test("an alternative that draws the same outline as the choice is dropped", () => {
+  const town = classifyHit(shapes.Foix![0]!)!;
+  const twin: Classified = { ...town, osmId: 999, addresstype: "municipality", importance: 0.5 };
+  assert.equal(sameOutline(town, twin), true);
+  assert.equal(sameOutline(town, classifyHit(shapes.Foix![1]!)!), false);
+  const choice = chooseHit([shapes.Foix![0]!, { ...shapes.Foix![0]!, osm_id: 999, addresstype: "municipality", importance: 0.5 }])!;
+  assert.equal(choice.ambiguous, false);
+  if (!choice.ambiguous) assert.equal(choice.alternatives.length, 0);
 });
 
 test("collapseDuplicates keeps the relation over its place node and drops repeated ids", () => {

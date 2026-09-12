@@ -196,7 +196,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const id = await ensureAriege();
     await goto(`/admin/find?search=${id}`);
     await page.waitForSelector("[data-testid=find-row]", { timeout: 60000 });
-    const row = page.locator("[data-testid=find-row]").first();
+    // The first row that is not already a prospect (A14 of an earlier run may have saved the first one).
+    const row = page.locator("[data-testid=find-row]").filter({ hasNot: page.locator("[data-testid=row-status]", { hasText: /^Saved/ }) }).first();
     const name = (await row.locator("[data-testid=row-name]").first().textContent()).trim();
     await row.click();
     const dialog = page.locator("[role=dialog][data-testid=business-card]");
@@ -216,7 +217,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert((await dialog.count()) === 0, "dialog still open after Escape");
     const focused = await page.evaluate(() => document.activeElement && document.activeElement.getAttribute("data-testid"));
     assert(focused === "find-row", `focus is on ${focused}`);
-    // Pin click: a visible pin (not clustered) → dialog for that business.
+    // Pin click: a visible pin (not clustered) → dialog for that business. With the register rows savable the
+    // map carries ~560 pins and nearly all sit in clusters, so the list is filtered to one name first.
+    await page.fill('input[type="search"]', name);
+    await sleep(600);
     const key = await page.evaluate(() => {
       for (const el of document.querySelectorAll("[data-testid=find-row]")) {
         const k = el.getAttribute("data-key");
@@ -239,7 +243,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert(rowBox && listBox && rowBox.y >= listBox.y - 1 && rowBox.y + rowBox.height <= listBox.y + listBox.height + 1, "row not inside the list pane");
     await shot("A13-pin-card");
     await page.keyboard.press("Escape");
+    await page.fill('input[type="search"]', "");
     return { name, key };
+  });
+
+  // ---- A13b the whole row opens the card ----------------------------------------------------
+  await step("A13b", "a click on the centre of a row with a website opens the card", async () => {
+    const id = await ensureAriege();
+    await goto(`/admin/find?search=${id}`);
+    await page.waitForSelector("[data-testid=find-row]", { timeout: 60000 });
+    // QA round 2: the centre of a three-line row landed on the domain link instead of opening the card.
+    const row = page.locator("[data-testid=find-row]").filter({ has: page.locator("[data-testid=row-site]") }).first();
+    assert((await row.count()) === 1, "no row with a website");
+    assert((await row.locator("a[href^='http']").count()) === 0, "the row still carries an external link");
+    const name = (await row.locator("[data-testid=row-name]").first().textContent()).trim();
+    const box = await row.boundingBox();
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+    const dialog = page.locator("[role=dialog][data-testid=business-card]");
+    await dialog.waitFor({ timeout: 5000 });
+    const labelledBy = await dialog.getAttribute("aria-labelledby");
+    const accName = (await page.locator(`#${labelledBy}`).textContent()).trim();
+    assert(accName === name, `dialog name "${accName}" vs row "${name}"`);
+    assert((await dialog.locator("a[href^='http']").count()) >= 1, "the card has no website link");
+    await page.keyboard.press("Escape");
+    return { name };
   });
 
   // ---- A14 save from the card ---------------------------------------------------------------
@@ -289,25 +316,38 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     let sawBar = false;
     let sawStop = false;
     let text = "";
-    const until = Date.now() + 90000;
-    while (Date.now() < until) {
-      const bar = page.locator("[role=progressbar][aria-valuemax]");
-      if ((await bar.count()) > 0) {
-        const max = Number(await bar.first().getAttribute("aria-valuemax"));
-        const label = (await bar.first().getAttribute("aria-label")) || "";
-        const status = (await page.locator("main").textContent()) || "";
-        if (max >= 1 && /Searching OpenStreetMap|Checking the French company register/.test(label + status)) {
-          sawBar = true;
-          text = label;
+    const watch = async () => {
+      const until = Date.now() + 90000;
+      while (Date.now() < until) {
+        const bar = page.locator("[role=progressbar][aria-valuemax]");
+        if ((await bar.count()) > 0) {
+          const max = Number(await bar.first().getAttribute("aria-valuemax"));
+          const label = (await bar.first().getAttribute("aria-label")) || "";
+          const status = (await page.locator("main").textContent()) || "";
+          if (max >= 1 && /Searching OpenStreetMap|Checking the French company register/.test(label + status)) {
+            sawBar = true;
+            text = label;
+          }
         }
+        if (((await page.locator("[data-testid=find-submit]").textContent()) || "").trim() === "Stop") sawStop = true;
+        if ((await page.locator("[data-testid=find-status]").count()) > 0) break;
+        await sleep(250);
       }
-      if (((await page.locator("[data-testid=find-submit]").textContent()) || "").trim() === "Stop") sawStop = true;
-      if ((await page.locator("[data-testid=find-status]").count()) > 0) break;
-      await sleep(250);
+    };
+    await watch();
+    // A cached Foix answers within one poll: "Run again" (every source read anew) gives a real run to watch.
+    if (!sawBar && (await page.locator("[data-testid=run-again]").count()) > 0) {
+      await page.locator("[data-testid=run-again]").click();
+      await page.waitForFunction(() => document.querySelector("[data-testid=find-status]") === null, null, { timeout: 30000 }).catch(() => null);
+      await watch();
     }
     await shot("A15-progress");
     const final = ((await page.locator("[data-testid=find-status]").textContent()) || "").trim();
-    assert(/\d[\d,]* businesses? in Foix/.test(final), `final status "${final}"`);
+    assert(/^Foix — town, France · \d[\d,]* restaurants?/.test(final), `final status "${final}"`);
+    // The onboarding lines leave once a search exists; the map starts high on the page.
+    assert((await page.getByText("Public sources only", { exact: false }).count()) === 0, "helper line still shown with results");
+    const mapTop = (await page.locator("[data-testid=find-map]").boundingBox()).y;
+    assert(mapTop < 270, `map starts at y=${Math.round(mapTop)}`); // 211 without, 241 with the "Not this place?" line (was 296–356)
     assert(sawBar, "never saw the progress bar with its text");
     assert(sawStop, "Search button never read Stop");
     return { text, final };
@@ -341,11 +381,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const before = await page.evaluate(() => ({ rows: document.querySelectorAll("[data-testid=find-row]").length, pins: window.__dmFindPins.total }));
     await page.getByRole("button", { name: /^Has website/ }).click();
     await sleep(500);
-    const after = await page.evaluate(() => ({ rows: document.querySelectorAll("[data-testid=find-row]").length, pins: window.__dmFindPins.total, withLink: [...document.querySelectorAll("[data-testid=find-row]")].filter((r) => r.querySelector("a.link-accent[href^='http']")).length }));
+    const after = await page.evaluate(() => ({ rows: document.querySelectorAll("[data-testid=find-row]").length, pins: window.__dmFindPins.total, withLink: [...document.querySelectorAll("[data-testid=find-row]")].filter((r) => r.querySelector("[data-testid=row-site]")).length }));
     assert(after.rows < before.rows || after.rows === after.withLink, `rows ${before.rows} → ${after.rows}`);
-    assert(after.rows === after.withLink, `${after.rows - after.withLink} rows without a website link`);
+    assert(after.rows === after.withLink, `${after.rows - after.withLink} rows without a website`);
     assert(after.pins <= before.pins, `pins ${before.pins} → ${after.pins}`);
     await page.getByRole("button", { name: /^Has website/ }).click();
+    // The chips wrap: no sideways scroll, three primary chips, the other six behind "More filters" (QA round 2).
+    const chipsBox = async () => page.locator('[role=group][aria-label="Filters"]').evaluate((el) => ({ sw: el.scrollWidth, cw: el.clientWidth, chips: el.querySelectorAll("button[aria-pressed]").length }));
+    const folded = await chipsBox();
+    assert(folded.sw <= folded.cw + 1, `filters scroll sideways (${folded.sw} > ${folded.cw})`);
+    assert(folded.chips === 3, `${folded.chips} chips before More filters`);
+    await page.locator("[data-testid=more-filters]").click();
+    const unfolded = await chipsBox();
+    assert(unfolded.sw <= unfolded.cw + 1, `unfolded filters scroll sideways (${unfolded.sw} > ${unfolded.cw})`);
+    assert(unfolded.chips === 9, `${unfolded.chips} chips after More filters`);
+    for (const label of ["Has phone", "Has email", "In the register", "Saved", "Not listed publicly", "Hidden"]) assert((await page.getByRole("button", { name: new RegExp(`^${label} \\(`) }).count()) === 1, `chip ${label} missing`);
+    // The register chip counts the merged rows too: nothing reads "In the register (0)" for a French department.
+    const reg = (await page.getByRole("button", { name: /^In the register \(/ }).textContent()).trim();
+    assert(!/\(0\)/.test(reg), `register chip reads "${reg}"`);
+    await page.locator("[data-testid=more-filters]").click();
     // Dismiss one row, then show Hidden → Undo control.
     const row = page.locator("[data-testid=find-row]").nth(1);
     const key = await row.getAttribute("data-key");
@@ -354,6 +408,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.getByRole("button", { name: "Not this one", exact: true }).click();
     await sleep(800);
     await page.keyboard.press("Escape");
+    // "Hidden" sits behind "More filters" until it is on.
+    if ((await page.getByRole("button", { name: /^Hidden \(/ }).count()) === 0) await page.locator("[data-testid=more-filters]").click();
     await page.getByRole("button", { name: /^Hidden/ }).click();
     await sleep(400);
     // Hidden rows sink to the bottom of every sort (QA round 1): find the row through the name filter.
@@ -435,7 +491,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await m.goto(BASE + `/admin/find?search=${id}`, { waitUntil: "domcontentloaded" });
     // Peeking, the sheet shows only the title and the List / Map control — no rows until List is tapped (QA round 1).
     await m.waitForSelector("[data-testid=find-sheet]", { timeout: 60000 });
-    await m.waitForFunction(() => /\d+ businesses in/.test(document.querySelector("[data-testid=find-sheet]")?.textContent || ""), null, { timeout: 60000 });
+    await m.waitForFunction(() => /\d+ \S+ in /.test(document.querySelector("[data-testid=find-sheet]")?.textContent || ""), null, { timeout: 60000 });
     await sleep(1000);
     await m.screenshot({ path: path.join(OUT, "A19-mobile-find.png") });
     assert((await m.locator(".leaflet-container").count()) === 1, "no map on the phone");
