@@ -80,3 +80,79 @@ test("mapEstablishment: companies (nature ≠ 1000), partial diffusion and cease
   assert.equal(SIRET_RE.test("12345678900011"), true);
   assert.equal(SIRET_RE.test("1234567890001"), false);
 });
+
+// ---- scopes (finder-ux §3.4) -------------------------------------------------------------
+
+import { MAX_SCOPE_POSTCODES, placeRegisterRow, scopesFor } from "./frRegisterMap.ts";
+
+const base = { countryCode: "FR", label: "Ariège", center: { lat: 42.9455, lng: 1.4066 }, radiusKm: 58 };
+
+test("scopesFor: postcode / town → code_postal per postcode (≤ 12), department → departement=", () => {
+  assert.deepEqual(scopesFor({ ...base, kind: "postcode", label: "Foix (09000)", admin: { postcodes: ["09000"], inseeCode: "09122", departement: "09" } }, []), [
+    { id: "cp:09000", label: "09000", mode: "postcode", params: { code_postal: "09000" } },
+  ]);
+  const twelve = scopesFor({ ...base, kind: "town", admin: { postcodes: Array.from({ length: 12 }, (_, i) => `310${String(i).padStart(2, "0")}`) } }, []);
+  assert.equal(twelve.length, MAX_SCOPE_POSTCODES);
+  assert.equal(twelve[11]!.params.code_postal, "31011");
+  // a big city with more than 12 postcodes is searched around its centre instead
+  const many = scopesFor({ ...base, kind: "town", label: "Marseille", admin: { postcodes: Array.from({ length: 16 }, (_, i) => `130${String(i + 1).padStart(2, "0")}`) } }, []);
+  assert.equal(many.length, 1);
+  assert.equal(many[0]!.mode, "near_point");
+  // a town without geo.gouv data → near_point with the bbox radius
+  assert.deepEqual(scopesFor({ ...base, kind: "town", label: "Paris", radiusKm: 11.4, center: { lat: 48.8589, lng: 2.32 }, admin: {} }, []), [
+    { id: "near:48.86,2.32", label: "within 12 km of Paris", mode: "near_point", params: { lat: "48.85890", long: "2.32000", radius: "12" } },
+  ]);
+  assert.deepEqual(scopesFor({ ...base, kind: "department", admin: { departement: "09" } }, [{ code: "09", label: "Ariège" }]), [
+    { id: "dep:09", label: "Ariège (09)", mode: "departement", params: { departement: "09" } },
+  ]);
+  assert.equal(scopesFor({ ...base, kind: "department", admin: { departement: "2A" }, label: "Corse-du-Sud" }, [])[0]!.label, "Corse-du-Sud (2A)");
+});
+
+test("scopesFor: region / France → the departments whose unit ran, in unit order; all of them for a single unit", () => {
+  const occ = { ...base, kind: "region" as const, label: "Occitanie", admin: { regionCode: "76", departements: ["09", "11", "12", "30", "31", "32", "34", "46", "48", "65", "66", "81", "82"] } };
+  const ran = [
+    { code: "81", label: "Tarn" },
+    { code: "31", label: "Haute-Garonne" },
+    { code: "09", label: "Ariège" },
+    { code: "64", label: "Pyrénées-Atlantiques" }, // not in Occitanie → ignored
+    { label: "no code" },
+  ];
+  const s = scopesFor(occ, ran, {}, false);
+  assert.deepEqual(
+    s.map((x) => x.id),
+    ["dep:81", "dep:31", "dep:09"],
+  );
+  assert.equal(s[0]!.label, "Tarn (81)");
+  assert.equal(s[0]!.mode, "departement");
+  // a single-unit region (a rare trade) covers every department, names from geo.gouv when given
+  const all = scopesFor(occ, [{ label: "Occitanie" }], { "09": "Ariège" });
+  assert.equal(all.length, 13);
+  assert.equal(all[0]!.label, "Ariège (09)");
+  assert.equal(all[1]!.label, "Department 11");
+  // France with children carrying ref:INSEE → the same rule; nothing known → the codes that ran
+  const fr = scopesFor({ ...base, kind: "country", label: "France", admin: {} }, [{ code: "18", label: "Cher" }, { code: "36", label: "Indre" }], {}, false);
+  assert.deepEqual(
+    fr.map((x) => x.label),
+    ["Cher (18)", "Indre (36)"],
+  );
+  assert.deepEqual(scopesFor({ ...base, kind: "country", label: "France", admin: {} }, [{ label: "France" }]), []);
+});
+
+test("scopesFor: places use near_point capped at 50 km; non-FR areas get nothing", () => {
+  const p = scopesFor({ ...base, kind: "place", label: "Pyrénées", radiusKm: 180 }, []);
+  assert.equal(p.length, 1);
+  assert.equal(p[0]!.mode, "near_point");
+  assert.equal(p[0]!.params.radius, "50");
+  assert.equal(p[0]!.label, "within 50 km of Pyrénées");
+  assert.deepEqual(scopesFor({ ...base, kind: "country", countryCode: "AD", label: "Andorra" }, []), []);
+  assert.deepEqual(scopesFor({ ...base, kind: "town", countryCode: "GB", label: "Cambridge, England" }, []), []);
+});
+
+test("placeRegisterRow: coordinates decide inside/outside; rows without coordinates are approx under a department, dropped under near_point", () => {
+  const inside = (lng: number, lat: number) => lng > 1 && lng < 2 && lat > 42.5 && lat < 43.3;
+  assert.deepEqual(placeRegisterRow({ lat: 42.96, lng: 1.6, geoSource: "source" }, "departement", inside), { keep: true, inside: "yes" });
+  assert.deepEqual(placeRegisterRow({ lat: 42.4, lng: 1.51, geoSource: "source" }, "departement", inside), { keep: false, inside: "no" });
+  assert.deepEqual(placeRegisterRow({ lat: 42.9455, lng: 1.4066, geoSource: "centre" }, "departement", inside), { keep: true, inside: "approx" });
+  assert.deepEqual(placeRegisterRow({ lat: 42.9455, lng: 1.4066, geoSource: "centre" }, "postcode", inside), { keep: true, inside: "approx" });
+  assert.deepEqual(placeRegisterRow({ lat: 42.9455, lng: 1.4066, geoSource: "centre" }, "near_point", inside), { keep: false, inside: "no" });
+});

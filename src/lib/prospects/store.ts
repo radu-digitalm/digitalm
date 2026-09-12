@@ -8,17 +8,18 @@
 // values are always bound with ?.
 import { allowed } from "@/lib/crm/allowlist";
 import { cacheGet } from "@/lib/crm/apiCache";
+import { communeContaining } from "@/lib/discover/adminChildren";
 import { coerceHttpUrl, domainOf, isWebmailDomain, localeForCountry, normaliseEmail, normaliseName, validEmail } from "@/lib/crm/classify";
 import { CALL_WHERE, READY_WHERE, parseJson } from "@/lib/crm/db";
 import { sqlNow } from "@/lib/crm/time";
 import { enqueue } from "@/lib/crm/jobs";
 import { newReference } from "@/lib/crm/refs";
-import type { EmailKind, Prospect } from "@/lib/crm/types";
+import type { Business, EmailKind, Prospect, ResultRow, SearchResultV2 } from "@/lib/crm/types";
 import { enquiriesDb } from "@/lib/enquiries";
 import { addActivity } from "@/lib/inbox/leads";
 import { tradeKeyFor } from "@/lib/discover/categories";
 import { sameByNameAndPlace, type MergedBusiness } from "@/lib/discover/dedupe";
-import type { SearchResult } from "@/lib/discover/index";
+import { communeAt, selectLookups } from "./communeLookup";
 
 /** Error with a stable code and HTTP status for the routes. */
 export class ProspectError extends Error {
@@ -34,8 +35,8 @@ export class ProspectError extends Error {
   }
 }
 
-/** Prospect plus the finder-only `brand` column (chain badge). */
-export type ProspectRecord = Prospect & { brand: string | null };
+/** Prospect plus the finder-only columns: `brand` (chain badge), `cityApprox` (town from the nearest commune centre), `sourceSocials`. */
+export type ProspectRecord = Prospect & { brand: string | null; cityApprox: boolean; sourceSocials: Record<string, string> | null };
 
 export type ProspectListRow = ProspectRecord & {
   leadStage: string | null;
@@ -122,6 +123,8 @@ export function rowToProspect(r: Row): ProspectRecord {
     updatedAt: String(r.updated_at ?? ""),
     deletedAt: str(r.deleted_at),
     brand: str(r.brand),
+    cityApprox: Number(r.city_approx ?? 0) === 1,
+    sourceSocials: parseJson<Record<string, string> | null>(str(r.source_socials), null),
   };
 }
 
@@ -142,7 +145,7 @@ export function getProspectByReference(reference: string): ProspectRecord | null
  * Set `alreadySaved` on every search row that matches a live prospect by
  * (source, source_id), by domain_key, or by name + place. Mutates in place.
  */
-export function markAlreadySaved(rows: MergedBusiness[]): void {
+export function markAlreadySaved(rows: Business[]): void {
   if (rows.length === 0) return;
   const db = enquiriesDb();
   const byId = db.prepare("SELECT id, reference FROM prospects WHERE deleted_at IS NULL AND source = ? AND source_id = ? LIMIT 1");
@@ -204,6 +207,8 @@ export type NewProspect = {
   sourceEmail?: string | null;
   brand?: string | null;
   searchId?: number | null;
+  cityApprox?: boolean;
+  sourceSocials?: Record<string, string> | null;
 };
 
 /** Insert one prospect with saved_at = now and notice_deadline_at = saved_at + 30 days. */
@@ -221,8 +226,8 @@ export function insertProspect(p: NewProspect): { id: number; reference: string 
       `INSERT INTO prospects (
         reference, name, legal_name, enseigne, name_key, trade_key, country, address_line, postcode, city, region, lat, lng, geo_source,
         source, source_id, source_url, register_id, register_status, register_checked_at, diffusion, legal_form, sole_trader,
-        website, website_source, domain_key, source_phone, source_email, brand, locale, notice_deadline_at, search_id, saved_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(?, '+${NOTICE_DAYS} days'), ?, ?, ?)`,
+        website, website_source, domain_key, source_phone, source_email, brand, locale, notice_deadline_at, search_id, saved_at, updated_at, city_approx, source_socials
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(?, '+${NOTICE_DAYS} days'), ?, ?, ?, ?, ?)`,
     )
     .run(
       reference,
@@ -259,6 +264,8 @@ export function insertProspect(p: NewProspect): { id: number; reference: string 
       p.searchId ?? null,
       savedAt,
       savedAt,
+      p.cityApprox ? 1 : 0,
+      p.sourceSocials && Object.keys(p.sourceSocials).length > 0 ? JSON.stringify(socialsOnly(p.sourceSocials)) : null,
     );
   return { id: Number(r.lastInsertRowid), reference };
 }
@@ -268,9 +275,21 @@ export function enqueueAudit(prospectId: number): { id: number; deduped: boolean
   return enqueue("audit", { prospectId }, { dedupeKey: `audit:${prospectId}` });
 }
 
-function websiteSourceFor(row: MergedBusiness): string {
+function websiteSourceFor(row: Pick<MergedBusiness, "provenance" | "source">): string {
   const from = row.provenance?.website ?? row.source;
   return from === "fr_register" ? "register" : from;
+}
+
+const SOCIAL_KEYS = ["facebook", "instagram", "linkedin", "twitter"] as const;
+
+/** Only the four known networks, only https URLs that pass coerceHttpUrl. */
+function socialsOnly(input: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const k of SOCIAL_KEYS) {
+    const url = typeof input[k] === "string" ? coerceHttpUrl(input[k]) : null;
+    if (url) out[k] = url;
+  }
+  return out;
 }
 
 export type SaveResult = {
@@ -280,33 +299,55 @@ export type SaveResult = {
   alreadySaved: number;
   unknown: number;
   references: string[];
+  prospectIds: number[];
 };
+
+/** Rows of a cached search: v2 results carry `hidden` / `cityApprox` / `socials`; legacy rows are plain merged rows. */
+type SaveRow = MergedBusiness & Partial<Pick<ResultRow, "cityApprox" | "socials" | "hidden">>;
 
 /**
  * Save ticked rows of a cached search. Throws ProspectError
- * `search_expired` (410) when the cache is gone and `partial_diffusion` (422,
- * detail = the offending keys) when any pick is a non-diffusible register row.
- * Rows already saved (re-checked live) are skipped, not duplicated.
+ * `search_expired` (410) when the cache is gone, `hidden` (409, detail = the
+ * dismissed keys) and `partial_diffusion` (422, detail = the offending keys)
+ * when any pick is a non-diffusible register row. French rows whose town was
+ * approximate get the exact commune (≤ 100 lookups, a failure keeps the
+ * approximate town). Rows already saved (re-checked live) are skipped.
  */
-export function saveFromSearch(searchId: number, picks: string[]): SaveResult {
-  const result = cacheGet<SearchResult>(`search:${searchId}`);
+export async function saveFromSearch(searchId: number, picks: string[]): Promise<SaveResult> {
+  const result = cacheGet<SearchResultV2 | { rows: SaveRow[]; category: SearchResultV2["category"] }>(`search:${searchId}`);
   if (!result) throw new ProspectError("search_expired", 410);
   const wanted = new Set(picks.filter((k): k is string => typeof k === "string"));
-  const rows = result.rows.filter((r) => wanted.has(r.key));
+  const rows = (result.rows as SaveRow[]).filter((r) => wanted.has(r.key));
+  const dismissedRow = enquiriesDb().prepare("SELECT dismissed FROM searches WHERE id = ?").get(searchId) as { dismissed: string | null } | undefined;
+  const dismissed = new Set(parseJson<string[]>(dismissedRow?.dismissed, []));
+  const hiddenKeys = rows.filter((r) => dismissed.has(r.key)).map((r) => r.key);
+  if (hiddenKeys.length > 0) throw new ProspectError("hidden", 409, { picks: hiddenKeys });
   const partialKeys = rows.filter((r) => r.diffusion === "partial").map((r) => r.key);
   if (partialKeys.length > 0) throw new ProspectError("partial_diffusion", 422, { picks: partialKeys });
   markAlreadySaved(rows);
 
+  // Exact towns before the transaction (network); the approximate town stays when the lookup fails.
+  const exact = new Map<string, { nom: string; postcode?: string }>();
+  for (const { row, key } of selectLookups(rows.filter((r) => !r.alreadySaved))) {
+    try {
+      const c = await communeAt(row.lat!, row.lng!);
+      if (c) exact.set(key, { nom: c.nom, postcode: c.codesPostaux[0] });
+    } catch {
+      // keep the approximate town
+    }
+  }
+
   const db = enquiriesDb();
-  const out: SaveResult = { saved: 0, auditsQueued: 0, withoutWebsite: 0, alreadySaved: 0, unknown: wanted.size - rows.length, references: [] };
+  const out: SaveResult = { saved: 0, auditsQueued: 0, withoutWebsite: 0, alreadySaved: 0, unknown: wanted.size - rows.length, references: [], prospectIds: [] };
   const tradeKey = tradeKeyFor({ key: result.category.key, label: result.category.label, osm: [], naf: [], sic: [], custom: result.category.custom });
-  const insertAll = db.transaction((list: MergedBusiness[]) => {
+  const insertAll = db.transaction((list: SaveRow[]) => {
     for (const row of list) {
       if (row.alreadySaved) {
         out.alreadySaved++;
         continue;
       }
       const hasRegister = !!row.registerId;
+      const found = row.cityApprox && typeof row.lat === "number" && typeof row.lng === "number" ? exact.get(`${row.lat.toFixed(4)},${row.lng.toFixed(4)}`) : undefined;
       const { id, reference } = insertProspect({
         name: row.name,
         legalName: row.legalName ?? null,
@@ -314,8 +355,10 @@ export function saveFromSearch(searchId: number, picks: string[]): SaveResult {
         tradeKey,
         country: row.countryCode,
         addressLine: row.addressLine ?? null,
-        postcode: row.postcode ?? null,
-        city: row.city ?? null,
+        postcode: found?.postcode ?? row.postcode ?? null,
+        city: found?.nom ?? row.city ?? null,
+        cityApprox: row.cityApprox === true && !found,
+        sourceSocials: row.socials ?? null,
         region: row.region ?? null,
         lat: row.lat ?? null,
         lng: row.lng ?? null,
@@ -337,6 +380,7 @@ export function saveFromSearch(searchId: number, picks: string[]): SaveResult {
       });
       out.saved++;
       out.references.push(reference);
+      out.prospectIds.push(id);
       if (row.website) {
         enqueueAudit(id);
         out.auditsQueued++;
@@ -621,6 +665,43 @@ export function auditNext(limit = 20): { queued: number; deduped: number; ids: n
     }
   }
   return out;
+}
+
+// ---- town backfill (finder-ux §3.8) -----------------------------------------------------------
+
+const BACKFILL_ROWS = 200;
+const BACKFILL_OSM_ROWS = 20;
+
+/**
+ * Fill `city` on live prospects that have coordinates but no town: French
+ * rows through geo.gouv's commune-at-point, others through the commune
+ * containing the point on OpenStreetMap (≤ 20 per call). Idempotent.
+ */
+export async function backfillTowns(): Promise<{ filled: number; remaining: number }> {
+  const db = enquiriesDb();
+  const rows = db
+    .prepare("SELECT id, country, lat, lng FROM prospects WHERE deleted_at IS NULL AND (city IS NULL OR city = '') AND lat IS NOT NULL AND lng IS NOT NULL ORDER BY id ASC LIMIT ?")
+    .all(BACKFILL_ROWS) as { id: number; country: string; lat: number; lng: number }[];
+  const update = db.prepare("UPDATE prospects SET city = ?, postcode = COALESCE(postcode, ?), city_approx = 0, updated_at = datetime('now') WHERE id = ? AND (city IS NULL OR city = '')");
+  let filled = 0;
+  let osmCalls = 0;
+  for (const r of rows) {
+    try {
+      if (r.country === "FR") {
+        const c = await communeAt(r.lat, r.lng);
+        if (c && update.run(c.nom, c.codesPostaux[0] ?? null, r.id).changes === 1) filled++;
+      } else {
+        if (osmCalls >= BACKFILL_OSM_ROWS) continue;
+        osmCalls++;
+        const c = await communeContaining(r.lat, r.lng);
+        if (c && update.run(c.name, c.postcode ?? null, r.id).changes === 1) filled++;
+      }
+    } catch {
+      // next row; the remaining count tells the owner to run it again
+    }
+  }
+  const remaining = (db.prepare("SELECT COUNT(*) AS n FROM prospects WHERE deleted_at IS NULL AND (city IS NULL OR city = '') AND lat IS NOT NULL AND lng IS NOT NULL").get() as { n: number }).n;
+  return { filled, remaining };
 }
 
 // ---- google (place_id only) ---------------------------------------------------------------

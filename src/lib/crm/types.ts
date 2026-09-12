@@ -331,3 +331,112 @@ export interface AdminSession {
   exp: number;
   nonce: string;
 }
+
+// @@finder-ux:types — finder-ux (docs/finder-ux-spec.md §3.1). Backend appends here; frontend imports only.
+export type AreaKind = "town" | "postcode" | "department" | "region" | "country" | "place";
+export type AreaSelector =
+  | { kind: "relation"; relId: number }
+  | { kind: "insee"; codes: string[] }
+  | { kind: "around"; lat: number; lng: number; m: number };
+export interface GeoPolygon {
+  type: "Polygon" | "MultiPolygon";
+  coordinates: unknown;
+}
+export interface ResolvedArea extends Area {
+  kind: AreaKind;
+  countryName: string; // "France" — Nominatim address.country; geo.gouv paths → "France"
+  polygon: GeoPolygon | null; // display outline (§2.4); null only for legacy cached areas
+  polygonApprox?: boolean; // true when the outline is a circle or a legacy bbox
+  osmRelationId?: number;
+  areaSelector: AreaSelector;
+  admin?: Area["admin"] & { inseeCodes?: string[]; departements?: string[]; regionCode?: string };
+  radiusKm: number; // bbox radius from the centre (register near_point)
+}
+export type SearchStatus = "running" | "done" | "capped" | "partial" | "failed" | "cancelled" | "interrupted" | "expired";
+export type UnitState = "pending" | "running" | "done" | "failed" | "skipped";
+export interface SearchUnit {
+  id: string;
+  label: string;
+  code?: string;
+  center: { lat: number; lng: number };
+  state: UnitState;
+  found: number;
+  truncated?: boolean;
+  error?: string;
+}
+export interface RegisterScope {
+  id: string;
+  label: string;
+  state: UnitState;
+  pages: number;
+  totalPages: number | null;
+  found: number;
+}
+export interface SearchProgress {
+  status: SearchStatus;
+  stage: "osm" | "register" | "merge" | "finished";
+  units: SearchUnit[]; // OpenStreetMap units in run order
+  registerScopes: RegisterScope[];
+  found: number; // rows so far (OpenStreetMap rows while running; merged rows once finished)
+  expected: number | null; // Overpass count, null when unknown
+  cap: number;
+  rowsVersion: number; // bumps when the row list is reordered/replaced (merge); the client refetches from 0
+  retryingUntil?: string | null; // set while waiting out a busy map service (UI: "retrying in 40 s")
+  startedAt: string;
+  updatedAt: string;
+  finishedAt: string | null;
+  etaSeconds: number | null; // (units left) × observed mean unit time, after ≥ 2 finished units
+}
+export interface SearchNote {
+  code: string;
+  text: string;
+  params?: Record<string, string | number>;
+}
+export interface ResultRow extends Business {
+  key: string; // "<source>:<sourceId>" of the identity row — the pick key
+  sources: DiscoverySource[];
+  provenance: Partial<Record<"website" | "phone" | "email" | "geo" | "address" | "name", DiscoverySource>>;
+  inside: "yes" | "approx" | "no"; // polygon membership (OpenStreetMap rows are always "yes")
+  distanceKm: number | null; // haversine from area.center, 1 dp; null without coordinates
+  cityApprox?: boolean; // city filled from the nearest commune centre (§3.8)
+  socials?: Record<string, string>; // OpenStreetMap contact:* (safeHttpUrl-validated)
+  countryName: string;
+  countrySource: "source" | "area"; // "area" = assumed from the search area
+  hidden?: boolean; // "Not this one" (§3.7)
+  unitId?: string;
+  readAt?: string; // ISO, when the source was read (card: "read 12 Sep")
+}
+export interface SearchResultV2 {
+  version: 2;
+  searchId: number;
+  queryArea: string;
+  area: ResolvedArea;
+  category: { key: string; label: { fr: string; en: string }; custom: boolean };
+  sources: DiscoverySource[];
+  rows: ResultRow[]; // full list, or a slice when ?after= is used
+  total: number; // rows.length of the full list
+  perSource: Partial<Record<DiscoverySource, number>>;
+  progress: SearchProgress;
+  notes: SearchNote[];
+  alternatives?: { osmType: "relation" | "node" | "way"; osmId: number; label: string; kind: AreaKind; countryCode: string; countryName: string }[];
+  durationMs: number | null;
+  createdAt: string; // ISO 8601 UTC
+}
+export interface SearchSummaryV2 {
+  id: number;
+  queryArea: string;
+  areaLabel: string;
+  areaKind: AreaKind | null;
+  countryCode: string;
+  countryName: string;
+  categoryKey: string;
+  categoryLabel: string;
+  sources: DiscoverySource[];
+  resultCount: number;
+  perSource: Partial<Record<DiscoverySource, number>>;
+  savedCount: number;
+  status: SearchStatus;
+  durationMs: number | null;
+  createdAt: string;
+  cached: boolean;
+}
