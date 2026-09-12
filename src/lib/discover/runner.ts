@@ -622,10 +622,20 @@ async function fillTowns(rows: ResultRow[], area: ResolvedArea, plan: StoredPlan
     }
   }
   if (fallback || points.length === 0) {
-    const units = plan.units.filter((u) => progress.units.find((p) => p.id === u.id)?.state === "done").slice(0, MAX_TOWN_FILL_UNITS);
-    for (const u of units) {
+    if (plan.mode === "children") {
+      // One request per finished child (its own area), at most 20.
+      const units = plan.units.filter((u) => progress.units.find((p) => p.id === u.id)?.state === "done").slice(0, MAX_TOWN_FILL_UNITS);
+      for (const u of units) {
+        try {
+          points = points.concat(await fetchCommuneCentres(u.selector, u.bbox, signal));
+        } catch {
+          // the rows keep "town unknown"
+        }
+      }
+    } else {
+      // A single unit or tiles: one request over the area's bounding box (no dependency on the area being generated).
       try {
-        points = points.concat(await fetchCommuneCentres(u.selector, u.bbox, signal));
+        points = points.concat(await fetchCommuneCentres(null, area.bbox, signal));
       } catch {
         // the rows keep "town unknown"
       }

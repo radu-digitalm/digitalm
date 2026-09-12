@@ -55,6 +55,8 @@ test("children / communes / containing-commune queries", () => {
     communesQuery({ kind: "around", lat: 42.9646, lng: 1.6053, m: 4000 }),
     '[out:json][timeout:60];rel["boundary"="administrative"]["admin_level"~"^[78]$"](around:4000,42.964600,1.605300);out tags center;',
   );
+  assert.equal(communesQuery(null, [42.42, 1.4, 42.66, 1.79]), '[out:json][timeout:60];rel["boundary"="administrative"]["admin_level"~"^[78]$"](42.42000,1.40000,42.66000,1.79000);out tags center;');
+  assert.throws(() => communesQuery(null), AreaQueryError);
   assert.equal(countQuery(restaurant, rel, 20), '[out:json][timeout:20];area(3600007439)->.a;(nwr["amenity"="restaurant"](area.a););out count;');
   assert.throws(() => countQuery(restaurant, rel, 3), AreaQueryError);
   assert.throws(() => countQuery(restaurant, rel, 2.5), AreaQueryError);

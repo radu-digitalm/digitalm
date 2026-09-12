@@ -58,8 +58,8 @@ export async function fetchChildren(selector: AreaSelector, level: number, signa
   return value.children;
 }
 
-/** admin_level-8 centres of a unit (town fill fallback). Cached 24 h. */
-export async function fetchCommuneCentres(selector: AreaSelector, bbox?: Bbox, signal?: AbortSignal): Promise<CentrePoint[]> {
+/** Commune / municipality centres of a unit — or of a bounding box when `selector` is null (town fill fallback). Cached 24 h. */
+export async function fetchCommuneCentres(selector: AreaSelector | null, bbox?: Bbox, signal?: AbortSignal): Promise<CentrePoint[]> {
   const query = communesQuery(selector, bbox);
   const { value, hit } = await cached<{ points: CentrePoint[] }>("overpass_communes", { selector, bbox: bbox ? bbox.map((n) => n.toFixed(5)) : null }, DAY_MS, async () => {
     const data = await postOnceOrRetry<{ elements?: OverpassElement[] }>(query, signal);

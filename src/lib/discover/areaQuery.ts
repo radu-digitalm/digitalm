@@ -108,8 +108,17 @@ export function childrenQuery(sel: AreaSelector, level: number): string {
   return `[out:json][timeout:60];${selectorStatement(sel)}rel(area.a)["boundary"="administrative"]["type"="boundary"]["admin_level"="${level}"];out tags center;`;
 }
 
-/** Commune / municipality boundaries (admin_level 8, or 7 where a country has no 8 — Andorra's parishes) of a unit, for the town fill (§3.8). */
-export function communesQuery(sel: AreaSelector, bbox?: Bbox): string {
+/**
+ * Commune / municipality boundaries (admin_level 8, or 7 where a country has
+ * no 8 — Andorra's parishes) for the town fill (§3.8): inside a unit's area,
+ * or — with a null selector — inside a bounding box alone, which does not
+ * depend on the mirror having generated the area.
+ */
+export function communesQuery(sel: AreaSelector | null, bbox?: Bbox): string {
+  if (sel === null) {
+    if (!bbox) throw new AreaQueryError("bad bbox");
+    return `[out:json][timeout:60];rel["boundary"="administrative"]["admin_level"~"^[78]$"](${bboxText(bbox)});out tags center;`;
+  }
   assertSelector(sel);
   const filter = sel.kind === "around" ? spatialFilter(sel) : `(area.a)${bbox ? `(${bboxText(bbox)})` : ""}`;
   return `[out:json][timeout:60];${selectorStatement(sel)}rel["boundary"="administrative"]["admin_level"~"^[78]$"]${filter};out tags center;`;
