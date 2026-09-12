@@ -19,6 +19,35 @@ import { countMapLoad, googleMapId, importLibrary, loadGoogleMaps, onGoogleAuthF
 import { clusterSize } from "./mapCluster";
 import { FIND_TEXT, GOOGLE_TEXT, fill } from "./wording";
 
+
+
+/**
+ * SuperClusterViewportAlgorithm only calls `superCluster.load()` once the marker list differs from
+ * its initial `[]`; with no markers yet (the empty finder page) a viewport change still asks
+ * `getClusters()`, whose index does not exist → "reading 'range'" of undefined. Loading an empty
+ * index first makes the zero-marker state a normal one.
+ */
+class SeededViewportAlgorithm extends SuperClusterViewportAlgorithm {
+  private seeded = false;
+  calculate(input: Parameters<SuperClusterViewportAlgorithm["calculate"]>[0]): ReturnType<SuperClusterViewportAlgorithm["calculate"]> {
+    if (!this.seeded) {
+      this.superCluster.load([]);
+      this.seeded = true;
+    }
+    return super.calculate(input);
+  }
+}
+
+/**
+ * MarkerClusterer is an OverlayView: between `setMap(m)` and its `onAdd` (next frame) its
+ * `getProjection()` is undefined and `render()` throws inside the viewport algorithm
+ * (`fromLatLngToDivPixel` of undefined) — the pins effect runs in exactly that window on first
+ * mount. `onAdd` renders by itself once attached, so skipping the early draw loses nothing.
+ */
+function redraw(c: MarkerClusterer): void {
+  if (c.getProjection()) c.render();
+}
+
 export type GoogleFindMapProps = FindMapProps & {
   /** Places Google knows that no other source listed (already filtered by the chips). */
   googlePins?: GooglePin[];
@@ -213,7 +242,7 @@ function GoogleMapPane({ area, rows, googlePins = [], units = [], running = fals
           },
         };
         // The same 56 px cell as mapCluster.ts; past zoom 17 every pin stands alone.
-        const c = new MarkerClusterer({ map: m, markers: [], algorithm: new SuperClusterViewportAlgorithm({ radius: 56, maxZoom: 17 }), renderer });
+        const c = new MarkerClusterer({ map: m, markers: [], algorithm: new SeededViewportAlgorithm({ radius: 56, maxZoom: 17 }), renderer });
         clusterer.current = c;
         clusterListener = google.maps.event.addListener(c, "clusteringend", () => {
           recomputeClustered();
@@ -363,7 +392,7 @@ function GoogleMapPane({ area, rows, googlePins = [], units = [], running = fals
       else added.push(mk);
     }
     if (added.length) c.addMarkers(added, true);
-    c.render();
+    redraw(c);
     recomputeClustered();
     publishDebug();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -396,7 +425,7 @@ function GoogleMapPane({ area, rows, googlePins = [], units = [], running = fals
         c.removeMarker(cur, true);
         cur.map = m;
       }
-      c.render();
+      redraw(c);
     }
     // Pan (never zoom) so the selected pin is in view.
     if (selectedKey) {

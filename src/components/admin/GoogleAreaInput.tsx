@@ -82,6 +82,9 @@ export function GoogleAreaInput({ value, onChange, onSuggestion, onEnter, disabl
     let typed = "";
     const onInput = (e: Event) => {
       sawInput = true;
+      // The element is mounted for an empty box without `editing`; the first keystroke makes the
+      // value non-empty and, without this, `useElement` flips and the element is unmounted mid-word.
+      setEditing(true);
       if (watchdog) {
         clearTimeout(watchdog);
         watchdog = null;

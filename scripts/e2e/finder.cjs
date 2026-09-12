@@ -587,6 +587,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   let googleOn = false;
   await step("G0", "Google map on?", async () => {
     await goto("/admin/find");
+    // Both maps are dynamic(ssr:false) — a placeholder is in the DOM at domcontentloaded; wait for the real one.
+    await page.locator("[data-testid=find-map][data-map=google], .leaflet-container").first().waitFor({ state: "attached", timeout: 20000 });
     googleOn = (await page.locator("[data-testid=find-map][data-map=google]").count()) === 1;
     return { googleOn };
   });
@@ -624,6 +626,58 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       assert((await page.locator("[data-testid=google-block]").count()) === 0, "google-block present with Google off");
     }
     return { id, prospect: savedProspectId };
+  });
+
+  // ---- G2 Area suggestions: type, pick, the search starts ---------------------------------------------
+  await gstep("G2", "Area suggestions: type, pick, search starts", async () => {
+    await goto("/admin/find");
+    const ac = page.locator("gmp-basic-place-autocomplete");
+    await ac.first().waitFor({ state: "attached", timeout: 20000 });
+    assert((await ac.count()) === 1, "no Places UI Kit element in the Area box");
+    await page.evaluate(() => {
+      const el = document.querySelector("gmp-basic-place-autocomplete");
+      window.__dmE2eSel = null;
+      window.__dmE2eInputs = 0;
+      el.addEventListener("gmp-select", (e) => { window.__dmE2eSel = { id: e.place && e.place.id }; });
+      el.addEventListener("input", () => { window.__dmE2eInputs++; });
+    });
+    const posts = [];
+    const onReq = (r) => { if (r.method() === "POST" && r.url().endsWith("/api/admin/find")) posts.push(r.postData()); };
+    page.on("request", onReq);
+    await ac.click();
+    await page.keyboard.type("arie", { delay: 90 });
+    await sleep(2500);
+    await shot("G2-suggestions");
+    // The element must survive the typing (it once unmounted after the first keystroke) and compose input events.
+    assert((await ac.count()) === 1, "the Area box lost the suggestions element while typing");
+    const inputs = await page.evaluate(() => window.__dmE2eInputs);
+    assert(inputs >= 4, `input events ${inputs} (plain-Field fallback in force?)`);
+    await page.keyboard.press("ArrowDown");
+    await page.keyboard.press("Enter");
+    await sleep(3000);
+    page.off("request", onReq);
+    const sel = await page.evaluate(() => window.__dmE2eSel);
+    assert(sel && /^[A-Za-z0-9_-]{10,72}$/.test(sel.id || ""), `gmp-select without a place id: ${JSON.stringify(sel)}`);
+    const box = page.locator("input[name=area]");
+    assert((await box.count()) === 1, "the Area box did not return to a plain field after the pick");
+    const text = await box.inputValue();
+    assert(/Ari[eè]ge, France/.test(text), `the box reads "${text}"`);
+    const body = posts.map((b) => { try { return JSON.parse(b); } catch { return null; } }).find((b) => b && b.suggestion);
+    assert(body && body.suggestion.placeId === sel.id, `no search request carrying the picked place id: ${JSON.stringify(posts).slice(0, 200)}`);
+    const recent = await api("GET", "/api/admin/find/recent?limit=3");
+    const latest = ((recent.json && recent.json.searches) || [])[0];
+    assert(latest, "no recent search after the pick");
+    let fin = null;
+    for (let t = 0; t < 50; t++) {
+      const r = await api("GET", `/api/admin/find?id=${latest.id}`);
+      const st = r.json && r.json.progress && r.json.progress.status;
+      if (st && st !== "running" && st !== "queued") { fin = r.json; break; }
+      await sleep(3000);
+    }
+    assert(fin && fin.progress.status === "done", `search ${latest.id} ended ${fin && fin.progress.status}`);
+    assert(fin.area && fin.area.kind === "department" && fin.area.osmRelationId === 7439, `area ${JSON.stringify(fin.area).slice(0, 200)}`);
+    ariegeId = latest.id;
+    return { placeId: sel.id, text, searchId: latest.id, rows: (fin.rows || []).length };
   });
 
   // ---- G8 Google map and cards ---------------------------------------------------------------------
