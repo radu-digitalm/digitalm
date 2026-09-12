@@ -1,0 +1,612 @@
+{
+  "places": [
+    {
+      "id": "ChIJx4tx6vQKan2ZatTVadpwVwV",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "2 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.96844,
+        "longitude": 1.615248
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 1",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "2 Rue du Cercle",
+          "shortText": "2 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJZLPya-wVO7FPMbmWcVEV_hF",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "3 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.966463,
+        "longitude": 1.62175
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 2",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "3 Rue du Cercle",
+          "shortText": "3 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJrWLTteeyoGQ4ngOlzi_E58B",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "4 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.974989,
+        "longitude": 1.619855
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 3",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "4 Rue du Cercle",
+          "shortText": "4 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJG0OX__0NMc3g9Js5Ka5Snih",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "5 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.977978,
+        "longitude": 1.632183
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 4",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "5 Rue du Cercle",
+          "shortText": "5 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJOyspH9IA3Vwm7_F-LFZOsgB",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "6 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.987545,
+        "longitude": 1.599649
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 5",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "6 Rue du Cercle",
+          "shortText": "6 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ-a5Ad23j6zzwfUAfrDaSHqZ",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "7 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.993087,
+        "longitude": 1.632115
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 6",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "7 Rue du Cercle",
+          "shortText": "7 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJyJFZvLd58AsYJfs_ldnfNis",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "8 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.980894,
+        "longitude": 1.602639
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 7",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "8 Rue du Cercle",
+          "shortText": "8 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJP6sxtd-S-fEltg8mTZuVkrF",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "9 Rue du Cercle, 09000 Foix, France",
+      "location": {
+        "latitude": 42.958056,
+        "longitude": 1.63037
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Nearby Place 8",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "9 Rue du Cercle",
+          "shortText": "9 Rue du Cercle",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    }
+  ]
+}

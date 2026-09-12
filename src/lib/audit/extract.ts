@@ -25,6 +25,8 @@ export interface JsonLdSummary {
   localBusiness: boolean;
   telephone: boolean;
   openingHours: boolean;
+  /** The business node's `name` (≤ 120 chars) — the site-name write-back of finder-google §4.5. */
+  name?: string;
 }
 
 export interface Extraction {
@@ -666,6 +668,10 @@ export function summariseJsonLd(html: string | HtmlTokens): JsonLdSummary {
     if (business) {
       if (!out.type) out.type = business.replace(/^https?:\/\/schema\.org\//i, "").slice(0, 60);
       out.localBusiness = true;
+      if (!out.name && typeof rec.name === "string") {
+        const name = stripControl(rec.name).replace(/\s+/g, " ").trim().slice(0, 120);
+        if (name) out.name = name;
+      }
       if (findWithin(rec, "telephone", 0)) out.telephone = true;
       if (findWithin(rec, "openingHours", 0) || findWithin(rec, "openingHoursSpecification", 0)) out.openingHours = true;
     }

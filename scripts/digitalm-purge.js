@@ -22,6 +22,9 @@
 //   9. jobs done/failed/cancelled older than 30 days and expired api_cache rows removed
 //  10. optouts never touched
 //  11. settings.purge_last_run_at = now (Today and the digest go red when it is > 2 days old)
+//  12. Google (docs/finder-google-spec.md §4.7): any api_cache row under a google* provider removed (the
+//      client never writes one — a safety net), and audits whose google_listing signals are older than
+//      30 days counted — not deleted (they are our own measurements; the next audit refreshes them)
 //
 // Writes nothing without --apply. Prints counts and references only, never an
 // address. Exits 0 on success, 1 on a failure (message only, no secrets).
@@ -310,6 +313,24 @@ const run = () => {
     () => count("SELECT COUNT(*) AS n FROM api_cache WHERE expires_at < datetime('now')"),
     () => db.prepare("DELETE FROM api_cache WHERE expires_at < datetime('now')").run().changes,
   );
+
+  // 12. Google: no Google content may sit in the cache; signals older than 30 days are reported, not deleted.
+  step(
+    "google_cache",
+    "Google rows in api_cache removed (the client never writes any)",
+    ["api_cache"],
+    () => count("SELECT COUNT(*) AS n FROM api_cache WHERE provider LIKE 'google%'"),
+    () => db.prepare("DELETE FROM api_cache WHERE provider LIKE 'google%'").run().changes,
+  );
+  if (has("audits")) {
+    const stale = count(
+      `SELECT COUNT(*) AS n FROM audits WHERE status = 'done' AND checks IS NOT NULL
+         AND json_extract(checks, '$.google_listing.details.fetchedAt') IS NOT NULL
+         AND datetime(replace(substr(json_extract(checks, '$.google_listing.details.fetchedAt'), 1, 19), 'T', ' ')) < datetime('now', '-30 days')`,
+    );
+    out(`Google signals older than 30 days: ${stale} (re-checked at the next audit)`);
+    summary.googleSignalsStale = stale;
+  }
 
   // 10. optouts: never touched. 11. last run.
   if (has("optouts")) out(`Opt-outs kept: ${count("SELECT COUNT(*) AS n FROM optouts")}`);

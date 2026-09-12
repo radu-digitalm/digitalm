@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 403,
+    "message": "Requests from this IP address are blocked. (fixture)",
+    "status": "PERMISSION_DENIED"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "id": "ChIJp4C91HAnQwJbZo-x6chGE-q",
+  "businessStatus": "OPERATIONAL",
+  "rating": 3.0,
+  "userRatingCount": 2,
+  "photos": [],
+  "pureServiceAreaBusiness": false,
+  "attributions": [
+    {
+      "provider": "Example Data Co",
+      "providerUri": "https://example.invalid/data"
+    }
+  ]
+}

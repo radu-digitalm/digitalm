@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatTodayText, purgeAgeDays, purgeIsStale, summariseToday } from "./today.ts";
+import { formatTodayText, googleToday, googleUsageTone, purgeAgeDays, purgeIsStale, summariseToday } from "./today.ts";
 import type { TodayCard, TodayData } from "./today.ts";
 import { OUTREACH_MODULE } from "../crm/features.ts";
 
@@ -17,8 +17,14 @@ function data(over: Partial<TodayData> = {}): TodayData {
     audits: { queued: 0, running: 0, failed7d: 0 },
     ready: 0,
     call: 0,
-    googleMonth: 0,
-    googleCap: 900,
+    googleOn: false,
+    googleKeyMissing: false,
+    googleChecksMonth: 0,
+    googleChecksCap: 900,
+    googleSearchMonth: 0,
+    googleSearchCap: 4500,
+    googleOtherMonth: 0,
+    googleOtherCap: 4500,
     noticeDeadlines5d: 0,
     bounces7d: 0,
     sends30d: 0,
@@ -34,11 +40,11 @@ function card(cards: TodayCard[], key: string): TodayCard {
   return c;
 }
 
-test("quiet day: every card neutral, purge good, no backfill card", () => {
+test("quiet day: every card neutral, purge good, no backfill card, no Google card while Google is off", () => {
   const cards = summariseToday(data(), NOW);
   const keys = cards.map((c) => c.key);
   assert.deepEqual(keys, [
-    "followups", "new-leads", "reports-opened", "emails-today", "audits", "ready", "call", "google",
+    "followups", "new-leads", "reports-opened", "emails-today", "audits", "ready", "call",
     "notice-deadlines", "bounces", "stop-replies", "purge",
   ]);
   for (const c of cards) {
@@ -105,7 +111,9 @@ test("audits, ready, call, google, deadlines, bounces", () => {
       audits: { queued: 4, running: 1, failed7d: 2 },
       ready: 12,
       call: 3,
-      googleMonth: 850,
+      googleOn: true,
+      googleChecksMonth: 850,
+      googleSearchMonth: 40,
       noticeDeadlines5d: 6,
       bounces7d: 1,
     }),
@@ -119,8 +127,9 @@ test("audits, ready, call, google, deadlines, bounces", () => {
   assert.equal(card(cards, "ready").tone, "good");
   assert.equal(card(cards, "call").value, "3");
   assert.equal(card(cards, "google").value, "850 / 900");
+  assert.equal(card(cards, "google").detail, "40 / 4,500 searches");
   assert.equal(card(cards, "google").tone, "warn");
-  assert.equal(card(summariseToday(data({ googleMonth: 900 }), NOW), "google").tone, "bad");
+  assert.equal(card(summariseToday(data({ googleOn: true, googleChecksMonth: 900 }), NOW), "google").tone, "bad");
   assert.equal(card(cards, "notice-deadlines").tone, "warn");
   assert.equal(card(cards, "bounces").value, "1");
   assert.equal(card(cards, "bounces").tone, "warn");
@@ -171,4 +180,36 @@ test("formatTodayText lists cards and their lines", () => {
   assert.match(text, /Emails sent today: 10 \/ 10 — Daily cap reached\n/);
   assert.match(text, /Purge last ran: today$/);
   assert.equal(text.includes("@"), false);
+});
+
+test("finder-google §4.7: the `google` card exists whenever Google is on (even at 0); `google-key` when the switch is on without a key", () => {
+  const on = card(summariseToday(data({ googleOn: true }), NOW), "google");
+  assert.equal(on.title, "Google usage this month");
+  assert.equal(on.value, "0 / 900");
+  assert.equal(on.detail, "0 / 4,500 searches");
+  assert.equal(on.tone, "neutral");
+  assert.equal(summariseToday(data({ googleOn: true }), NOW).some((c) => c.key === "google-key"), false);
+  // Any pool at 90 % warns; the searches pool at its cap is bad even with the checks at 0.
+  assert.equal(card(summariseToday(data({ googleOn: true, googleSearchMonth: 4050 }), NOW), "google").tone, "warn");
+  assert.equal(card(summariseToday(data({ googleOn: true, googleSearchMonth: 4500 }), NOW), "google").tone, "bad");
+  assert.equal(card(summariseToday(data({ googleOn: true, googleOtherMonth: 4100 }), NOW), "google").tone, "warn");
+  assert.equal(googleUsageTone([{ used: 0, cap: 0 }]), "neutral");
+  const missing = summariseToday(data({ googleOn: false, googleKeyMissing: true }), NOW);
+  const key = card(missing, "google-key");
+  assert.equal(key.title, "Google key");
+  assert.equal(key.value, "missing");
+  assert.equal(key.tone, "warn");
+  assert.equal(missing.some((c) => c.key === "google"), false);
+  assert.deepEqual(googleToday(true, false, { checks: { used: 12, cap: 900 }, searches: { used: 40, cap: 4500 }, other: { used: 1, cap: 4500 } }), {
+    googleOn: true,
+    googleKeyMissing: false,
+    googleChecksMonth: 12,
+    googleChecksCap: 900,
+    googleSearchMonth: 40,
+    googleSearchCap: 4500,
+    googleOtherMonth: 1,
+    googleOtherCap: 4500,
+  });
+  const text = formatTodayText(summariseToday(data({ googleOn: true, googleChecksMonth: 12, googleSearchMonth: 40 }), NOW));
+  assert.match(text, /Google usage this month: 12 \/ 900 — 40 \/ 4,500 searches/);
 });

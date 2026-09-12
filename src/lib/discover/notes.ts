@@ -24,6 +24,16 @@ export const NOTE_CODES = [
   "ch_needs_town",
   "country_assumed",
   "duplicates_removed",
+  // finder-google (docs/finder-google-spec.md §4.8), codes 17–25
+  "google_no_key",
+  "google_discovery_off",
+  "google_failed",
+  "google_refused",
+  "google_allowance",
+  "google_incomplete",
+  "google_outside_dropped",
+  "google_matched",
+  "google_all_parts",
 ] as const;
 export type NoteCode = (typeof NOTE_CODES)[number];
 
@@ -78,6 +88,15 @@ export const NOTE_TEXT: Record<NoteCode, (p: NoteParams) => string> = {
   ch_needs_town: () => "Companies House is searched by town — search a UK town to include it.",
   country_assumed: (p) => `Country assumed from the search area for ${fmtNum(p.n)} businesses without an address country.`,
   duplicates_removed: (p) => `${fmtNum(p.n)} duplicates removed — the same business listed more than once on the map or in the register.`,
+  google_no_key: () => "Google is switched on, but its key is missing.",
+  google_discovery_off: () => "Google is used for the map, place suggestions and listing checks, not yet to find businesses.",
+  google_failed: () => "Google did not answer, so nothing from Google is shown for this search.",
+  google_refused: () => "Google refused the request — the key's restrictions need a look.",
+  google_allowance: () => "The monthly Google search allowance is used up — Google was not asked for this search; what is left is reserved for listing checks.",
+  google_incomplete: (p) => `Google was asked for ${fmtNum(p.done)} of ${fmtNum(p.total)} parts of ${s(p, "area")}; some businesses known only to Google may be missing.`,
+  google_outside_dropped: (p) => `${fmtNum(p.n)} Google results outside ${s(p, "area")} were left out.`,
+  google_matched: (p) => `${fmtNum(p.matched)} also on Google · ${fmtNum(p.only)} only on Google.`,
+  google_all_parts: (p) => `Google was asked about the whole of ${s(p, "area")}, not only the parts this search covered.`,
 };
 
 /** A note with its text rendered from the catalogue; `params` are echoed for the UI. */
@@ -86,8 +105,12 @@ export function note(code: NoteCode, params: NoteParams = {}): SearchNote {
   return Object.keys(params).length > 0 ? { code, text, params } : { code, text };
 }
 
-/** Words that must never appear in anything the admin reads (spec §7). */
-export const FORBIDDEN_TOKENS = ["OSM", "FR reg", "http_", "GOOGLE_PLACES", "tile", "partial", "Nominatim", "Overpass", "caveat", "ISO2"] as const;
+/**
+ * Words that must never appear in anything the admin reads (finder-ux §7;
+ * finder-google §3.8 adds "claimed", "Google My Business" and "GMB" — not
+ * "verified", whose substring would catch the `unverified` status token).
+ */
+export const FORBIDDEN_TOKENS = ["OSM", "FR reg", "http_", "GOOGLE_PLACES", "tile", "partial", "Nominatim", "Overpass", "caveat", "ISO2", "claimed", "Google My Business", "GMB"] as const;
 
 export function hasForbiddenToken(text: string): string | null {
   const lower = text.toLowerCase();

@@ -5,7 +5,7 @@ import { RunnerError, dismissSearchRow } from "@/lib/discover/index";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** { searchId, key, undo? } → "Not this one", remembered on the server (docs/finder-ux-spec.md §3.7, §4). */
+/** { searchId, key, undo? } → "Not this one", remembered on the server (docs/finder-ux-spec.md §3.7, §4); `key` may be a Google pin `google:<placeId>` (finder-google §4.8 — 400 bad_key when malformed, 404 when not in the search). */
 export async function POST(req: NextRequest) {
   const guard = await guardAdminPost(req);
   if (isResponse(guard)) return guard;

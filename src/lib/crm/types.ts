@@ -94,6 +94,9 @@ export interface Prospect {
   googlePlaceId: string | null;
   googleListing: "unverified" | "found" | "not_found";
   googleConfirmedAt: string | null;
+  googleCheckedAt?: string | null; // finder-google (§4.1): last automatic match / listing-check attempt
+  googleMatch?: GoogleMatch | null; // finder-google: how the place id was set
+  googleSignals?: GoogleSignals | null; // finder-google: filled by getProspect only (from the latest audit's checks)
   locale: "fr" | "en";
   localeOverridden: boolean;
   latestAuditId: number | null;
@@ -185,6 +188,7 @@ export interface Business {
   registeredOfficeOnly?: boolean;
   tags?: Record<string, string>;
   alreadySaved?: { prospectId: number; reference: string };
+  googlePlaceId?: string; // finder-google: the Google place that matched this row (place id only)
 }
 export interface DiscoveryAdapter {
   id: DiscoverySource;
@@ -374,7 +378,7 @@ export interface RegisterScope {
 }
 export interface SearchProgress {
   status: SearchStatus;
-  stage: "osm" | "register" | "merge" | "finished";
+  stage: "osm" | "register" | "google" | "merge" | "finished";
   units: SearchUnit[]; // OpenStreetMap units in run order
   registerScopes: RegisterScope[];
   found: number; // rows so far (OpenStreetMap rows while running; merged rows once finished)
@@ -386,6 +390,7 @@ export interface SearchProgress {
   updatedAt: string;
   finishedAt: string | null;
   etaSeconds: number | null; // (units left) × observed mean unit time, after ≥ 2 finished units
+  google?: GoogleProgress; // finder-google: present only when the Google phase ran (§4.3)
 }
 export interface SearchNote {
   code: string;
@@ -405,6 +410,7 @@ export interface ResultRow extends Business {
   hidden?: boolean; // "Not this one" (§3.7)
   unitId?: string;
   readAt?: string; // ISO, when the source was read (card: "read 12 Sep")
+  onGoogle?: boolean; // finder-google: a Google place matched this row ("Also on Google")
 }
 export interface SearchResultV2 {
   version: 2;
@@ -422,6 +428,7 @@ export interface SearchResultV2 {
   alternatives?: { osmType: "relation" | "node" | "way"; osmId: number; label: string; kind: AreaKind; countryCode: string; countryName: string }[];
   durationMs: number | null;
   createdAt: string; // ISO 8601 UTC
+  googlePins?: GooglePin[]; // finder-google: places only Google knows — present only when the Google phase ran (§4.3)
 }
 export interface SearchSummaryV2 {
   id: number;
@@ -441,3 +448,45 @@ export interface SearchSummaryV2 {
   createdAt: string;
   cached: boolean;
 }
+
+// @@finder-google:types — docs/finder-google-spec.md §4.1. Backend appends here; frontend imports only.
+export type GoogleMatch = "auto" | "manual";
+/** Derived from one Place Details answer; never a string from Google except the attribution provider names (ToS 3.2.4). */
+export interface GoogleSignals {
+  operational: boolean | null;
+  websiteOnListing: boolean;
+  hours: boolean;
+  reviews: number;
+  photos: number;
+  fetchedAt: string;
+  attributions: string[];
+}
+/** A place Google knows that no other source listed — lat/lng may live at most 30 days (the search cache keeps them 24 h). */
+export interface GooglePin {
+  placeId: string;
+  lat: number;
+  lng: number;
+  fetchedAt: string;
+  hidden?: boolean;
+  saved?: { prospectId: number; reference: string };
+}
+export interface GoogleProgress {
+  state: UnitState;
+  tiles: number;
+  tilesDone: number;
+  requests: number;
+  found: number;
+  matched: number;
+  only: number;
+  dropped: number;
+  pinsVersion: number;
+  error?: "busy" | "timeout" | "network" | "refused" | "allowance";
+}
+export interface GoogleUsage {
+  checks: { used: number; cap: number };
+  searches: { used: number; cap: number };
+  other: { used: number; cap: number };
+}
+/** Transient (§4.5) — never stored; `attributions` are the provider names Google returned with the candidate. */
+export type GoogleCandidate = { placeId: string; name: string; addressLine: string; distanceM: number | null; attributions: string[] };
+export type GoogleListingReason = "no_match" | "no_location" | "allowance" | "unavailable";

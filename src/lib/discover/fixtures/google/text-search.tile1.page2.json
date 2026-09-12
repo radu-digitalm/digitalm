@@ -1,0 +1,916 @@
+{
+  "places": [
+    {
+      "id": "ChIJcLOa1os45HrQ1sT728VNf0q",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "37 Avenue des Essais, 09000 Foix, France",
+      "location": {
+        "latitude": 42.966069,
+        "longitude": 1.606592
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 21",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "37 Avenue des Essais",
+          "shortText": "37 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJEWQAwAquBoQYWIE_EqVlUVH",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "75 Avenue des Essais, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.116649,
+        "longitude": 1.612266
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 22",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "75 Avenue des Essais",
+          "shortText": "75 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJiYl3q_4wLK9ieA5Adylclbv",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "64 Avenue des Essais, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.987911,
+        "longitude": 1.141944
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 23",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "64 Avenue des Essais",
+          "shortText": "64 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJir5HgECqFwASOmVeHANroAv",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "37 Avenue des Essais, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.931319,
+        "longitude": 1.850739
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 24",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "37 Avenue des Essais",
+          "shortText": "37 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJUd7oxETF4Q6p3iyC0FEi4bA",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "5 Avenue des Essais, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.846613,
+        "longitude": 1.601454
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 25",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "5 Avenue des Essais",
+          "shortText": "5 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ_tIzkdk4WnNlRvBE38UYkLP",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "45 Avenue des Essais, 09500 Mirepoix, France",
+      "location": {
+        "latitude": 43.095329,
+        "longitude": 1.864743
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 26",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "45 Avenue des Essais",
+          "shortText": "45 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Mirepoix",
+          "shortText": "Mirepoix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09500",
+          "shortText": "09500",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJc8_X_otF57MU_xdasAjtcHF",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "95 Avenue des Essais, 09000 Foix, France",
+      "location": {
+        "latitude": 42.966242,
+        "longitude": 1.603272
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 27",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "95 Avenue des Essais",
+          "shortText": "95 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJBLbnthu9b36pC6kxlXtpvys",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "75 Avenue des Essais, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.11263,
+        "longitude": 1.614126
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 28",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "75 Avenue des Essais",
+          "shortText": "75 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJAAFLt1lCJSm3Hy4RwQMTTKb",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "48 Avenue des Essais, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.978955,
+        "longitude": 1.152022
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 29",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "48 Avenue des Essais",
+          "shortText": "48 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJJm62uyKPVuQyiY-odus59Nn",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "55 Avenue des Essais, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.933241,
+        "longitude": 1.8455
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 30",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "55 Avenue des Essais",
+          "shortText": "55 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJwXugJrW8ueK77ybByPxTQc6",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "20 Avenue des Essais, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.844865,
+        "longitude": 1.600209
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Fixture Restaurant 31",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "20 Avenue des Essais",
+          "shortText": "20 Avenue des Essais",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJD8KZK_5HIq-F5N84ITdQNdf",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "16 Rue des Fixtures, 09000 Foix, France",
+      "location": {
+        "latitude": 42.955843,
+        "longitude": 1.603927
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Fournil d'Alice",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "16 Rue des Fixtures",
+          "shortText": "16 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    }
+  ]
+}

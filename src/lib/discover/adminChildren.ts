@@ -33,15 +33,24 @@ function centreOf(el: OverpassElement): { lat: number; lng: number } | null {
   return typeof lat === "number" && typeof lng === "number" && Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
 }
 
+function boundsOf(el: OverpassElement): Bbox | null {
+  const b = el.bounds;
+  if (!b) return null;
+  const vals = [b.minlat, b.minlon, b.maxlat, b.maxlon];
+  if (!vals.every((x) => typeof x === "number" && Number.isFinite(x))) return null;
+  if (b.minlat >= b.maxlat || b.minlon >= b.maxlon) return null;
+  return [b.minlat, b.minlon, b.maxlat, b.maxlon];
+}
+
 function tidy(s: string | undefined, max = 80): string | undefined {
   const t = s?.replace(CONTROL_RE, " ").replace(/\s+/g, " ").trim();
   return t ? t.slice(0, max) : undefined;
 }
 
-/** Named children with a centre at one admin level (`ref:INSEE`, else `ISO3166-2`, as the code). Cached 24 h. */
+/** Named children with a centre (and their bounding box) at one admin level (`ref:INSEE`, else `ISO3166-2`, as the code). Cached 24 h; key "v2" since the bbox was added. */
 export async function fetchChildren(selector: AreaSelector, level: number, signal?: AbortSignal): Promise<ChildRel[]> {
   const query = childrenQuery(selector, level);
-  const { value, hit } = await cached<{ children: ChildRel[] }>("overpass_children", { selector, level }, DAY_MS, async () => {
+  const { value, hit } = await cached<{ children: ChildRel[] }>("overpass_children", { selector, level, v: "v2" }, DAY_MS, async () => {
     const data = await postOnceOrRetry<{ elements?: OverpassElement[] }>(query, signal);
     const children: ChildRel[] = [];
     for (const el of data.elements ?? []) {
@@ -50,7 +59,11 @@ export async function fetchChildren(selector: AreaSelector, level: number, signa
       const name = tidy(el.tags?.name);
       if (!center || !name) continue;
       const code = tidy(el.tags?.["ref:INSEE"] ?? el.tags?.["ISO3166-2"], 12);
-      children.push(code ? { relId: el.id, name, code, center } : { relId: el.id, name, center });
+      const bbox = boundsOf(el);
+      const child: ChildRel = { relId: el.id, name, center };
+      if (code) child.code = code;
+      if (bbox) child.bbox = bbox;
+      children.push(child);
     }
     return { children };
   });

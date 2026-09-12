@@ -16,7 +16,7 @@ Status: **draft — to be signed by Radu before the first production send** (con
 
 - We cannot offer a website audit to a business without knowing the business exists, what it does, where it is, and which site is its own. The data set is the minimum for that: identity (name, trading name, legal form, registration number, address, coordinates), the website, one business email and phone, social links, and the technical facts about the site.
 - Less intrusive means considered: advertising alone (already used — ChatGPT ads, Google Business Profile) reaches only businesses that search; a trade-directory listing does not address the specific need the report shows. Prospecting is additional, not a replacement, and capped (10 emails a day, whichever path — sent from the tool or pasted into Gmail).
-- Data not collected because not necessary: directors, finances and any other block of the register answer are dropped inside the adapter; nothing is scraped from Google Maps, Pages Jaunes, LinkedIn or Facebook; the only crawler is ours, on the prospect's own site, honouring robots.txt and terms; no raw HTML is stored; report opens are counted with a salted IP hash only, no cookies.
+- Data not collected because not necessary: directors, finances and any other block of the register answer are dropped inside the adapter; nothing is scraped from Google Maps, Pages Jaunes, LinkedIn or Facebook — when the Google check is on, one listing identifier and a derived result are kept per audit, and the business name and town are sent to Google to find the listing; the only crawler is ours, on the prospect's own site, honouring robots.txt and terms; no raw HTML is stored; report opens are counted with a salted IP hash only, no cookies.
 
 ## 3. Balancing test — do the recipient's interests override ours?
 
@@ -33,7 +33,7 @@ Status: **draft — to be signed by Radu before the first production send** (con
 - Retention: 3 years after the last exchange (only a reply, a report view, an answered call or an opt-out counts as an exchange — our own unanswered attempts do not extend it); 12 months for no-response / not-a-fit prospects, by email or by phone, sole traders deleted outright; the outreach lead and the stored copies of sent emails lose the raw address, number and name with the prospect, and closed outreach leads are deleted 3 years after their last activity; IPs and IP hashes nulled at 12 months; only the last 3 audits per business kept; expired caches and finished jobs pruned. Periods are stated on the privacy page.
 - Volume and pace: 10 emails a day (lower by setting), in-app and Gmail sends counted together, a prepared or in-flight email counting until it is recorded or cancelled; one at a time; manual review of every draft before sending (drafts are refused while unreviewed).
 - Security: admin behind a scrypt-hashed shared password, signed HttpOnly cookie, CSRF check, rate limits; SSRF-safe crawler pinned to vetted addresses; secrets never logged; Telegram and analytics receive references only.
-- Recipients / processors: Google Workspace (email), OpenAI (drafting from technical findings only, never personal data — API DPA accepted), Google PageSpeed Insights (speed test of the public site), OVH (hosting), Google Maps Platform (listing identifier only, when enabled).
+- Recipients / processors: Google Workspace (email), OpenAI (drafting from technical findings only, never personal data — API DPA accepted), Google PageSpeed Insights (speed test of the public site), OVH (hosting), Google Maps Platform (when the Google check is on: one listing identifier and a derived result per audit; the business name and town are sent to Google to find the listing).
 
 **Outcome.** The interest is legitimate, the processing is necessary and proportionate, and with the safeguards above the recipients' interests and rights do not override it. Basis confirmed: Article 6(1)(f). Sole traders are informed under Article 14 within one month or their data is deleted.
 
@@ -43,4 +43,6 @@ Digital Management Ltd is a UK company. The prospecting activity is run from its
 
 ## 5. Review
 
-Re-assess when: a new country is opened (a new SendRule, footer and local-law check); Google Places is switched on; the daily cap is raised; a complaint or opt-out rate above ~2% of sends is observed; or twelve months have passed. Signed: __________________ (Radu, Digital Management Ltd), date: __________.
+Re-assess when: a new country is opened (a new SendRule, footer and local-law check); the daily cap is raised; a complaint or opt-out rate above ~2% of sends is observed; or twelve months have passed. Signed: __________________ (Radu, Digital Management Ltd), date: __________.
+
+Google Places switched on (date: __________): re-assessed, no change to the basis; derived result kept per audit (30-day refresh), discovery per decision D1 of docs/finder-google-spec.md. Signed: __________________ (Radu, Digital Management Ltd).

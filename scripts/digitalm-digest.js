@@ -39,7 +39,7 @@ if (args.includes("--help") || args.includes("-h")) {
   process.exit(0);
 }
 
-const ENV_KEYS = ["ENQUIRIES_DB_PATH", "READY_SCORE_MAX", "OUTREACH_COUNTRY_ALLOW", "OUTREACH_DAILY_CAP", "GOOGLE_PLACES_MONTHLY_CAP", "NEXT_PUBLIC_SITE_URL"];
+const ENV_KEYS = ["ENQUIRIES_DB_PATH", "READY_SCORE_MAX", "OUTREACH_COUNTRY_ALLOW", "OUTREACH_DAILY_CAP", "GOOGLE_PLACES", "GOOGLE_PLACES_KEY", "GOOGLE_PLACES_MONTHLY_CAP", "GOOGLE_SEARCH_MONTHLY_CAP", "GOOGLE_DETAILS_MONTHLY_CAP", "NEXT_PUBLIC_SITE_URL"];
 function loadEnv(file) {
   const out = {};
   let text;
@@ -66,7 +66,17 @@ const DB_PATH = argValue("--db") || cfg("ENQUIRIES_DB_PATH", "/home/hermes/data/
 const SITE = String(cfg("NEXT_PUBLIC_SITE_URL", "https://digitalm.eu")).replace(/\/$/, "");
 const READY_SCORE_MAX = intCfg("READY_SCORE_MAX", 60);
 const OUTREACH_DAILY_CAP = intCfg("OUTREACH_DAILY_CAP", 10);
+// finder-google §4.7: the three monthly pools, counted on the Pacific calendar day (Google's free tier resets at midnight Pacific).
+const GOOGLE_ON = cfg("GOOGLE_PLACES", "off") === "on" && !!cfg("GOOGLE_PLACES_KEY", ""); // presence only — the key is never printed
+const GOOGLE_KEY_MISSING = cfg("GOOGLE_PLACES", "off") === "on" && !cfg("GOOGLE_PLACES_KEY", "");
 const GOOGLE_CAP = intCfg("GOOGLE_PLACES_MONTHLY_CAP", 900);
+const GOOGLE_SEARCH_CAP = intCfg("GOOGLE_SEARCH_MONTHLY_CAP", 4500);
+const GOOGLE_OTHER_CAP = intCfg("GOOGLE_DETAILS_MONTHLY_CAP", 4500);
+const GOOGLE_MONTH = (() => {
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit" }).formatToParts(new Date());
+  const get = (t) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}`;
+})();
 const EMAIL_RULE_COUNTRIES = ["FR", "GB", "US"];
 const ALLOW = new Set(
   String(cfg("OUTREACH_COUNTRY_ALLOW", "FR,GB,US"))
@@ -244,10 +254,19 @@ section("Ready to send", ["prospects", "audits", "leads", "activities"], () => {
   out(`Ready to send: ${ready} · Call list: ${call}`);
 });
 
-section("Google calls this month", ["api_usage"], () => {
-  const n = count(`SELECT COALESCE(SUM(count), 0) AS n FROM api_usage WHERE provider = 'google_places' AND day LIKE ? ESCAPE '\\'`, `${MONTH}-%`);
-  out(`Google calls this month: ${n} / ${GOOGLE_CAP}${n >= GOOGLE_CAP ? " (cap reached)" : ""}`);
-});
+// Mirrors the `google` / `google-key` cards of src/lib/inbox/today.ts (finder-google §4.7): nothing while Google is off.
+if (GOOGLE_ON) {
+  section("Google usage this month", ["api_usage"], () => {
+    const pool = (provider) => count(`SELECT COALESCE(SUM(count), 0) AS n FROM api_usage WHERE provider = ? AND day LIKE ? ESCAPE '\\'`, provider, `${GOOGLE_MONTH}-%`);
+    const checks = pool("google_details_enterprise");
+    const searches = pool("google_search");
+    const other = pool("google_details_other");
+    const capped = (checks >= GOOGLE_CAP && GOOGLE_CAP > 0) || (searches >= GOOGLE_SEARCH_CAP && GOOGLE_SEARCH_CAP > 0) || (other >= GOOGLE_OTHER_CAP && GOOGLE_OTHER_CAP > 0);
+    out(`Google usage this month: ${checks} / ${GOOGLE_CAP} — ${searches.toLocaleString("en-GB")} / ${GOOGLE_SEARCH_CAP.toLocaleString("en-GB")} searches${capped ? " (a cap is reached)" : ""}`);
+  });
+} else if (GOOGLE_KEY_MISSING) {
+  section("Google key", [], () => out("Google key: missing"));
+}
 
 section("Notice deadlines within 5 days", ["prospects"], () => {
   const n = count(

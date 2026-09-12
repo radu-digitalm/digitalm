@@ -1,0 +1,1468 @@
+{
+  "places": [
+    {
+      "id": "ChIJD8KZK_5HIq-F5N84ITdQNdf",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "16 Rue des Fixtures, 09000 Foix, France",
+      "location": {
+        "latitude": 42.955843,
+        "longitude": 1.603927
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Fournil d'Alice",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "16 Rue des Fixtures",
+          "shortText": "16 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJRNVc5NjoGEpd27ITSVJb31J",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "93 Rue des Fixtures, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.113301,
+        "longitude": 1.615799
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Chez Marcel",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "93 Rue des Fixtures",
+          "shortText": "93 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJVLa1FIbgNPrvVbvW4El8wRq",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "47 Rue des Fixtures, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.975025,
+        "longitude": 1.143826
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "La Table du Castel",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "47 Rue des Fixtures",
+          "shortText": "47 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ_5NxwRok9gLWaHYD6LbUHKG",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "7 Rue des Fixtures, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.924619,
+        "longitude": 1.844876
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Auberge des Trois Ponts",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "7 Rue des Fixtures",
+          "shortText": "7 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ],
+      "attributions": [
+        {
+          "provider": "Example Data Co",
+          "providerUri": "https://example.invalid/data"
+        }
+      ]
+    },
+    {
+      "id": "ChIJvkLdtJ8m-fYlWzkTk0YidmK",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "92 Rue des Fixtures, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.852993,
+        "longitude": 1.612951
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Pizzeria Bella Nova",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "92 Rue des Fixtures",
+          "shortText": "92 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJuf3D4jpWvknRIxQI4xbF_oD",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "39 Rue des Fixtures, 09500 Mirepoix, France",
+      "location": {
+        "latitude": 43.093505,
+        "longitude": 1.873639
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Bistrot d'Ancre",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "39 Rue des Fixtures",
+          "shortText": "39 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Mirepoix",
+          "shortText": "Mirepoix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09500",
+          "shortText": "09500",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJwVzwDiniaDejz2yrUzyIixc",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "4 Rue des Fixtures, 09000 Foix, France",
+      "location": {
+        "latitude": 42.963096,
+        "longitude": 1.601108
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Restaurant Le Phoebus",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "4 Rue des Fixtures",
+          "shortText": "4 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJKFKvqgFL-vzPb2GICtkChVh",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "83 Rue des Fixtures, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.123592,
+        "longitude": 1.60453
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "La Grange aux Ours",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "83 Rue des Fixtures",
+          "shortText": "83 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJg-5xbmaVBfaFfxxdeNkR8K7",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "40 Rue des Fixtures, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.982137,
+        "longitude": 1.152878
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Ô Comptoir",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "40 Rue des Fixtures",
+          "shortText": "40 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ4uB9otzJCgSiqZpwCi4GZV3",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "35 Rue des Fixtures, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.927123,
+        "longitude": 1.855313
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Petit Séquoia",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "35 Rue des Fixtures",
+          "shortText": "35 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJML7A21TvOYSob4Wp8nZ4Zm9",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "93 Rue des Fixtures, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.837342,
+        "longitude": 1.597818
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Brasserie du Marché",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "93 Rue des Fixtures",
+          "shortText": "93 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJJdJjJWlbUIRlD9K2c24Uuwo",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "35 Rue des Fixtures, 09500 Mirepoix, France",
+      "location": {
+        "latitude": 43.092653,
+        "longitude": 1.879942
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Jardin d'Ève",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "35 Rue des Fixtures",
+          "shortText": "35 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Mirepoix",
+          "shortText": "Mirepoix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09500",
+          "shortText": "09500",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJqqBSTkzZ3SmbohTvZPydNpy",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "21 Rue des Fixtures, 09000 Foix, France",
+      "location": {
+        "latitude": 42.969545,
+        "longitude": 1.599329
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Les Terrasses de Lise",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "21 Rue des Fixtures",
+          "shortText": "21 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJwSGNwtGG0vmd8bzKyjhMkGO",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "84 Rue des Fixtures, 09100 Pamiers, France",
+      "location": {
+        "latitude": 43.109204,
+        "longitude": 1.601448
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "La Cantine Verte",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "84 Rue des Fixtures",
+          "shortText": "84 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pamiers",
+          "shortText": "Pamiers",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09100",
+          "shortText": "09100",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJVDuSROPYzPItdrlguUbXXpp",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "90 Rue des Fixtures, 09200 Saint-Girons, France",
+      "location": {
+        "latitude": 42.98471,
+        "longitude": 1.144344
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Relais du Col",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "90 Rue des Fixtures",
+          "shortText": "90 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Saint-Girons",
+          "shortText": "Saint-Girons",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09200",
+          "shortText": "09200",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJkWHdHv2F0Uvk721mX_dprHC",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "32 Rue des Fixtures, 09300 Lavelanet, France",
+      "location": {
+        "latitude": 42.92513,
+        "longitude": 1.840761
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Chez Tonton Rémi",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "32 Rue des Fixtures",
+          "shortText": "32 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Lavelanet",
+          "shortText": "Lavelanet",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09300",
+          "shortText": "09300",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ83t2m2Hf6JTkgPSIJs3NDeC",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "45 Rue des Fixtures, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.852928,
+        "longitude": 1.614621
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "La Marmite Enchantée",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "45 Rue des Fixtures",
+          "shortText": "45 Rue des Fixtures",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJrB4MIGqSSAX6SZvEHRrPbUu",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Carrer Major 3, AD400 La Massana, Andorra",
+      "location": {
+        "latitude": 42.545,
+        "longitude": 1.515
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Borda del Pirineu",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "Carrer Major",
+          "shortText": "Carrer Major",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "La Massana",
+          "shortText": "La Massana",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "La Massana",
+          "shortText": "La Massana",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Andorra",
+          "shortText": "AD",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "AD400",
+          "shortText": "AD400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ1KgNDiF3nIKbtE4cbsDGKXL",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "4 Route des Lacs, 66210 Formiguères, France",
+      "location": {
+        "latitude": 42.61,
+        "longitude": 2.11
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Auberge du Capcir",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "4 Route des Lacs",
+          "shortText": "4 Route des Lacs",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Formiguères",
+          "shortText": "Formiguères",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Pyrénées-Orientales",
+          "shortText": "Pyrénées-Orientales",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "66210",
+          "shortText": "66210",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJ2Cg64ka-sArPjVGOI-FmXlr",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "Ariège, France",
+      "location": {
+        "latitude": 42.95,
+        "longitude": 1.45
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Sans Adresse",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser"
+    }
+  ],
+  "nextPageToken": "CpQCAgEAAFxg8o-eU7_uKn7Yqjana-fixture-token-1"
+}

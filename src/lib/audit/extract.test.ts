@@ -144,11 +144,12 @@ test("detectBooking / detectChat / hasEmailForm", () => {
 
 test("summariseJsonLd: business type with telephone and opening hours, @graph, arrays, junk", () => {
   const full = `<script type="application/ld+json">{"@context":"https://schema.org","@type":"Bakery","name":"Le Fournil","telephone":"+33561000000","openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":"Monday","opens":"07:00","closes":"19:00"}]}</script>`;
-  assert.deepEqual(summariseJsonLd(full), { present: true, type: "Bakery", localBusiness: true, telephone: true, openingHours: true });
+  assert.deepEqual(summariseJsonLd(full), { present: true, type: "Bakery", localBusiness: true, telephone: true, openingHours: true, name: "Le Fournil" });
   const graph = `<script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"WebSite","url":"https://x.fr"},{"@type":["Organization","LocalBusiness"],"telephone":"05 61 00 00 00","openingHours":"Mo-Fr 09:00-18:00"}]}</script>`;
   assert.deepEqual(summariseJsonLd(graph), { present: true, type: "Organization", localBusiness: true, telephone: true, openingHours: true });
   const partial = `<script type="application/ld+json">{"@type":"Restaurant","name":"X","telephone":""}</script>`;
-  assert.deepEqual(summariseJsonLd(partial), { present: true, type: "Restaurant", localBusiness: true, telephone: false, openingHours: false });
+  assert.deepEqual(summariseJsonLd(partial), { present: true, type: "Restaurant", localBusiness: true, telephone: false, openingHours: false, name: "X" });
+  // The name comes from the business node only (finder-google §4.5 site-name write-back), never from a WebSite / WebPage node.
   const website = `<script type="application/ld+json">{"@type":"WebPage","name":"X"}</script>`;
   assert.deepEqual(summariseJsonLd(website), { present: true, type: null, localBusiness: false, telephone: false, openingHours: false });
   const subtype = `<script type="application/ld+json">{"@type":"HairSalon","telephone":"1","openingHours":["Mo 9-18"]}</script>`;

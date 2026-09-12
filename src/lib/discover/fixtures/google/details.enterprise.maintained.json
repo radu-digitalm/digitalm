@@ -1,0 +1,125 @@
+{
+  "id": "ChIJzNi9bwKs9LtNoyWoHn_J10Z",
+  "businessStatus": "OPERATIONAL",
+  "websiteUri": "https://www.example-phoebus.invalid/",
+  "nationalPhoneNumber": "05 61 00 00 00",
+  "regularOpeningHours": {
+    "openNow": true,
+    "periods": [
+      {
+        "open": {
+          "day": 1,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 1,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 2,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 2,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 3,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 3,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 4,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 4,
+          "hour": 14,
+          "minute": 30
+        }
+      },
+      {
+        "open": {
+          "day": 5,
+          "hour": 12,
+          "minute": 0
+        },
+        "close": {
+          "day": 5,
+          "hour": 14,
+          "minute": 30
+        }
+      }
+    ],
+    "weekdayDescriptions": [
+      "Monday: 12:00 – 2:30 PM",
+      "Monday: 12:00 – 2:30 PM",
+      "Monday: 12:00 – 2:30 PM",
+      "Monday: 12:00 – 2:30 PM",
+      "Monday: 12:00 – 2:30 PM",
+      "Saturday: Closed",
+      "Sunday: Closed"
+    ]
+  },
+  "rating": 4.5,
+  "userRatingCount": 37,
+  "photos": [
+    {
+      "name": "places/ChIJ8isrA0GDpq4ntc0r3kB-WVX/photos/fixture-1",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "A Fixture Author",
+          "uri": "https://maps.google.com/maps/contrib/0",
+          "photoUri": "https://lh3.googleusercontent.com/fixture"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJ__koODppZCVh8XIP0y_4Y1W/photos/fixture-2",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "A Fixture Author",
+          "uri": "https://maps.google.com/maps/contrib/0",
+          "photoUri": "https://lh3.googleusercontent.com/fixture"
+        }
+      ]
+    },
+    {
+      "name": "places/ChIJQ6lVcpDiynNq6OZv8M2Ag8Q/photos/fixture-3",
+      "widthPx": 4032,
+      "heightPx": 3024,
+      "authorAttributions": [
+        {
+          "displayName": "A Fixture Author",
+          "uri": "https://maps.google.com/maps/contrib/0",
+          "photoUri": "https://lh3.googleusercontent.com/fixture"
+        }
+      ]
+    }
+  ],
+  "pureServiceAreaBusiness": false,
+  "attributions": [],
+  "unexpectedField": {
+    "nested": true
+  }
+}

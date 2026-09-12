@@ -1,0 +1,389 @@
+{
+  "places": [
+    {
+      "id": "ChIJzNi9bwKs9LtNoyWoHn_J10Z",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "3 Cours Irénée Cros, 09000 Foix, France",
+      "location": {
+        "latitude": 42.96496,
+        "longitude": 1.6053
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Phoebus Restaurant",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "3 Cours Irénée Cros",
+          "shortText": "3 Cours Irénée Cros",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ],
+      "attributions": [
+        {
+          "provider": "Example Data Co",
+          "providerUri": "https://example.invalid/data"
+        }
+      ]
+    },
+    {
+      "id": "ChIJxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "12 Rue de la Rive, 09400 Tarascon-sur-Ariège, France",
+      "location": {
+        "latitude": 42.8458,
+        "longitude": 1.6047
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Phoebus",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "12 Rue de la Rive",
+          "shortText": "12 Rue de la Rive",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Tarascon-sur-Ariège",
+          "shortText": "Tarascon-sur-Ariège",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09400",
+          "shortText": "09400",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJPoXgFiNQUrkLB4K2ajW4je7",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "8 Place Parmentier, 09000 Foix, France",
+      "location": {
+        "latitude": 42.966,
+        "longitude": 1.607
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Phoebus Pizza",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "8 Place Parmentier",
+          "shortText": "8 Place Parmentier",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJyCp2HqCGF7pKfr6JEoJSm1D",
+      "types": [
+        "restaurant",
+        "food",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "1 Rue Delcassé, 09000 Foix, France",
+      "location": {
+        "latitude": 42.965,
+        "longitude": 1.606
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "La Table de Foix",
+        "languageCode": "fr"
+      },
+      "primaryType": "restaurant",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "1 Rue Delcassé",
+          "shortText": "1 Rue Delcassé",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    },
+    {
+      "id": "ChIJnLCwYEdSI3nv8Uz9jU2FADV",
+      "types": [
+        "bar",
+        "point_of_interest",
+        "establishment"
+      ],
+      "formattedAddress": "20 Rue des Chapeliers, 09000 Foix, France",
+      "location": {
+        "latitude": 42.963,
+        "longitude": 1.603
+      },
+      "businessStatus": "OPERATIONAL",
+      "displayName": {
+        "text": "Le Phoebus Bar",
+        "languageCode": "fr"
+      },
+      "primaryType": "bar",
+      "pureServiceAreaBusiness": false,
+      "ignoredExtraField": "must be dropped by the parser",
+      "addressComponents": [
+        {
+          "longText": "20 Rue des Chapeliers",
+          "shortText": "20 Rue des Chapeliers",
+          "types": [
+            "route"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Foix",
+          "shortText": "Foix",
+          "types": [
+            "locality",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Ariège",
+          "shortText": "Ariège",
+          "types": [
+            "administrative_area_level_2",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "Occitanie",
+          "shortText": "Occitanie",
+          "types": [
+            "administrative_area_level_1",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "France",
+          "shortText": "FR",
+          "types": [
+            "country",
+            "political"
+          ],
+          "languageCode": "fr"
+        },
+        {
+          "longText": "09000",
+          "shortText": "09000",
+          "types": [
+            "postal_code"
+          ],
+          "languageCode": "fr"
+        }
+      ]
+    }
+  ]
+}

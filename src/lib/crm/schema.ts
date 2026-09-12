@@ -292,6 +292,8 @@ export const EXTRA_COLUMNS: [table: string, column: string, decl: string][] = [
   ["searches", "dismissed", "TEXT"], // finder-ux: JSON string[] of hidden row keys ("Not this one")
   ["prospects", "city_approx", "INTEGER"], // finder-ux: 1 when the town came from the nearest commune centre
   ["prospects", "source_socials", "TEXT"], // finder-ux: JSON { facebook, instagram, ... } from the source
+  ["prospects", "google_checked_at", "TEXT"], // finder-google: last automatic match / listing-check attempt
+  ["prospects", "google_match", "TEXT"], // finder-google: auto|manual|NULL — how google_place_id / google_listing were set
 
   // @@crm:audit
 
