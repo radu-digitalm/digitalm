@@ -1,8 +1,9 @@
 "use client";
 
-// Add a prospect from its website (contract §6 "Add by URL"): country is
-// required — defaulted from the ccTLD (".fr" → FR, ".co.uk" → GB) else FR —
-// the row gets source `manual`, the 30-day notice deadline and a queued audit.
+// Add a prospect from its website (contract §6 "Add by URL"), collapsed behind
+// one button (docs/finder-ux-spec.md §6.2). Country is required — defaulted
+// from the ccTLD (".fr" → FR, ".co.uk" → GB) else FR — the row gets source
+// `manual`, the 30-day notice deadline and a queued audit.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { countryFromTld } from "@/lib/crm/classify";
@@ -10,10 +11,12 @@ import { adminFetch } from "./adminFetch";
 import { Button } from "./Button";
 import { Field } from "./Field";
 import { useToast } from "./Toast";
+import { PROSPECT_TEXT } from "./wording";
 
-export function AddByUrl() {
+export function AddByUrl({ className = "" }: { className?: string }) {
   const router = useRouter();
   const toast = useToast();
+  const [open, setOpen] = useState(false);
   const [url, setUrl] = useState("");
   const [name, setName] = useState("");
   const [country, setCountry] = useState("FR");
@@ -34,7 +37,7 @@ export function AddByUrl() {
       return;
     }
     if (!/^[A-Z]{2}$/.test(country)) {
-      setError("Country must be a two-letter ISO code.");
+      setError("Country must be a two-letter code, e.g. FR or GB.");
       return;
     }
     setBusy(true);
@@ -50,16 +53,24 @@ export function AddByUrl() {
         setError(`Already saved as ${e.body?.reference ?? "an existing prospect"}.`);
         if (e.body?.id) router.push(`/admin/prospects/${e.body.id}`);
       } else if (e.code === "bad_url") setError("That does not look like a website address.");
-      else if (e.code === "bad_country") setError("Country must be a two-letter ISO code.");
-      else setError(`Could not add the prospect (${e.code ?? "error"}).`);
+      else if (e.code === "bad_country") setError("Country must be a two-letter code, e.g. FR or GB.");
+      else setError("The business could not be added. Try again.");
     } finally {
       setBusy(false);
     }
   }
 
+  if (!open) {
+    return (
+      <Button size="sm" onClick={() => setOpen(true)} className={className} aria-expanded={false}>
+        {PROSPECT_TEXT.addByWebsite}
+      </Button>
+    );
+  }
+
   return (
-    <form onSubmit={submit} className="card grid gap-3 p-4 sm:grid-cols-[2fr_1.5fr_5rem_auto] sm:items-end" noValidate aria-label="Add by URL">
-      <Field label="Add by URL" name="url" value={url} onChange={(e) => onUrl(e.target.value)} placeholder="https://www.example.fr" autoComplete="off" required />
+    <form onSubmit={submit} className={`card grid gap-3 p-4 sm:grid-cols-[2fr_1.5fr_6rem_auto_auto] sm:items-end ${className}`} noValidate aria-label={PROSPECT_TEXT.addByWebsite}>
+      <Field label="Website" name="url" value={url} onChange={(e) => onUrl(e.target.value)} placeholder="https://www.example.fr" autoComplete="off" required autoFocus />
       <Field label="Name (optional)" name="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="defaults to the domain" autoComplete="off" />
       <Field
         label="Country"
@@ -76,8 +87,9 @@ export function AddByUrl() {
       <Button type="submit" variant="primary" loading={busy}>
         Add
       </Button>
+      <Button onClick={() => setOpen(false)}>Cancel</Button>
       {error ? (
-        <p role="alert" className="text-sm text-accent-soft sm:col-span-4">
+        <p role="alert" className="text-[15px] text-accent-soft sm:col-span-5">
           {error}
         </p>
       ) : null}

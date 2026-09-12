@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/crm/auth";
 import { countViews, listProspects } from "@/lib/prospects/store";
-import { AddByUrl } from "@/components/admin/AddByUrl";
 import { ProspectTable } from "@/components/admin/ProspectTable";
+import { PROSPECT_TEXT } from "@/components/admin/wording";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -13,8 +13,8 @@ function one(v: string | string[] | undefined): string {
   return (Array.isArray(v) ? v[0] : v) ?? "";
 }
 
-// Views ready / call / all / not_fit (READY_WHERE, CALL_WHERE), badges,
-// bulk "Audit next 20", Add by URL.
+// Views ready / call / all / not_fit (READY_WHERE, CALL_WHERE), badges as
+// words, More menu (Audit next 20, Fill in missing towns), Add by website.
 export default async function ProspectsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   await requireAdmin("/admin/prospects");
   const sp = await searchParams;
@@ -26,14 +26,11 @@ export default async function ProspectsPage({ searchParams }: { searchParams: Pr
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="eyebrow">Outreach</p>
-          <h1 className="mt-1 text-2xl text-fg-heading">Prospects</h1>
-          <p className="mt-1 text-sm text-fg-muted">Ready to send = audited under the threshold, usable business email, inside the country rules. Everything else waits for an audit, a phone call or a decision.</p>
-        </div>
+      <header>
+        <p className="eyebrow">Outreach</p>
+        <h1 className="mt-1 text-[26px] text-fg-heading">Prospects</h1>
+        <p className="mt-1 max-w-prose text-[15px] text-fg-muted">{PROSPECT_TEXT.intro}</p>
       </header>
-      <AddByUrl />
       <ProspectTable rows={rows} view={view} counts={counts} q={q} sort={sort} dir={dir} />
     </div>
   );

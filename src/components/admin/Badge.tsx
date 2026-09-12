@@ -1,4 +1,5 @@
 // Status pill. Variants: neutral | good | warn | bad | info (contract §4).
+// Plain words only (docs/finder-ux-spec.md §6.3); `title` carries the sentence.
 export type BadgeVariant = "neutral" | "good" | "warn" | "bad" | "info";
 
 const VARIANT: Record<BadgeVariant, string> = {
@@ -21,10 +22,7 @@ export function Badge({
   className?: string;
 }) {
   return (
-    <span
-      title={title}
-      className={`inline-flex items-center whitespace-nowrap rounded-full border px-2 py-0.5 text-xs font-medium ${VARIANT[variant]} ${className}`}
-    >
+    <span title={title} className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[13px] font-medium leading-tight ${VARIANT[variant]} ${className}`}>
       {children}
     </span>
   );

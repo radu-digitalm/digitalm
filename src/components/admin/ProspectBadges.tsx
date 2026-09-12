@@ -1,12 +1,14 @@
 import { daysUntilSql, fromSql } from "@/lib/crm/time";
 import { Badge, type BadgeVariant } from "./Badge";
+import { BADGE_TEXT, LEAD_STAGE_WORDS, fill } from "./wording";
 
-// Status badges for a prospect (contract §6 "Badges"): needs website / email
-// / phone, call instead, notice deadline in N days, not a fit, chain (brand),
-// partial register, wiped, plus the states that block outreach. Pure — no
-// hooks, no DB — so server pages and client tables share it. Dates arrive as
-// SQL UTC strings ("YYYY-MM-DD HH:MM:SS") and are parsed by crm/time.ts, which
-// has no imports and therefore never pulls the SQLite driver into a bundle.
+// Status badges for a prospect (contract §6 "Badges"), worded per
+// docs/finder-ux-spec.md §6.3: the keys are unchanged, the labels are plain
+// words from wording.ts and every badge carries its sentence as a title.
+// Pure — no hooks, no DB — so server pages and client tables share it. Dates
+// arrive as SQL UTC strings ("YYYY-MM-DD HH:MM:SS") and are parsed by
+// crm/time.ts, which has no imports and therefore never pulls the SQLite
+// driver into a bundle.
 
 export type BadgeSpec = { key: string; label: string; variant: BadgeVariant; title?: string };
 
@@ -53,46 +55,50 @@ export function anyPhone(p: Pick<BadgeInput, "websitePhone" | "sourcePhone" | "c
 
 export function badgesFor(p: BadgeInput, now = new Date()): BadgeSpec[] {
   const out: BadgeSpec[] = [];
-  const add = (key: string, label: string, variant: BadgeVariant, title?: string) => out.push({ key, label, variant, title });
+  const add = (key: string, variant: BadgeVariant, params: Record<string, string | number> = {}, title?: string) => {
+    const t = BADGE_TEXT[key] ?? { label: key, sentence: "" };
+    out.push({ key, label: fill(t.label, params), variant, title: title ?? t.sentence });
+  };
 
-  if (p.deletedAt) add("removed", "removed", "bad", "Marked as not this business");
-  if (p.optedOutAt) add("optout", "opted out", "bad", `Opted out ${p.optedOutAt}`);
-  if (p.registerStatus === "ceased") add("ceased", "register ceased", "bad");
-  if (p.diffusion === "partial") add("partial", "partial register", "warn", "Non-diffusible in the register: cannot be saved or contacted");
+  if (p.deletedAt) add("removed", "bad");
+  if (p.optedOutAt) add("optout", "bad");
+  if (p.registerStatus === "ceased") add("ceased", "bad");
+  if (p.diffusion === "partial") add("partial", "warn");
   if (p.forbidsExtraction) {
-    if (p.forbidsOverrideReason) add("forbids-override", "extraction override", "warn", p.forbidsOverrideReason);
-    else add("forbids", "forbids extraction", "bad", "The site's legal page forbids extraction or prospecting");
+    if (p.forbidsOverrideReason) add("forbids-override", "warn", {}, p.forbidsOverrideReason);
+    else add("forbids", "bad");
   }
-  if (p.fit === "not_fit") add("not-fit", "not a fit", "neutral");
-  else if (p.fit === "fit") add("fit", "fit", "good");
+  if (p.fit === "not_fit") add("not-fit", "neutral");
+  else if (p.fit === "fit") add("fit", "good");
 
   const email = usableEmail(p);
   const phone = anyPhone(p);
-  if (!p.website) add("no-website", "needs website", "warn");
+  if (!p.website) add("no-website", "warn");
   if (!email) {
-    if (phone) add("call", "call instead", "info", "No usable business email — a phone number is on file");
-    else add("no-email", "needs email", "warn");
+    if (phone) add("call", "info");
+    else add("no-email", "warn");
   } else if (p.websiteEmailKind === "webmail" && !p.contactEmailOverride) {
-    add("webmail", "webmail address", "warn");
+    add("webmail", "warn");
   }
-  if (!phone) add("no-phone", "needs phone", "neutral");
-  if (p.country === "GB" && p.soleTrader === null) add("gb-unknown", "legal form unknown", "warn", "GB: no email until the register confirms a company");
-  if (p.country === "GB" && p.soleTrader === true) add("gb-sole", "sole trader (GB)", "warn", "GB sole trader: consent required for email");
-  if (p.brand) add("chain", "chain", "info", `Brand: ${p.brand}`);
+  if (!phone) add("no-phone", "neutral");
+  if (p.country === "GB" && p.soleTrader === null) add("gb-unknown", "warn");
+  if (p.country === "GB" && p.soleTrader === true) add("gb-sole", "warn");
+  if (p.brand) add("chain", "info", {}, `Part of the ${p.brand} chain`);
 
-  if (p.personalWipedAt) add("wiped", "wiped", "neutral", `Personal contact fields wiped ${p.personalWipedAt}`);
+  if (p.personalWipedAt) add("wiped", "neutral");
   else if (!p.noticeSentAt && p.noticeDeadlineAt) {
     const days = daysUntil(p.noticeDeadlineAt, now);
     if (days !== null) {
-      if (days > 0) add("deadline", `notice deadline in ${days} day${days === 1 ? "" : "s"}`, days <= 5 ? "warn" : "neutral", "No notice sent yet: contact before this date or the purge wipes the row");
-      else add("deadline-passed", "notice deadline passed", "bad", "No notice within 30 days: contact fields will be wiped by the purge");
+      if (days > 0) add("deadline", days <= 5 ? "warn" : "neutral", { n: days });
+      else add("deadline-passed", "bad");
     }
   }
 
   if (p.leadStage) {
-    if (["replied", "meeting", "proposal"].includes(p.leadStage)) add("lead", "in conversation", "info", `Lead stage: ${p.leadStage}`);
-    else if (["won", "lost", "stop", "no_response"].includes(p.leadStage)) add("lead-closed", `lead: ${p.leadStage}`, "neutral");
-    else add("lead-open", `lead: ${p.leadStage}`, "neutral");
+    const stage = LEAD_STAGE_WORDS[p.leadStage] ?? p.leadStage.replace(/_/g, " ");
+    if (["replied", "meeting", "proposal"].includes(p.leadStage)) add("lead", "info", {}, `Lead stage: ${stage}`);
+    else if (["won", "lost", "stop", "no_response"].includes(p.leadStage)) add("lead-closed", "neutral", { stage });
+    else add("lead-open", "neutral", { stage });
   }
   return out;
 }
@@ -112,4 +118,11 @@ export function ProspectBadges({ prospect, max, className = "" }: { prospect: Ba
       {extra > 0 ? <Badge variant="neutral" title={badges.slice(shown.length).map((b) => b.label).join(", ")}>{`+${extra}`}</Badge> : null}
     </span>
   );
+}
+
+/** Every badge word with its sentence — the "What the labels mean" list (one line for the two "Lead: …" keys). */
+export function badgeGlossary(): { key: string; label: string; sentence: string }[] {
+  return Object.entries(BADGE_TEXT)
+    .filter(([key]) => key !== "lead-closed")
+    .map(([key, t]) => ({ key, label: fill(t.label, { n: "N", stage: "stage" }), sentence: key === "lead-open" ? "A lead exists — its stage is shown (open, or closed with the outcome)." : t.sentence }));
 }

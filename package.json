@@ -17,6 +17,7 @@
     "@ai-sdk/react": "^3.0.207",
     "ai": "^6.0.205",
     "better-sqlite3": "^12.11.1",
+    "leaflet": "1.9.4",
     "next": "16.2.6",
     "nodemailer": "^9.0.0",
     "react": "^19.0.0",
@@ -25,6 +26,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/leaflet": "^1.9.22",
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^8.0.1",
     "@types/react": "^19.0.0",

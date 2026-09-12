@@ -15,9 +15,9 @@ import { useToast } from "./Toast";
 import { CHECK_COPY, FLAG_COPY, packageLabel } from "@/content/auditChecks";
 import { CHECK_ORDER } from "@/lib/audit/score";
 import { OUTREACH_MODULE } from "@/lib/crm/features";
-import { fromSql } from "@/lib/crm/time";
 import { CHECK_WEIGHTS } from "@/lib/crm/types";
 import type { Audit, CheckKey, CheckResult, CheckStatus } from "@/lib/crm/types";
+import { localDateTime } from "./format";
 
 type PanelState = {
   ok: true;
@@ -33,7 +33,7 @@ const POLL_MS = 5_000;
 
 const STATUS_BADGE: Record<CheckStatus, { variant: BadgeVariant; label: string }> = {
   pass: { variant: "good", label: "Pass" },
-  partial: { variant: "warn", label: "Partial" },
+  partial: { variant: "warn", label: "Partly" },
   fail: { variant: "bad", label: "Fail" },
   not_measured: { variant: "neutral", label: "Not measured" },
 };
@@ -46,13 +46,11 @@ const AUDIT_BADGE: Record<Audit["status"], { variant: BadgeVariant; label: strin
 };
 
 function when(s: string | null | undefined): string {
-  if (!s) return "";
-  const d = fromSql(s);
-  return d ? d.toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : s;
+  return localDateTime(s);
 }
 
 function pct(v: number | null | undefined): string {
-  return typeof v === "number" ? String(Math.round(v * 100)) : "—";
+  return typeof v === "number" ? String(Math.round(v * 100)) : "not measured";
 }
 
 /** One line of facts per check from its scalar details (admin only, English). */
@@ -171,7 +169,7 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
     return (
       <section className="card p-5">
         <h2 className="font-display text-lg text-fg-heading">Audit</h2>
-        <p className="mt-2 text-sm text-accent-soft">Could not load the audit ({error}).</p>
+        <p className="mt-2 text-[15px] text-accent-soft">The audit could not be loaded. Try again.</p>
         <Button size="sm" className="mt-3" onClick={() => void load()}>
           Retry
         </Button>
@@ -182,7 +180,7 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
     return (
       <section className="card p-5" aria-busy="true">
         <h2 className="font-display text-lg text-fg-heading">Audit</h2>
-        <p className="mt-2 text-sm text-fg-muted">Loading…</p>
+        <p className="mt-2 text-[15px] text-fg-muted">Loading…</p>
       </section>
     );
   }
@@ -197,12 +195,12 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-display text-lg text-fg-heading">Audit</h2>
           {audit ? <Badge variant={AUDIT_BADGE[audit.status].variant}>{AUDIT_BADGE[audit.status].label}</Badge> : null}
-          {audit ? <span className="font-mono text-xs text-fg-faint">{audit.reference}</span> : null}
-          {audit?.finishedAt ? <span className="text-xs text-fg-faint">{when(audit.finishedAt)}</span> : null}
+          {audit ? <span className="font-mono text-[13px] text-fg-muted">{audit.reference}</span> : null}
+          {audit?.finishedAt ? <span className="text-[14px] text-fg-muted">{when(audit.finishedAt)}</span> : null}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-fg-faint" title="Audits started today against AUDIT_DAILY_CAP">
-            Today {usage.used} / {usage.cap}
+          <span className="text-[14px] text-fg-muted" title="Audits started today against the daily allowance">
+            {usage.used} of {usage.cap} audits today
           </span>
           <Button size="sm" variant={audit ? "ghost" : "primary"} loading={busy} disabled={job !== null} onClick={() => void run()}>
             {audit ? "Run again" : "Run audit"}
@@ -211,28 +209,26 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
       </header>
 
       {job ? (
-        <p className="mt-3 text-sm text-sky-300">
+        <p className="mt-3 text-[15px] text-sky-300">
           {job.status === "running" ? "Running now…" : job.position !== null ? `Queued · ${job.position} job${job.position === 1 ? "" : "s"} ahead` : "Queued"}
           {job.lastError ? <span className="text-fg-muted"> — {job.lastError}</span> : null}
         </p>
       ) : capReached ? (
-        <p className="mt-3 text-sm text-amber-300">Daily cap reached — new audits run from 06:00 Europe/Paris tomorrow.</p>
+        <p className="mt-3 text-[15px] text-amber-300">Daily allowance used — new audits run from 06:00 Europe/Paris tomorrow.</p>
       ) : null}
 
-      {!prospect.website ? <p className="mt-3 text-sm text-fg-muted">No website on file — the audit records a &ldquo;no site&rdquo; result (score 0, fit Site + AI).</p> : null}
+      {!prospect.website ? <p className="mt-3 text-[15px] text-fg-muted">No website on file — the audit records a &ldquo;no site&rdquo; result (score 0, fit Site + AI).</p> : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {prospect.forbidsExtraction ? <Badge variant="warn">Site forbids extraction — email left empty</Badge> : null}
+        {prospect.forbidsExtraction ? <Badge variant="warn">Site forbids prospecting — email left empty</Badge> : null}
         {prospect.personalWipedAt ? <Badge variant="info">Personal data wiped — contact fields not stored</Badge> : null}
       </div>
 
       {audit?.status === "failed" ? (
-        <p className="mt-3 break-words text-sm text-accent-soft">
-          Failed: <span className="font-mono">{audit.error ?? "unknown"}</span>
-        </p>
+        <p className="mt-3 break-words text-[15px] text-accent-soft">The audit failed{audit.error ? ` — ${audit.error}` : ""}.</p>
       ) : null}
 
-      {!audit && !job ? <p className="mt-3 text-sm text-fg-muted">No audit yet.</p> : null}
+      {!audit && !job ? <p className="mt-3 text-[15px] text-fg-muted">No audit yet.</p> : null}
 
       {done && audit ? (
         <>
@@ -247,26 +243,25 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-sm text-emerald-300">No flags — nothing obvious to pitch.</p>
+            <p className="mt-4 text-[15px] text-emerald-300">No flags — nothing obvious to pitch.</p>
           )}
 
           {audit.fits.length ? (
-            <ul className="mt-3 space-y-1 text-sm">
+            <ul className="mt-3 space-y-1 text-[15px]">
               {audit.fits.map((fit) => (
                 <li key={fit.pkg} className="flex flex-wrap items-baseline gap-2">
-                  <span className="font-mono text-xs text-fg-faint">{fit.pkg}</span>
                   <span className="text-fg-heading">{packageLabel(fit, "en")}</span>
-                  <span className="text-xs text-fg-muted">{fit.flags.join(", ")}</span>
+                  <span className="text-[14px] text-fg-muted">{fit.flags.map((f) => FLAG_COPY[f]?.en ?? f).join(", ")}</span>
                 </li>
               ))}
             </ul>
           ) : null}
 
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-sm">
+            <table className="w-full min-w-[36rem] text-[15px]">
               <caption className="sr-only">The ten checks</caption>
               <thead>
-                <tr className="border-b border-line text-xs uppercase tracking-wide text-fg-faint">
+                <tr className="border-b border-line text-[13px] uppercase tracking-wide text-fg-muted">
                   <th scope="col" className="px-2 py-1.5 text-left font-medium">
                     Check
                   </th>
@@ -292,17 +287,17 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
                       <td className="px-2 py-2 align-top">
                         <div className="text-fg-heading">
                           {CHECK_COPY[key].label.en}
-                          {isTop ? <span className="ml-2 text-xs text-accent-soft">top</span> : null}
+                          {isTop ? <span className="ml-2 text-[13px] text-accent-soft">top</span> : null}
                         </div>
-                        <div className="text-xs text-fg-muted">{CHECK_COPY[key][c.status].en}</div>
+                        <div className="text-[14px] text-fg-muted">{CHECK_COPY[key][c.status].en}</div>
                       </td>
                       <td className="px-2 py-2 align-top">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="px-2 py-2 text-right align-top font-mono text-xs text-fg-muted">
-                        {c.measured ? `${c.points} / ${CHECK_WEIGHTS[key]}` : `— / ${CHECK_WEIGHTS[key]}`}
+                      <td className="whitespace-nowrap px-2 py-2 text-right align-top font-mono text-[14px] text-fg-muted">
+                        {c.measured ? `${c.points} / ${CHECK_WEIGHTS[key]}` : `not measured / ${CHECK_WEIGHTS[key]}`}
                       </td>
-                      <td className="px-2 py-2 align-top text-xs text-fg-muted">{factLine(key, c)}</td>
+                      <td className="px-2 py-2 align-top text-[14px] text-fg-muted">{factLine(key, c)}</td>
                     </tr>
                   );
                 })}
@@ -310,17 +305,17 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
             </table>
           </div>
 
-          <dl className="mt-4 grid gap-2 text-xs text-fg-muted sm:grid-cols-2">
+          <dl className="mt-4 grid gap-2 text-[14px] text-fg-muted sm:grid-cols-2">
             <div>
-              <dt className="text-fg-faint">PageSpeed (mobile)</dt>
+              <dt className="text-fg-muted">PageSpeed (mobile)</dt>
               <dd>
                 {audit.pagespeed && !audit.pagespeed.timedOut
                   ? `perf ${pct(audit.pagespeed.performance)} · SEO ${pct(audit.pagespeed.seo)}${typeof audit.pagespeed.lcpMs === "number" ? ` · LCP ${(audit.pagespeed.lcpMs / 1000).toFixed(1)} s` : ""}${typeof audit.pagespeed.cls === "number" ? ` · CLS ${audit.pagespeed.cls}` : ""} · ${when(audit.pagespeed.fetchedAt)}`
-                  : "did not answer — speed scored as partial"}
+                  : "did not answer — speed scored as partly measured"}
               </dd>
             </div>
             <div>
-              <dt className="text-fg-faint">Crawl</dt>
+              <dt className="text-fg-muted">Crawl</dt>
               <dd>
                 {audit.crawl.length ? (
                   <ul className="space-y-0.5 font-mono">
@@ -338,26 +333,26 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
           </dl>
 
           {state.reportPath && OUTREACH_MODULE ? (
-            <p className="mt-4 text-sm">
+            <p className="mt-4 text-[15px]">
               <a href={state.reportPath} target="_blank" rel="noopener" className="link-accent">
                 Open the report ({audit.locale.toUpperCase()})
               </a>
-              {audit.reportViews > 0 ? <span className="ml-2 text-xs text-fg-faint">{audit.reportViews} view{audit.reportViews === 1 ? "" : "s"}</span> : null}
-              {audit.reportExpiresAt ? <span className="ml-2 text-xs text-fg-faint">expires {when(audit.reportExpiresAt)}</span> : null}
+              {audit.reportViews > 0 ? <span className="ml-2 text-[14px] text-fg-muted">{audit.reportViews} view{audit.reportViews === 1 ? "" : "s"}</span> : null}
+              {audit.reportExpiresAt ? <span className="ml-2 text-[14px] text-fg-muted">expires {when(audit.reportExpiresAt)}</span> : null}
             </p>
           ) : state.reportPath ? (
-            <p className="mt-4 text-xs text-fg-faint">Report link hidden until the outreach module ships — a report reaches a prospect only through a send with its legal block, never by hand.</p>
+            <p className="mt-4 text-[14px] text-fg-muted">Report link hidden until the outreach module ships — a report reaches a prospect only through a send with its legal block, never by hand.</p>
           ) : null}
         </>
       ) : null}
 
       {state.history.length > 1 ? (
-        <details className="mt-4 text-xs text-fg-muted">
-          <summary className="cursor-pointer text-fg-faint">Previous audits</summary>
-          <ul className="mt-2 space-y-1 font-mono">
+        <details className="mt-4 text-[14px] text-fg-muted">
+          <summary className="cursor-pointer text-fg-muted">Previous audits</summary>
+          <ul className="mt-2 space-y-1">
             {state.history.map((h) => (
               <li key={h.id}>
-                {h.reference} · {h.status}
+                <span className="font-mono text-[13px]">{h.reference}</span> · {AUDIT_BADGE[h.status]?.label.toLowerCase() ?? h.status}
                 {typeof h.score === "number" ? ` · ${h.score} (${h.grade})` : ""} · {when(h.finishedAt ?? h.createdAt)}
               </li>
             ))}

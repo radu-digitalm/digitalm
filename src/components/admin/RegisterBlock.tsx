@@ -1,30 +1,41 @@
 "use client";
 
-// Register and identity facts of a prospect (contract §6): where the row came
-// from, register id / status / diffusion, legal form, coordinates and their
-// source, the notice-deadline state, and a live "Re-check register" button.
-// Ends with the ODbL / Licence Ouverte / OGL attribution.
+// Identity & register facts of a prospect (docs/finder-ux-spec.md §6.4):
+// where the row came from, the register in plain sentences, legal form in
+// words, the notice state in dates, and a live "Re-check the register"
+// button. Ends with the ODbL / Licence Ouverte / OGL attribution.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { Prospect } from "@/lib/crm/types";
 import { adminFetch } from "./adminFetch";
-import { Badge } from "./Badge";
 import { Button } from "./Button";
 import { ExtLink } from "./ExtLink";
+import { localDate, localDateTime } from "./format";
 import { KeyValue, type KeyValueItem } from "./KeyValue";
 import { daysUntil } from "./ProspectBadges";
-import { ATTRIBUTION_TEXT } from "./ResultsTable";
 import { useToast } from "./Toast";
-
-const SOURCE_LABEL: Record<Prospect["source"], string> = {
-  osm: "OpenStreetMap",
-  fr_register: "FR register (Sirene/RNE)",
-  companies_house: "Companies House",
-  google: "Google",
-  manual: "Added by URL",
-};
+import { ATTRIBUTION_TEXT, CARD_TEXT, PROSPECT_TEXT, SOURCE_WORDS, fill, legalFormWords } from "./wording";
 
 type RegisterCheck = { checked: boolean; registerStatus: string; diffusion: string; wiped: boolean; note: string | null };
+
+function registerSentence(p: Prospect): React.ReactNode {
+  if (!p.registerId) {
+    if (p.country === "GB") return <p className="text-fg-muted">{CARD_TEXT.notMatched}</p>;
+    return <p className="text-fg-muted">{CARD_TEXT.notMatched}</p>;
+  }
+  if (p.country === "GB" || p.source === "companies_house") {
+    return <p>{fill(CARD_TEXT.companiesHouse, { number: p.registerId, status: p.registerStatus === "ceased" ? CARD_TEXT.closed : p.registerStatus === "active" ? CARD_TEXT.active : "status unknown" })}</p>;
+  }
+  const form = p.soleTrader === true ? "sole trader" : p.legalForm ? legalFormWords(p.legalForm) : p.soleTrader === false ? "company" : "legal form unknown";
+  const state = p.registerStatus === "ceased" ? CARD_TEXT.closed : p.registerStatus === "active" ? CARD_TEXT.active : "status unknown";
+  const sentence = p.legalName && p.legalName !== p.name ? fill(CARD_TEXT.listedRegister, { legalName: p.legalName, siret: p.registerId, form, state }) : fill(CARD_TEXT.listedRegisterShort, { siret: p.registerId, form, state });
+  return (
+    <>
+      <p>{sentence}</p>
+      {p.diffusion === "partial" ? <p className="text-amber-300">{CARD_TEXT.notListedPublicly}</p> : p.diffusion === "full" ? <p className="text-fg-muted">{CARD_TEXT.publiclyListed}</p> : null}
+    </>
+  );
+}
 
 export function RegisterBlock({ prospect: p }: { prospect: Prospect & { brand?: string | null } }) {
   const router = useRouter();
@@ -38,95 +49,76 @@ export function RegisterBlock({ prospect: p }: { prospect: Prospect & { brand?: 
       const r = await adminFetch<{ registerCheck: RegisterCheck | null }>(`/api/admin/prospects/${p.id}`, { recheck_register: true });
       const c = r.registerCheck;
       if (!c || !c.checked) toast.push(c?.note ?? "Nothing to check", "info");
-      else toast.push(`Register: ${c.registerStatus}, diffusion ${c.diffusion}${c.wiped ? " — personal fields wiped" : ""}${c.note ? ` — ${c.note}` : ""}`, c.registerStatus === "active" && !c.wiped ? "good" : "bad");
+      else {
+        const listing = c.diffusion === "partial" ? "not listed publicly" : "publicly listed";
+        toast.push(`${fill(PROSPECT_TEXT.registerToast, { state: c.registerStatus === "ceased" ? "closed" : c.registerStatus, listing })}${c.wiped ? PROSPECT_TEXT.registerWiped : ""}`, c.registerStatus === "active" && !c.wiped ? "good" : "bad");
+      }
       router.refresh();
-    } catch (e) {
-      toast.push(`Register check failed (${(e as { code?: string }).code ?? "error"})`, "bad");
+    } catch {
+      toast.push(PROSPECT_TEXT.registerFailed, "bad");
     } finally {
       setBusy(false);
     }
   }
 
   const deadlineDays = daysUntil(p.noticeDeadlineAt);
-  const statusVariant = p.registerStatus === "active" ? "good" : p.registerStatus === "ceased" ? "bad" : "neutral";
+  const registerUrl = p.registerId && p.country === "FR" ? `https://annuaire-entreprises.data.gouv.fr/etablissement/${p.registerId}` : p.registerId && p.country === "GB" ? `https://find-and-update.company-information.service.gov.uk/company/${p.registerId}` : null;
+  const sourceWord = SOURCE_WORDS[p.source] ?? p.source;
 
   const items: KeyValueItem[] = [
     {
-      label: "Source",
+      label: "Came from",
       value: (
         <span>
-          {SOURCE_LABEL[p.source]}
-          {p.sourceId ? <span className="ml-2 font-mono text-xs text-fg-muted">{p.sourceId}</span> : null}
+          {sourceWord}
           {p.sourceUrl ? (
-            <span className="ml-2 text-xs">
-              <ExtLink href={p.sourceUrl}>open</ExtLink>
-            </span>
+            <>
+              {" · "}
+              <ExtLink href={p.sourceUrl}>{p.source === "osm" ? CARD_TEXT.openOsm : "open the source"}</ExtLink>
+            </>
           ) : null}
         </span>
       ),
     },
-    { label: "Legal name", value: p.legalName },
-    { label: "Sign / enseigne", value: p.enseigne },
-    { label: "Brand", value: p.brand ? <Badge variant="info">{p.brand}</Badge> : null },
-    {
-      label: "Register id",
-      value: p.registerId ? (
-        <span className="inline-flex flex-wrap items-center gap-2">
-          <span className="font-mono">{p.registerId}</span>
-          <Badge variant={statusVariant}>{p.registerStatus}</Badge>
-          {p.diffusion !== "na" ? <Badge variant={p.diffusion === "partial" ? "warn" : "neutral"}>diffusion {p.diffusion}</Badge> : null}
-        </span>
-      ) : (
-        <span className="text-fg-faint">none — {p.country === "GB" ? "GB email needs a company number" : "identity from the source above"}</span>
-      ),
-    },
-    { label: "Checked", value: p.registerCheckedAt, muted: true },
-    {
-      label: "Legal form",
-      value: (
-        <span>
-          {p.legalForm ?? <span className="text-fg-faint">—</span>}
-          {p.soleTrader === true ? <Badge variant="warn" className="ml-2">sole trader</Badge> : p.soleTrader === false ? <Badge variant="neutral" className="ml-2">company</Badge> : <Badge variant="neutral" className="ml-2">form unknown</Badge>}
-        </span>
-      ),
-    },
-    { label: "Address", value: [p.addressLine, [p.postcode, p.city].filter(Boolean).join(" "), p.region].filter(Boolean).join(", ") },
-    { label: "Country · locale", value: `${p.country} · ${p.locale}${p.localeOverridden ? " (overridden)" : ""}` },
-    {
-      label: "Coordinates",
-      value: p.lat !== null && p.lng !== null ? (
-        <span className="font-mono text-xs">
-          {p.lat.toFixed(5)}, {p.lng.toFixed(5)} <span className="text-fg-faint">({p.geoSource ?? "unknown"})</span>
-        </span>
-      ) : null,
-    },
-    { label: "Saved", value: `${p.savedAt}${p.searchId ? ` · search #${p.searchId}` : ""}`, muted: true },
+    { label: "Trading name", value: p.enseigne && p.enseigne !== p.name ? p.enseigne : null },
+    { label: "Legal name", value: p.legalName && p.legalName !== p.name ? p.legalName : null },
+    { label: "Brand", value: p.brand ? fill(CARD_TEXT.chain, { brand: p.brand }) : null },
+    { label: "Register checked", value: p.registerCheckedAt ? localDateTime(p.registerCheckedAt) : null, muted: true },
+    { label: "Saved", value: localDateTime(p.savedAt), muted: true },
     {
       label: "Notice",
-      value: p.noticeSentAt ? (
-        <span>sent {p.noticeSentAt}</span>
-      ) : p.personalWipedAt ? (
-        <span>personal fields wiped {p.personalWipedAt}</span>
-      ) : deadlineDays === null ? null : deadlineDays > 0 ? (
-        <span className={deadlineDays <= 5 ? "text-amber-300" : ""}>deadline in {deadlineDays} day{deadlineDays === 1 ? "" : "s"} ({p.noticeDeadlineAt})</span>
-      ) : (
-        <span className="text-accent-soft">deadline passed ({p.noticeDeadlineAt}) — the purge wipes contact fields</span>
-      ),
+      value: p.noticeSentAt
+        ? fill(PROSPECT_TEXT.noticeSent, { date: localDate(p.noticeSentAt) })
+        : p.personalWipedAt
+          ? fill(PROSPECT_TEXT.wiped, { date: localDate(p.personalWipedAt) })
+          : deadlineDays === null
+            ? null
+            : deadlineDays > 0
+              ? <span className={deadlineDays <= 5 ? "text-amber-300" : ""}>{fill(PROSPECT_TEXT.noticeNotSent, { date: localDate(p.noticeDeadlineAt), days: deadlineDays })}</span>
+              : <span className="text-accent-soft">{fill(PROSPECT_TEXT.noticeOverdue, { date: localDate(p.noticeDeadlineAt) })}</span>,
     },
   ];
 
   return (
-    <section className="card p-5" aria-label="Register">
+    <section className="card p-5" aria-label={PROSPECT_TEXT.identityTitle}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-lg text-fg-heading">Register</h2>
+        <h2 className="text-[19px] text-fg-heading">{PROSPECT_TEXT.identityTitle}</h2>
         {canRecheck ? (
           <Button size="sm" onClick={recheck} loading={busy}>
-            Re-check register
+            {PROSPECT_TEXT.recheck}
           </Button>
         ) : null}
       </div>
-      <KeyValue items={items} />
-      <p className="mt-4 text-xs text-fg-faint">{ATTRIBUTION_TEXT}</p>
+      <div className="space-y-1 text-[15px] text-fg" data-testid="register-sentences">
+        {registerSentence(p)}
+        {registerUrl ? (
+          <p>
+            <ExtLink href={registerUrl}>{p.country === "GB" ? "Open at Companies House" : CARD_TEXT.openRegister}</ExtLink>
+          </p>
+        ) : null}
+      </div>
+      <KeyValue items={items} className="mt-4" />
+      <p className="mt-4 text-[14px] text-fg-muted">{ATTRIBUTION_TEXT}</p>
     </section>
   );
 }

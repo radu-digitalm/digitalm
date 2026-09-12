@@ -13,7 +13,6 @@
 // comes from the page.
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { fromSql } from "@/lib/crm/time";
 import type { Refusal } from "@/lib/crm/types";
 import type { PreparedSend, SendPanelState, SendSummary } from "@/lib/outreach/send";
 import { AdminFetchError, adminFetch, adminGet } from "./adminFetch";
@@ -22,19 +21,27 @@ import { Button } from "./Button";
 import { ConfirmButton } from "./ConfirmButton";
 import { EmptyState } from "./EmptyState";
 import { inputClass } from "./Field";
+import { localDateTime } from "./format";
 import { useToast } from "./Toast";
+import { PROSPECT_TEXT, REFUSAL_TEXT, fill } from "./wording";
 
 type State = SendPanelState;
 type Prepared = PreparedSend & { kind: "draft" | "followup" };
 
 const STATUS_VARIANT: Record<string, BadgeVariant> = { sent: "good", pending: "info", failed: "bad", refused: "warn", bounced: "bad" };
 
-const KIND_LABEL: Record<string, string> = { generic: "generic mailbox", named: "named person", sole_trader: "sole trader", webmail: "webmail — never emailed", unknown: "unknown" };
+const KIND_LABEL: Record<string, string> = { ...PROSPECT_TEXT.emailKind, webmail: "webmail — never emailed" };
+
+const STATUS_WORD: Record<string, string> = { sent: "Sent", pending: "Pending", failed: "Failed", refused: "Refused", bounced: "Bounced" };
+
+const RULE_WORD: Record<string, string> = { FR: PROSPECT_TEXT.frRule, GB: PROSPECT_TEXT.gbRule, US: PROSPECT_TEXT.usRule };
+
+function refusalText(r: Refusal): string {
+  return REFUSAL_TEXT[r.code] ?? r.message.en;
+}
 
 function when(sql: string | null): string {
-  if (!sql) return "";
-  const d = fromSql(sql);
-  return d ? d.toLocaleString("en-GB", { timeZone: "Europe/Paris", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : sql;
+  return localDateTime(sql);
 }
 
 function errorMessage(e: unknown): string {
@@ -44,12 +51,9 @@ function errorMessage(e: unknown): string {
     if (e.code === "not_prepared") return "That prepared email is no longer pending — prepare it again.";
     if (e.code === "not_sent") return "Only a sent email can be repaired.";
     if (e.code === "legal_block_incomplete") return "The legal block is incomplete (see the problems under the preview) — nothing was sent.";
-    if (e.code.startsWith("register_check_failed")) return `The register could not be reached (${e.code.split(":")[1] ?? "network"}) — nothing was sent. Try again later.`;
-    if (e.code === "smtp_failed") {
-      const code = (e.body as { code?: string } | null)?.code ?? "smtp";
-      return `SMTP failed (${code}) — the send is logged as failed; nothing was retried.`;
-    }
-    return `Request failed: ${e.code}`;
+    if (e.code.startsWith("register_check_failed")) return PROSPECT_TEXT.registerUnreachable;
+    if (e.code === "smtp_failed") return "The mail server refused the email — the send is logged as failed; nothing was retried.";
+    return "The request failed. Try again.";
   }
   return "Request failed.";
 }
@@ -66,13 +70,10 @@ function RefusalList({ refusals, title }: { refusals: Refusal[]; title: string }
   if (refusals.length === 0) return null;
   return (
     <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3">
-      <p className="text-xs uppercase tracking-wide text-amber-300">{title}</p>
-      <ul className="mt-2 space-y-1 text-sm text-fg">
+      <p className="text-[15px] text-amber-300">{title}</p>
+      <ul className="mt-1.5 list-disc space-y-1 pl-5 text-[15px] text-fg">
         {refusals.map((r) => (
-          <li key={r.code} className="flex flex-wrap items-baseline gap-2">
-            <span className="font-mono text-xs text-fg-faint">{r.code}</span>
-            <span>{r.message.en}</span>
-          </li>
+          <li key={r.code}>{refusalText(r)}</li>
         ))}
       </ul>
     </div>
@@ -81,14 +82,14 @@ function RefusalList({ refusals, title }: { refusals: Refusal[]; title: string }
 
 function SendRow({ s }: { s: SendSummary }) {
   return (
-    <li className="flex flex-wrap items-center gap-2 text-xs">
-      <span className="font-mono">{s.reference}</span>
-      <Badge variant={STATUS_VARIANT[s.status] ?? "neutral"}>{s.status}</Badge>
-      <span className="text-fg-faint">{s.channel === "manual_email" ? "Gmail" : s.channel}</span>
-      <span className="text-fg-faint">{when(s.sentAt ?? s.createdAt)}</span>
+    <li className="flex flex-wrap items-center gap-2 text-[14px]">
+      <span className="font-mono text-[13px]">{s.reference}</span>
+      <Badge variant={STATUS_VARIANT[s.status] ?? "neutral"}>{STATUS_WORD[s.status] ?? s.status}</Badge>
+      <span className="text-fg-muted">{s.channel === "manual_email" ? "Gmail" : s.channel === "email" ? "in-app" : s.channel}</span>
+      <span className="text-fg-muted">{when(s.sentAt ?? s.createdAt)}</span>
       {s.subject ? <span className="truncate text-fg-muted">{s.subject}</span> : null}
-      {s.refusalCodes.length ? <span className="font-mono text-fg-faint">{s.refusalCodes.join(", ")}</span> : null}
-      {s.error ? <span className="font-mono text-accent-soft">{s.error}</span> : null}
+      {s.refusalCodes.length ? <span className="text-fg-muted">{s.refusalCodes.map((c) => REFUSAL_TEXT[c as keyof typeof REFUSAL_TEXT] ?? c.replace(/_/g, " ")).join("; ")}</span> : null}
+      {s.error ? <span className="text-accent-soft">{s.error}</span> : null}
     </li>
   );
 }
@@ -246,39 +247,39 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
   return (
     <section className="card p-5" aria-labelledby={`send-panel-${prospectId}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`send-panel-${prospectId}`} className="text-lg">
+        <h2 id={`send-panel-${prospectId}`} className="text-[19px]">
           Send
         </h2>
         {state ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant={state.prospect.emailEnabled ? "info" : "warn"} title="Country rule row (contract §3)">
-              {state.prospect.ruleKey === "*" ? `no email rule for ${state.prospect.country}` : `${state.prospect.ruleKey} rule`}
+            <Badge variant={state.prospect.emailEnabled ? "info" : "warn"} title="Which country's email rules apply">
+              {state.prospect.ruleKey === "*" ? fill(PROSPECT_TEXT.noRule, { country: state.prospect.country }) : RULE_WORD[state.prospect.ruleKey] ?? `${state.prospect.ruleKey} rules`}
             </Badge>
             <Badge variant={state.cap.used >= state.cap.cap ? "bad" : "neutral"} title="Emails sent or still pending today, in-app and Gmail alike (Europe/Paris)">
-              today {state.cap.used}/{state.cap.cap}
+              {fill(PROSPECT_TEXT.sentToday, { n: state.cap.used, cap: state.cap.cap })}
             </Badge>
             {state.sentCount90d > 0 ? (
               <Badge variant={state.sentCount90d >= 2 ? "warn" : "neutral"} title="Sent or pending, both paths">
-                {state.sentCount90d}/2 emails in 90 d
+                {state.sentCount90d} of 2 emails in 90 days
               </Badge>
             ) : null}
             {state.prospect.optedOutAt ? <Badge variant="bad">Opted out {when(state.prospect.optedOutAt)}</Badge> : null}
-            {!state.smtp ? <Badge variant="warn" title="SMTP_HOST is unset on this host">SMTP off</Badge> : null}
+            {!state.smtp ? <Badge variant="warn">{PROSPECT_TEXT.smtpOff}</Badge> : null}
           </div>
         ) : null}
       </div>
 
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-accent-soft">
+        <p role="alert" className="mt-3 text-[15px] text-accent-soft">
           {error}
         </p>
       ) : null}
-      {!state && busy === "load" ? <p className="mt-3 text-sm text-fg-muted">Loading…</p> : null}
+      {!state && busy === "load" ? <p className="mt-3 text-[15px] text-fg-muted">Loading…</p> : null}
 
       {state ? (
         <div className="mt-4 space-y-4">
-          <dl className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-[6rem_1fr]">
-            <dt className="text-fg-faint">To</dt>
+          <dl className="grid gap-x-6 gap-y-1.5 text-[15px] sm:grid-cols-[6rem_1fr]">
+            <dt className="text-fg-muted">To</dt>
             <dd className="break-all">
               {state.recipient.to ? (
                 <>
@@ -288,7 +289,7 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
                       {KIND_LABEL[state.recipient.kind] ?? state.recipient.kind}
                     </Badge>
                   ) : null}
-                  <span className="ml-2 text-xs text-fg-faint">
+                  <span className="ml-2 text-[14px] text-fg-muted">
                     {state.recipient.source === "override"
                       ? "validated override — the notice says the address came from a public listing, not the website"
                       : state.recipient.source === "website"
@@ -300,17 +301,17 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
                 <span className="text-fg-muted">no business email on file</span>
               )}
             </dd>
-            <dt className="text-fg-faint">From</dt>
-            <dd className="break-all font-mono text-xs text-fg-muted">
+            <dt className="text-fg-muted">From</dt>
+            <dd className="break-all font-mono text-[13px] text-fg-muted">
               {state.from}
               {state.replyTo !== state.from ? <span className="ml-2">· reply-to {state.replyTo}</span> : null}
             </dd>
-            <dt className="text-fg-faint">Draft</dt>
+            <dt className="text-fg-muted">Draft</dt>
             <dd>
               {state.draft ? (
                 <>
                   <span>{state.draft.subject}</span>
-                  <span className="ml-2 text-xs text-fg-faint">{state.draft.locale.toUpperCase()}</span>
+                  <span className="ml-2 text-[14px] text-fg-muted">{state.draft.locale === "fr" ? "French" : "English"}</span>
                   {state.draft.reviewedAt ? (
                     <Badge variant="good" className="ml-2">
                       reviewed
@@ -330,17 +331,17 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
                 <span className="text-fg-muted">no draft yet — generate one above</span>
               )}
             </dd>
-            <dt className="text-fg-faint">Report</dt>
+            <dt className="text-fg-muted">Report</dt>
             <dd>
               {state.audit ? (
                 <>
-                  <span className="font-mono text-xs">{state.audit.reference}</span>
-                  {state.audit.score !== null ? <span className="ml-2 text-xs text-fg-faint">{state.audit.score}/100</span> : null}
+                  <span className="font-mono text-[13px]">{state.audit.reference}</span>
+                  {state.audit.score !== null ? <span className="ml-2 text-[14px] text-fg-muted">score {state.audit.score} of 100</span> : null}
                   {" · "}
-                  <a href={state.audit.reportUrl} target="_blank" rel="noopener" className="link-accent text-xs">
+                  <a href={state.audit.reportUrl} target="_blank" rel="noopener" className="link-accent">
                     open
                   </a>
-                  {state.audit.reportExpiresAt ? <span className="ml-2 text-xs text-fg-faint">expires {when(state.audit.reportExpiresAt)}</span> : null}
+                  {state.audit.reportExpiresAt ? <span className="ml-2 text-[14px] text-fg-muted">expires {when(state.audit.reportExpiresAt)}</span> : null}
                 </>
               ) : (
                 <span className="text-fg-muted">no finished audit</span>
@@ -348,36 +349,36 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
             </dd>
             {state.prospect.lastEmailedAt ? (
               <>
-                <dt className="text-fg-faint">Last email</dt>
+                <dt className="text-fg-muted">Last email</dt>
                 <dd className="text-fg-muted">{when(state.prospect.lastEmailedAt)}</dd>
               </>
             ) : null}
           </dl>
 
-          <RefusalList refusals={refusals} title={lastRefusals ? "Refused at send time" : "Why this cannot go out yet"} />
+          <RefusalList refusals={refusals} title={lastRefusals ? "Refused at send time" : PROSPECT_TEXT.whyNotYet} />
           {refusals.length === 0 && canFollowUp === false && state.sentCount90d >= 1 && state.followUpRefusals.length > 0 ? (
             <RefusalList refusals={state.followUpRefusals} title="Follow-up" />
           ) : null}
 
-          <details className="text-xs text-fg-muted">
-            <summary className="cursor-pointer text-fg-faint">Legal block preview (the opt-out link is generated at send time)</summary>
-            <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface-2/40 p-3 font-mono text-[11px] leading-relaxed text-fg">{state.legalPreview}</pre>
+          <details className="text-[14px] text-fg-muted">
+            <summary className="cursor-pointer text-fg-muted">Legal block preview (the opt-out link is generated at send time)</summary>
+            <pre className="mt-2 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface-2/40 p-3 font-mono text-[13px] leading-relaxed text-fg">{state.legalPreview}</pre>
           </details>
           {state.legalProblems.length > 0 ? (
             <div className="rounded-lg border border-accent/40 bg-accent/10 p-3" role="alert">
-              <p className="text-xs uppercase tracking-wide text-accent-soft">Legal block incomplete — both paths are refused</p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-fg">
+              <p className="text-[15px] text-accent-soft">Legal block incomplete — both paths are refused</p>
+              <ul className="mt-2 list-disc space-y-1 pl-5 text-[15px] text-fg">
                 {state.legalProblems.map((problem) => (
                   <li key={problem}>{problem}</li>
                 ))}
               </ul>
-              <p className="mt-2 text-xs text-fg-faint">Fix the prospect's website / domain or its saved date in the finder, then reload this panel.</p>
+              <p className="mt-2 text-[14px] text-fg-muted">Fix the prospect's website / domain or its saved date in the finder, then reload this panel.</p>
             </div>
           ) : null}
 
           {repairId ? (
             <div className="space-y-2 rounded-lg border border-accent/40 bg-accent/10 p-4" role="alert">
-              <p className="text-sm text-fg">
+              <p className="text-[15px] text-fg">
                 {repairId.reference} went out, but the lead / activity bookkeeping failed. The email is recorded as sent — do not send it again; repair the bookkeeping instead.
               </p>
               <Button size="sm" variant="primary" onClick={repair} loading={busy === "record"} disabled={busy !== null}>
@@ -388,13 +389,13 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
 
           {stuck.length > 0 ? (
             <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-4">
-              <p className="text-sm text-fg">A send is still pending for this prospect — it counts as sent until you record or cancel it.</p>
+              <p className="text-[15px] text-fg">A send is still pending for this prospect — it counts as sent until you record or cancel it.</p>
               <ul className="space-y-2">
                 {stuck.map((s) => (
-                  <li key={s.id} className="flex flex-wrap items-center gap-2 text-xs">
-                    <span className="font-mono">{s.reference}</span>
-                    <span className="text-fg-faint">{s.channel === "manual_email" ? "prepared for Gmail" : "in-app send left in flight — check the mailbox's Sent folder first"}</span>
-                    <span className="text-fg-faint">{when(s.createdAt)}</span>
+                  <li key={s.id} className="flex flex-wrap items-center gap-2 text-[14px]">
+                    <span className="font-mono text-[13px]">{s.reference}</span>
+                    <span className="text-fg-muted">{s.channel === "manual_email" ? "prepared for Gmail" : "in-app send left in flight — check the mailbox's Sent folder first"}</span>
+                    <span className="text-fg-muted">{when(s.createdAt)}</span>
                     {s.channel === "manual_email" ? (
                       <Button size="sm" variant="primary" onClick={() => record(s.id)} loading={busy === "record"} disabled={busy !== null}>
                         I sent it from Gmail
@@ -411,11 +412,11 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
 
           {prepared ? (
             <div className="space-y-2 rounded-lg border border-line bg-surface-2/40 p-4">
-              <p className="text-sm text-fg-muted">
+              <p className="text-[15px] text-fg-muted">
                 {prepared.kind === "followup" ? "Follow-up" : "Email"} {prepared.reference} — paste subject and body into Gmail (legal block included), then confirm.
               </p>
-              <p className="text-sm text-fg-heading">{prepared.subject}</p>
-              <textarea readOnly rows={12} value={prepared.text} className={`${inputClass} font-mono text-xs`} aria-label="Email text with legal block" />
+              <p className="text-[15px] text-fg-heading">{prepared.subject}</p>
+              <textarea readOnly rows={12} value={prepared.text} className={`${inputClass} font-mono text-[13px]`} aria-label="Email text with legal block" />
               <div className="flex flex-wrap gap-2">
                 <Button size="sm" onClick={copy}>
                   Copy email with legal block
@@ -454,11 +455,11 @@ export function SendPanel({ prospectId }: { prospectId: number }) {
               />
             </div>
           )}
-          {!state.smtp ? <p className="text-xs text-fg-faint">SMTP is not configured on this host: in-app sends fail visibly; the Gmail path still works.</p> : null}
+          {!state.smtp ? <p className="text-[14px] text-fg-muted">{PROSPECT_TEXT.smtpOff} — the in-app Send is unavailable; the Gmail path still works.</p> : null}
 
           {state.sends.length > 0 ? (
-            <details className="text-xs text-fg-muted">
-              <summary className="cursor-pointer text-fg-faint">Recent sends ({state.sends.length})</summary>
+            <details className="text-[14px] text-fg-muted">
+              <summary className="cursor-pointer text-fg-muted">Recent sends ({state.sends.length})</summary>
               <ul className="mt-2 space-y-1">
                 {state.sends.map((s) => (
                   <SendRow key={s.id} s={s} />

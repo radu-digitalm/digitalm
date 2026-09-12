@@ -7,7 +7,6 @@
 // until then). Only { prospectId } comes from the page.
 import { useCallback, useEffect, useState } from "react";
 import { OUTREACH_MODULE } from "@/lib/crm/features";
-import { fromSql } from "@/lib/crm/time";
 import type { Draft } from "@/lib/crm/types";
 import { AdminFetchError, adminFetch, adminGet } from "./adminFetch";
 import { Badge } from "./Badge";
@@ -17,6 +16,8 @@ import { EmptyState } from "./EmptyState";
 import { Field } from "./Field";
 import { Textarea } from "./Textarea";
 import { useToast } from "./Toast";
+import { localDateTime } from "./format";
+import { REFUSAL_TEXT } from "./wording";
 
 type FieldKey = "subject" | "body" | "callScript" | "noteForOwner";
 type Fields = Record<FieldKey, string>;
@@ -39,7 +40,7 @@ function fieldsOf(d: Draft | null): Fields {
 }
 
 const REASONS: Record<string, string> = {
-  no_key: "OPENAI_API_KEY unset",
+  no_key: "no model key configured on this server",
   timeout: "model timed out",
   model_error: "model call failed",
   mangled: "model output was garbled",
@@ -50,24 +51,22 @@ const REASONS: Record<string, string> = {
 
 function errorMessage(e: unknown): string {
   if (e instanceof AdminFetchError) {
-    if (e.code === "audit_missing") return "Run an audit first — there is no finished audit to draft from.";
+    if (e.code === "audit_missing") return `${REFUSAL_TEXT.audit_missing} — run an audit first.`;
     if (e.code === "csrf") return "Session check failed — reload the page.";
-    return `Request failed: ${e.code}`;
+    return "The request failed. Try again.";
   }
   return "Request failed.";
 }
 
 function when(sql: string | null): string {
-  if (!sql) return "";
-  const d = fromSql(sql);
-  return d ? d.toLocaleString("en-GB", { timeZone: "Europe/Paris", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : sql;
+  return localDateTime(sql);
 }
 
 function Count({ value, cap }: { value: string; cap: { min: number; max: number } }) {
   const n = value.length;
   const off = n < cap.min || n > cap.max;
   return (
-    <span className={`font-mono text-xs ${off ? "text-amber-300" : "text-fg-faint"}`} title={`Model cap ${cap.min}–${cap.max} characters`}>
+    <span className={`font-mono text-[13px] ${off ? "text-amber-300" : "text-fg-muted"}`} title={`Between ${cap.min} and ${cap.max} characters`}>
       {n} / {cap.max}
     </span>
   );
@@ -135,7 +134,7 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
   return (
     <section className="card p-5" aria-labelledby={`draft-panel-${prospectId}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`draft-panel-${prospectId}`} className="text-lg">
+        <h2 id={`draft-panel-${prospectId}`} className="text-[19px]">
           Draft
         </h2>
         {draft ? (
@@ -144,18 +143,18 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
             {draft.reviewedAt ? <Badge variant="good">Reviewed {when(draft.reviewedAt)}</Badge> : <Badge variant="bad">Not reviewed</Badge>}
             {draft.editedAt ? <Badge variant="neutral">Edited {when(draft.editedAt)}</Badge> : null}
             {state?.draftStale ? <Badge variant="warn" title="A newer audit has finished since this draft was written">Older audit</Badge> : null}
-            <span className="text-xs text-fg-faint">{draft.locale.toUpperCase()}</span>
+            <span className="text-[14px] text-fg-muted">{draft.locale === "fr" ? "French" : "English"}</span>
           </div>
         ) : null}
       </div>
 
       {error ? (
-        <p role="alert" className="mt-3 text-sm text-accent-soft">
+        <p role="alert" className="mt-3 text-[15px] text-accent-soft">
           {error}
         </p>
       ) : null}
 
-      {!state && busy === "load" ? <p className="mt-3 text-sm text-fg-muted">Loading…</p> : null}
+      {!state && busy === "load" ? <p className="mt-3 text-[15px] text-fg-muted">Loading…</p> : null}
 
       {state && !state.audit ? (
         <EmptyState className="mt-4" title="No finished audit yet" hint="Run an audit first; the draft is written from its results." />
@@ -165,7 +164,7 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
         <EmptyState
           className="mt-4"
           title="No draft yet"
-          hint={`Writes the email, the call script and a note for you from audit ${state.audit.reference}${state.llm ? ` with ${state.model}` : " (template — OPENAI_API_KEY is unset)"}.`}
+          hint={`Writes the email, the call script and a note for you from audit ${state.audit.reference}${state.llm ? ` with ${state.model}` : " (template — no model key configured)"}.`}
           action={
             <Button variant="primary" onClick={generate} loading={busy === "generate"} disabled={busy !== null}>
               Generate draft
@@ -176,9 +175,9 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
 
       {state && state.audit && draft ? (
         <div className="mt-4 space-y-4">
-          <p className="text-xs text-fg-faint">
+          <p className="text-[14px] text-fg-muted">
             From audit {state.audit.reference}
-            {state.audit.score !== null ? ` · ${state.audit.score}/100${state.audit.grade ? ` ${state.audit.grade}` : ""}` : ""} · To: {state.prospect.displayName}
+            {state.audit.score !== null ? ` · score ${state.audit.score} of 100${state.audit.grade ? ` (${state.audit.grade})` : ""}` : ""} · To: {state.prospect.displayName}
             {OUTREACH_MODULE ? (
               <>
                 {" · "}
@@ -252,7 +251,7 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
                 Regenerate
               </Button>
             )}
-            {!draft.reviewedAt ? <span className="text-xs text-fg-faint">Sending stays refused until the draft is saved.</span> : null}
+            {!draft.reviewedAt ? <span className="text-[14px] text-fg-muted">Sending stays refused until the draft is saved.</span> : null}
           </div>
         </div>
       ) : null}
