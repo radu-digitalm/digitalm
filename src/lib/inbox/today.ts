@@ -31,6 +31,7 @@ export interface OpenedReport {
 
 export interface TodayData {
   today: string; // YYYY-MM-DD, Europe/Paris
+  nextCall?: { id: number; name: string } | null; // first prospect of the call view (Today's "Next call" button)
   followUps: FollowUp[]; // open leads with next_action_at <= today
   newLeads7d: { label: string; n: number }[];
   reportsOpenedNoReply: OpenedReport[];
@@ -254,12 +255,18 @@ export async function collectToday(now = new Date()): Promise<TodayData> {
     )
     .all() as OpenedReport[];
 
+  // The "Next call" button: the first prospect of the call view (docs/finder-ux-spec.md §6.5).
+  const { listProspects } = await import("@/lib/prospects/store");
+  const firstCall = listProspects({ view: "call", limit: 1 }).rows[0];
+  const nextCall = firstCall ? { id: firstCall.id, name: firstCall.name } : null;
+
   const jobCounts = { queued: 0, running: 0 };
   for (const r of db.prepare(`SELECT status, COUNT(*) AS n FROM jobs WHERE kind = 'audit' AND status IN ('queued', 'running') GROUP BY status`).all() as { status: string; n: number }[]) {
     if (r.status === "queued" || r.status === "running") jobCounts[r.status] = r.n;
   }
 
   return {
+    nextCall,
     today,
     followUps,
     newLeads7d,

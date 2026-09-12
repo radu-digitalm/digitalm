@@ -96,6 +96,12 @@ export async function frDepartements(): Promise<{ code: string; nom: string }[]>
   return (Array.isArray(list) ? list : []).filter((d) => DEPARTEMENT_CODE_RE.test(d.code));
 }
 
+/** Every French region with its INSEE code and name (cached 30 d) — the gate's chips for "France". */
+export async function frRegions(): Promise<{ code: string; nom: string }[]> {
+  const list = await geoGouv<{ code: string; nom: string }[]>("/regions");
+  return (Array.isArray(list) ? list : []).filter((r) => r && /^\d{2}$/.test(r.code) && typeof r.nom === "string" && r.nom.trim() !== "");
+}
+
 /** The departments of an INSEE region code (cached 30 d). */
 export async function frRegionDepartements(regionCode: string): Promise<{ code: string; nom: string }[]> {
   if (!/^\d{2}$/.test(regionCode)) return [];

@@ -285,9 +285,17 @@ export function circleKmFor(addresstype: string): number {
   return SMALL_PLACE_TYPES.has(addresstype) ? 1.5 : 4;
 }
 
-/** Display polygon threshold (§2.4): 0.01 for a country, 0.005 otherwise. */
+/**
+ * Display polygon threshold (§2.4): 0.01 for a country, 0.005 for departments
+ * and regions; towns get 0.0005 (at 0.005 Foix is a 12-point wedge, not the
+ * town — and 0.0005 is the fine polygon's threshold, so the same cached
+ * lookup serves both) and other places 0.001.
+ */
 export function displayThreshold(kind: AreaKind): number {
-  return kind === "country" ? 0.01 : 0.005;
+  if (kind === "country") return 0.01;
+  if (kind === "town") return 0.0005;
+  if (kind === "place") return 0.001;
+  return 0.005;
 }
 
 /** Only towns, departments and places get the fine polygon (§2.4). */

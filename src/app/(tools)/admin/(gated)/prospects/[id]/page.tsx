@@ -125,7 +125,7 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
           )}
           {search ? (
             <p className="text-fg-muted">
-              {fill(PROSPECT_TEXT.foundBy, { area: search.area, trade: search.trade, date: localDate(search.createdAt) })} —{" "}
+              {`${fill(PROSPECT_TEXT.foundBy, { area: search.area, trade: search.trade, date: localDate(search.createdAt) })} — `}
               <Link href={`/admin/find?search=${p.searchId}`} className="link-accent">
                 {PROSPECT_TEXT.open}
               </Link>

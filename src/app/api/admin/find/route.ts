@@ -67,7 +67,8 @@ export async function POST(req: NextRequest) {
     const { area, alternatives } = await resolveArea(queryArea, pick ?? undefined);
     const outcome = await planSearch(area, category, { confirmCap });
     if (outcome.gate === "over_cap") return NextResponse.json({ ok: true, gate: "over_cap", area, plan: outcome.plan });
-    const { searchId } = startSearch({ queryArea: queryArea || area.label, area, category, sources, plan: outcome.plan });
+    // A bare department code ("09", posted by the gate's chips) is remembered by its name, so past searches read "Ariège".
+    const { searchId } = startSearch({ queryArea: !queryArea || /^(0[1-9]|[1-8]\d|9[0-5]|2[AB]|97[1-6])$/i.test(queryArea) ? area.label : queryArea, area, category, sources, plan: outcome.plan });
     return NextResponse.json(
       {
         ok: true,

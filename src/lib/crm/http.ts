@@ -6,6 +6,10 @@ import { safeHttpUrl } from "@/lib/crm/classify";
 
 const DEFAULTS = {
   OVERPASS_URL: "https://overpass-api.de/api/interpreter",
+  // The second server of the overpass-api.de pair, addressed directly (full planet, areas generated) when the
+  // first answer is busy or the DNS round-robin lands on a dead node; "off" disables it. Other public mirrors
+  // checked on 12 Sep 2026 either lack area files (overpass.openstreetmap.fr) or time out (kumi, private.coffee).
+  OVERPASS_FALLBACK_URL: "https://z.overpass-api.de/api/interpreter",
   NOMINATIM_URL: "https://nominatim.openstreetmap.org",
   FR_REGISTER_URL: "https://recherche-entreprises.api.gouv.fr",
   PAGESPEED_URL: "https://www.googleapis.com/pagespeedonline/v5/runPagespeed",
@@ -14,6 +18,7 @@ const DEFAULTS = {
 function httpsFromEnv(name: keyof typeof DEFAULTS): string {
   const raw = process.env[name];
   if (!raw) return DEFAULTS[name];
+  if (raw.trim().toLowerCase() === "off") return "";
   const safe = safeHttpUrl(raw);
   if (safe && safe.startsWith("https://")) return safe.replace(/\/$/, "");
   console.warn(`crm/http: ${name} is not an https URL — using the default`);
@@ -23,6 +28,8 @@ function httpsFromEnv(name: keyof typeof DEFAULTS): string {
 /** The only origins fetchJson will talk to. */
 export const HOSTS = {
   overpass: httpsFromEnv("OVERPASS_URL"),
+  /** "" when switched off. */
+  overpassFallback: httpsFromEnv("OVERPASS_FALLBACK_URL"),
   nominatim: httpsFromEnv("NOMINATIM_URL"),
   frRegister: httpsFromEnv("FR_REGISTER_URL"),
   pagespeed: httpsFromEnv("PAGESPEED_URL"),
@@ -30,7 +37,11 @@ export const HOSTS = {
   companiesHouse: "https://api.company-information.service.gov.uk",
 } as const;
 
-const ALLOWED_ORIGINS = new Set(Object.values(HOSTS).map((u) => new URL(u).origin));
+const ALLOWED_ORIGINS = new Set(
+  Object.values(HOSTS)
+    .filter((u) => u !== "")
+    .map((u) => new URL(u).origin),
+);
 
 /** Identifying User-Agent required by the Nominatim / Overpass usage policies. */
 export const CRM_USER_AGENT = "DigitalM-Prospecting/1.0 (https://digitalm.eu; contact@digitalm.eu)";
@@ -38,12 +49,27 @@ export const CRM_USER_AGENT = "DigitalM-Prospecting/1.0 (https://digitalm.eu; co
 export class HttpError extends Error {
   status: number;
   code: string;
-  constructor(code: string, status = 0, message = code) {
+  /** From a Retry-After header on 429 / 503, in milliseconds (capped at 10 min); undefined otherwise. */
+  retryAfterMs?: number;
+  constructor(code: string, status = 0, message = code, retryAfterMs?: number) {
     super(message);
     this.name = "HttpError";
     this.code = code;
     this.status = status;
+    if (retryAfterMs !== undefined) this.retryAfterMs = retryAfterMs;
   }
+}
+
+const RETRY_AFTER_MAX_MS = 10 * 60_000;
+
+/** Retry-After as milliseconds (seconds or an HTTP date); undefined when absent or unreadable. */
+export function retryAfterMs(header: string | null | undefined, now = Date.now()): number | undefined {
+  const v = header?.trim();
+  if (!v) return undefined;
+  if (/^\d+$/.test(v)) return Math.min(RETRY_AFTER_MAX_MS, Number(v) * 1000);
+  const t = Date.parse(v);
+  if (!Number.isFinite(t)) return undefined;
+  return Math.max(0, Math.min(RETRY_AFTER_MAX_MS, t - now));
 }
 
 export function isAllowedApiUrl(url: string): boolean {
@@ -82,7 +108,8 @@ export async function fetchJson<T = unknown>(
   }
   if (!res.ok) {
     await res.body?.cancel().catch(() => undefined);
-    throw new HttpError(`http_${res.status}`, res.status);
+    const wait = res.status === 429 || res.status === 503 ? retryAfterMs(res.headers.get("retry-after")) : undefined;
+    throw new HttpError(`http_${res.status}`, res.status, `http_${res.status}`, wait);
   }
   try {
     return { status: res.status, data: (await res.json()) as T };

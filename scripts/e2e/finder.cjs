@@ -147,14 +147,20 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   }
 
   // ---- login ------------------------------------------------------------------------------
-  await step("A0", "login", async () => {
+  await step("A0", "login + /admin renders", async () => {
     const r = await ctx.request.post(BASE + "/api/admin/login", { headers: { "content-type": "application/json", origin: BASE }, data: { password: PASSWORD, turnstile: "e2e", website: "" } });
     assert(r.status() === 200, `login ${r.status()} ${(await r.text()).slice(0, 120)}`);
-    await goto("/admin");
+    // The first screen after login must be a real page, not a Next error screen (QA round 1: toTodaySummary on the server).
+    const res = await page.goto(BASE + "/admin", { waitUntil: "domcontentloaded" });
+    await sleep(1200);
+    assert(res && res.status() === 200, `/admin answered ${res && res.status()}`);
     assert(!page.url().includes("/admin/login"), "still on the login page");
+    const body = (await page.textContent("body")) || "";
+    assert(!/couldn.t load|Application error|ERROR \d{5,}/i.test(body), "/admin shows an error screen");
+    assert((await page.locator("[data-testid=today-card]").count()) === 5, "Today cards missing");
     csrf = await page.getAttribute('meta[name="dm-csrf"]', "content");
     assert(csrf, "no csrf meta");
-    return { url: page.url() };
+    return { url: page.url(), status: res.status() };
   });
 
   // ---- A12 map present --------------------------------------------------------------------
@@ -168,8 +174,18 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert(containers === 1, `leaflet containers: ${containers}`);
     const outline = await page.locator(".leaflet-overlay-pane path, .leaflet-overlay-pane canvas").count();
     assert(outline >= 1, "no outline path/canvas");
+    // Register entries that are not listed publicly stay out of the way by default (no row, no pin); their chip brings them back.
     const pins = await page.evaluate(() => window.__dmFindPins);
-    assert(pins.total >= 250, `pins.total ${pins.total}`);
+    assert(pins.total >= 200, `pins.total ${pins.total}`);
+    const notListedChip = page.getByRole("button", { name: /^Not listed publicly/ });
+    if (await notListedChip.count()) {
+      await notListedChip.click();
+      await sleep(600);
+      const more = await page.evaluate(() => window.__dmFindPins);
+      assert(more.total > pins.total, `Not listed publicly chip: pins ${pins.total} → ${more.total}`);
+      await notListedChip.click();
+      await sleep(400);
+    }
     const attr = await page.locator(".leaflet-control-attribution").textContent();
     assert(/OpenStreetMap contributors/.test(attr || ""), "attribution missing");
     return { id, pins };
@@ -181,7 +197,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await goto(`/admin/find?search=${id}`);
     await page.waitForSelector("[data-testid=find-row]", { timeout: 60000 });
     const row = page.locator("[data-testid=find-row]").first();
-    const name = (await row.locator("div > div > div").first().textContent()).trim();
+    const name = (await row.locator("[data-testid=row-name]").first().textContent()).trim();
     await row.click();
     const dialog = page.locator("[role=dialog][data-testid=business-card]");
     await dialog.waitFor({ timeout: 5000 });
@@ -214,7 +230,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const pt = await page.evaluate((k) => window.__dmFindProject(k), key);
     await page.mouse.click(box.x + pt.x, box.y + pt.y);
     await dialog.waitFor({ timeout: 5000 });
-    const rowName = (await page.locator(`[data-testid=find-row][data-key="${key}"] div > div > div`).first().textContent()).trim();
+    const rowName = (await page.locator(`[data-testid=find-row][data-key="${key}"] [data-testid=row-name]`).first().textContent()).trim();
     const labelledBy2 = await dialog.getAttribute("aria-labelledby");
     const accName2 = (await page.locator(`#${labelledBy2}`).textContent()).trim();
     assert(accName2 === rowName, `pin dialog "${accName2}" vs row "${rowName}"`);
@@ -333,17 +349,23 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // Dismiss one row, then show Hidden → Undo control.
     const row = page.locator("[data-testid=find-row]").nth(1);
     const key = await row.getAttribute("data-key");
+    const rowName = (await row.locator("[data-testid=row-name]").first().textContent()).trim();
     await row.click();
     await page.getByRole("button", { name: "Not this one", exact: true }).click();
     await sleep(800);
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: /^Hidden/ }).click();
     await sleep(400);
+    // Hidden rows sink to the bottom of every sort (QA round 1): find the row through the name filter.
+    await page.fill('input[type="search"]', rowName);
+    await sleep(500);
     const hiddenRow = page.locator(`[data-testid=find-row][data-key="${key}"]`);
     assert((await hiddenRow.count()) === 1, "dismissed row not shown with the Hidden chip");
     assert((await hiddenRow.getByRole("button", { name: "Undo", exact: true }).count()) === 1, "no Undo control");
     await hiddenRow.getByRole("button", { name: "Undo", exact: true }).click();
     await sleep(600);
+    await page.fill('input[type="search"]', "");
+    await sleep(300);
     await page.getByRole("button", { name: /^Hidden/ }).click();
     await page.selectOption('select[name="sort"]', "town");
     await sleep(400);
@@ -381,11 +403,15 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert(r.status() === 200, "mobile login");
     const m = await mctx.newPage();
     m.setDefaultTimeout(30000);
+    const MOBILE_W = 390;
+    // A page wider than the phone makes Chrome zoom the whole layout out (innerWidth grows with it),
+    // so both numbers are checked against the device width, not against each other.
     const check = async (url) => {
-      await m.goto(BASE + url, { waitUntil: "domcontentloaded" });
+      const res = await m.goto(BASE + url, { waitUntil: "domcontentloaded" });
       await sleep(1500);
       const s = await m.evaluate(() => ({ sw: document.scrollingElement.scrollWidth, iw: window.innerWidth }));
-      assert(s.sw === s.iw, `${url}: sideways scroll ${s.sw} vs ${s.iw}`);
+      assert(s.iw === MOBILE_W && s.sw === MOBILE_W, `${url}: wider than the phone — scrollWidth ${s.sw}, innerWidth ${s.iw} (device ${MOBILE_W})`);
+      return res ? res.status() : 0;
     };
     const id = await ensureAriege();
     await check("/admin");
@@ -395,23 +421,34 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       return a ? Number(a.getAttribute("href").split("/").pop()) : null;
     }));
     if (pid) await check(`/admin/prospects/${pid}`);
+    // Every prospect page, not just the newest: the first few by id (a phone "(from the source)" line once overflowed at 418 px).
+    for (const extra of [6, 1, 2]) {
+      if (extra === pid) continue;
+      const probe = await mp.get(BASE + `/admin/prospects/${extra}`);
+      if (probe.status() === 200) await check(`/admin/prospects/${extra}`);
+    }
     await check("/admin/find");
     await m.getByRole("button", { name: "Menu" }).click();
     await sleep(200);
     for (const label of ["Today", "Leads", "Find", "Prospects", "Opt-outs"]) assert((await m.locator("nav a", { hasText: new RegExp(`^${label}$`) }).count()) >= 1, `menu lacks ${label}`);
     await m.keyboard.press("Escape");
     await m.goto(BASE + `/admin/find?search=${id}`, { waitUntil: "domcontentloaded" });
-    await m.waitForSelector("[data-testid=find-row]", { timeout: 60000 });
+    // Peeking, the sheet shows only the title and the List / Map control — no rows until List is tapped (QA round 1).
+    await m.waitForSelector("[data-testid=find-sheet]", { timeout: 60000 });
+    await m.waitForFunction(() => /\d+ businesses in/.test(document.querySelector("[data-testid=find-sheet]")?.textContent || ""), null, { timeout: 60000 });
     await sleep(1000);
     await m.screenshot({ path: path.join(OUT, "A19-mobile-find.png") });
     assert((await m.locator(".leaflet-container").count()) === 1, "no map on the phone");
     const sheet = m.locator("[data-testid=find-sheet]");
     assert((await sheet.count()) === 1, "no find-sheet");
     assert((await sheet.getByRole("button", { name: "List", exact: true }).count()) >= 1, "no List control");
+    const peek = await sheet.evaluate((el) => ({ h: Math.round(el.getBoundingClientRect().height), rows: el.querySelectorAll("[data-testid=find-row]").length }));
+    assert(peek.h <= 80 && peek.rows === 0, `peeking sheet is ${peek.h} px with ${peek.rows} rows`);
     const s1 = await m.evaluate(() => ({ sw: document.scrollingElement.scrollWidth, iw: window.innerWidth, sh: document.scrollingElement.scrollHeight, ih: window.innerHeight }));
-    assert(s1.sw === s1.iw, "find results: sideways scroll");
+    assert(s1.sw === MOBILE_W && s1.iw === MOBILE_W, `find results: wider than the phone (${s1.sw} / ${s1.iw})`);
     assert(s1.sh < 3 * s1.ih, `document height ${s1.sh} vs 3×${s1.ih}`);
     await sheet.getByRole("button", { name: "List", exact: true }).first().click();
+    await m.waitForSelector("[data-testid=find-row]", { timeout: 60000 });
     await sleep(400);
     await m.locator("[data-testid=find-row]").first().click();
     const dialog = m.locator("[role=dialog][data-testid=business-card]");

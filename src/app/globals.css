@@ -70,7 +70,7 @@
 
   .eyebrow {
     font-family: var(--font-ibm-plex-mono), ui-monospace, monospace;
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
     letter-spacing: 0.14em;
     text-transform: uppercase;
     color: #8b94a4;

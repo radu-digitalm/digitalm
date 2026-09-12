@@ -1,8 +1,11 @@
 // OpenStreetMap discovery through the Overpass API (docs/finder-ux-spec.md
 // §2.5, §3.3). One POST per unit (an administrative area, an INSEE set, a
 // radius, or a tile clipped by the area), ≥ 1 s apart on the shared lane,
-// 20 / 40 / 80 s backoff when the service is busy, cached 24 h per unit +
-// trade. Every foreign value goes through coerceHttpUrl / safeHttpUrl /
+// cached 24 h per unit + trade. Two servers: the main one and a fallback —
+// a busy answer (429 / 503 / 504 / timeout, Retry-After honoured) marks that
+// server busy and the next try goes to the other one at once; only when both
+// are busy does the caller wait (15 s, then 30 s) before giving up on the
+// unit. Every foreign value goes through coerceHttpUrl / safeHttpUrl /
 // validEmail before it leaves this file; only what Business needs is kept.
 import { DAY_MS, cacheKey, cacheSet, cached } from "@/lib/crm/apiCache";
 import { countApiUsage } from "@/lib/crm/apiUsage";
@@ -13,7 +16,10 @@ import { UNIT_LIMIT, countQuery, unitQuery, type Bbox } from "./areaQuery";
 import type { UnitError } from "./progress";
 
 export const OVERPASS_GAP_MS = 1000;
-export const BACKOFF_MS = [20_000, 40_000, 80_000] as const;
+/** Waits between cycles when every server is busy: two cycles, then the unit fails (the UI offers "Retry the missing areas"). */
+export const BACKOFF_MS = [15_000, 30_000] as const;
+export const BUSY_MARK_MS = 20_000; // how long a server stays marked busy without a Retry-After
+const BUSY_MARK_MAX_MS = 120_000;
 const UNIT_TIMEOUT_MS = 60_000;
 const COUNT_GRACE_MS = 5_000; // client timeout = the query's server-side timeout + this
 const COUNT_RETRY_MS = 3_000;
@@ -59,19 +65,65 @@ export function assertNoRemark(data: unknown): void {
   if (/runtime error|out of memory|too busy|load too high|rate_limited/i.test(remark)) throw new HttpError("http_503", 503, "overpass busy");
 }
 
-/** One Overpass POST on the shared 1 req/s lane. */
+// ---- the server pool ------------------------------------------------------------------
+
+type Endpoint = { url: string; busyUntil: number };
+
+function pool(): Endpoint[] {
+  const g = globalThis as { __dmOverpassPool?: Endpoint[] };
+  if (!g.__dmOverpassPool) {
+    const urls = [HOSTS.overpass, HOSTS.overpassFallback].filter((u, i, all) => u !== "" && all.indexOf(u) === i);
+    g.__dmOverpassPool = urls.map((url) => ({ url, busyUntil: 0 }));
+  }
+  return g.__dmOverpassPool;
+}
+
+/** The server to use now: the first one not marked busy, else the one whose mark ends soonest. */
+export function pickEndpoint(now = Date.now()): Endpoint {
+  const all = pool();
+  return all.find((e) => e.busyUntil <= now) ?? all.reduce((a, b) => (a.busyUntil <= b.busyUntil ? a : b));
+}
+
+/** True when some server is free right now (a retry need not wait). */
+export function anyEndpointFree(now = Date.now()): boolean {
+  return pool().some((e) => e.busyUntil <= now);
+}
+
+/** Milliseconds until the earliest busy mark ends (0 when a server is free). */
+export function poolWaitMs(now = Date.now()): number {
+  return Math.max(0, Math.min(...pool().map((e) => e.busyUntil - now)));
+}
+
+function markBusy(e: Endpoint, err: unknown, now = Date.now()): void {
+  const hinted = err instanceof HttpError ? err.retryAfterMs : undefined;
+  const ms = Math.min(BUSY_MARK_MAX_MS, Math.max(BUSY_MARK_MS, hinted ?? 0));
+  e.busyUntil = Math.max(e.busyUntil, now + ms);
+}
+
+/** Busy (429 / 5xx / an Overpass "too busy" remark), timeout or network: the server is marked busy; anything else is not its fault. */
+function isServerTrouble(e: unknown): boolean {
+  return e instanceof HttpError && (e.code === "timeout" || e.code === "network" || e.status === 429 || e.status >= 500);
+}
+
+/** One Overpass POST on the shared 1 req/s lane, to whichever server is not busy. */
 export async function overpassPost<T = { elements?: OverpassElement[] }>(query: string, opts: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<T> {
-  const res = await spaced("overpass", OVERPASS_GAP_MS, () =>
-    fetchJson<T>(HOSTS.overpass, {
-      method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
-      body: `data=${encodeURIComponent(query)}`,
-      timeoutMs: opts.timeoutMs ?? UNIT_TIMEOUT_MS,
-      signal: opts.signal,
-    }),
-  );
-  assertNoRemark(res.data);
-  return res.data;
+  const endpoint = pickEndpoint();
+  try {
+    const res = await spaced("overpass", OVERPASS_GAP_MS, () =>
+      fetchJson<T>(endpoint.url, {
+        method: "POST",
+        headers: { "content-type": "application/x-www-form-urlencoded" },
+        body: `data=${encodeURIComponent(query)}`,
+        timeoutMs: opts.timeoutMs ?? UNIT_TIMEOUT_MS,
+        signal: opts.signal,
+      }),
+    );
+    assertNoRemark(res.data);
+    return res.data;
+  } catch (e) {
+    if (isServerTrouble(e) && !opts.signal?.aborted) markBusy(endpoint, e);
+    throw e;
+  }
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -87,27 +139,39 @@ function sleep(ms: number, signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * Run an Overpass call with the spec's backoff: on busy / timeout / network
- * wait 20 s, 40 s, 80 s (calling `onRetry` with the moment the wait ends)
- * and try again; after the third failure throw UnitFailure. Aborts stop at once.
+ * Run an Overpass call with the pool's backoff: on busy / timeout / network
+ * the failing server is marked busy (see overpassPost); when another server
+ * is free the call is repeated at once on it, otherwise the caller waits
+ * 15 s, then 30 s (`onRetry` gets the moment the wait ends — the UI shows
+ * "retrying in 19 s") — at most two waits, then UnitFailure. Aborts stop at once.
  */
 export async function withBackoff<T>(fn: () => Promise<T>, opts: { signal?: AbortSignal; onRetry?: (untilIso: string | null) => void } = {}): Promise<T> {
   let last: UnitError = "network";
-  for (let attempt = 0; attempt <= BACKOFF_MS.length; attempt++) {
+  const attempt = async (): Promise<{ ok: true; value: T } | { ok: false }> => {
     if (opts.signal?.aborted) throw new HttpError("aborted");
     try {
-      const out = await fn();
+      const value = await fn();
       opts.onRetry?.(null);
-      return out;
+      return { ok: true, value };
     } catch (e) {
       if (e instanceof HttpError && e.code === "aborted") throw e;
       last = errorWord(e);
-      if (attempt === BACKOFF_MS.length) break;
-      const wait = BACKOFF_MS[attempt]!;
-      opts.onRetry?.(new Date(Date.now() + wait).toISOString());
-      await sleep(wait, opts.signal);
-      if (opts.signal?.aborted) throw new HttpError("aborted");
+      return { ok: false };
     }
+  };
+  for (let cycle = 0; cycle <= BACKOFF_MS.length; cycle++) {
+    const first = await attempt();
+    if (first.ok) return first.value;
+    // Another server is free: try it now rather than waiting.
+    if (anyEndpointFree()) {
+      const second = await attempt();
+      if (second.ok) return second.value;
+    }
+    if (cycle === BACKOFF_MS.length) break;
+    const wait = Math.max(BACKOFF_MS[cycle]!, Math.min(BUSY_MARK_MAX_MS, poolWaitMs()));
+    opts.onRetry?.(new Date(Date.now() + wait).toISOString());
+    await sleep(wait, opts.signal);
+    if (opts.signal?.aborted) throw new HttpError("aborted");
   }
   opts.onRetry?.(null);
   throw new UnitFailure(last);
@@ -139,9 +203,9 @@ export async function overpassCount(selector: AreaSelector, category: Category, 
       try {
         data = await post();
       } catch (e) {
-        // One quick retry when the service is merely busy; a slow count is not retried (the route's budget).
+        // One quick retry when the service is merely busy — on the other server when one is free; a slow count is not retried (the route's budget).
         if (!(e instanceof HttpError && (e.status === 429 || e.status === 503)) || signal?.aborted) throw e;
-        await sleep(COUNT_RETRY_MS, signal);
+        if (!anyEndpointFree()) await sleep(COUNT_RETRY_MS, signal);
         data = await post();
       }
       const total = Number(data.elements?.[0]?.tags?.total ?? Number.NaN);
@@ -237,6 +301,14 @@ export function mapElement(el: OverpassElement, area: { countryCode: string }, c
   const countryFromSource = /^[A-Z]{2}$/.test(addrCountry);
   const matched = category.osm.find((t) => tags[t.k] === t.v);
   const addressLine = cleanText([tags["addr:housenumber"], tags["addr:street"]].filter(Boolean).join(" "));
+  // What the card shows about the business itself (plain text only, bounded).
+  const kept: Record<string, string> = matched ? { [matched.k]: matched.v } : {};
+  const cuisine = cleanText(tags.cuisine, 80);
+  const hours = cleanText(tags.opening_hours, 200);
+  const description = cleanText(tags.description ?? tags["description:fr"] ?? tags["description:en"], 300);
+  if (cuisine) kept.cuisine = cuisine;
+  if (hours) kept.opening_hours = hours;
+  if (description) kept.description = description;
   const b: OsmBusiness = {
     source: "osm",
     sourceId: `${el.type}/${el.id}`,
@@ -254,7 +326,7 @@ export function mapElement(el: OverpassElement, area: { countryCode: string }, c
     phone: cleanPhone(tags.phone ?? tags["contact:phone"] ?? tags["contact:mobile"]),
     email,
     brand: cleanText(tags.brand, 60),
-    tags: matched ? { [matched.k]: matched.v } : undefined,
+    tags: Object.keys(kept).length > 0 ? kept : undefined,
   };
   const socials = socialsOf(tags);
   if (socials) b.socials = socials;

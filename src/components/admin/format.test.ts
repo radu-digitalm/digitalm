@@ -1,6 +1,19 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { countryName, domainOf, formatDuration, formatEta, formatInt, formatKm, localDate, localDateTime, plural, relativeOrLocal, shortDateTime, townLine, townParen } from "./format.ts";
+import { countryName, domainOf, formatDuration, formatEta, formatInt, formatKm, googleSearchUrl, localDate, localDateTime, openingHoursWords, plural, relativeOrLocal, shortDateTime, townLine, townParen } from "./format.ts";
+
+test("opening hours read as words; unusual syntax is left alone", () => {
+  assert.equal(openingHoursWords("Tu-Su 12:00-14:00,19:00-22:00; Mo off"), "Tue–Sun 12:00–14:00, 19:00–22:00 · Mon closed");
+  assert.equal(openingHoursWords("24/7"), "24 hours a day");
+  assert.equal(openingHoursWords("Mo-Fr 09:00-18:00; PH off"), "Mon–Fri 09:00–18:00 · public holidays closed");
+  assert.equal(openingHoursWords('"sur réservation"'), '"sur réservation"');
+  assert.equal(openingHoursWords(""), "");
+  assert.equal(openingHoursWords(null), "");
+});
+
+test("googleSearchUrl joins the terms and encodes them", () => {
+  assert.equal(googleSearchUrl("Alzimut", null, "Alzen"), "https://www.google.com/search?q=Alzimut%20Alzen");
+});
 
 test("localDateTime renders Europe/Paris from SQL UTC and ISO strings, including DST", () => {
   // 12 Sep 2026 07:04 UTC = 09:04 CEST (UTC+2)

@@ -10,7 +10,7 @@ import { useEffect, useRef } from "react";
 import { hasPin, unsavableReason, type ResolvedArea, type ResultRow } from "./finderApi";
 import { Button } from "./Button";
 import { ExtLink } from "./ExtLink";
-import { formatKm, localDate, townLine } from "./format";
+import { formatKm, googleSearchUrl, localDate, openingHoursWords, townLine } from "./format";
 import { CARD_TEXT, FIND_TEXT, fill, legalFormWords } from "./wording";
 
 export type CardLayout = "overlay" | "sheet" | "full";
@@ -32,10 +32,26 @@ const SOCIAL_WORD: Record<string, string> = { facebook: CARD_TEXT.facebook, inst
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-1">
-      <h3 className="text-[13px] font-medium uppercase tracking-wide text-fg-muted">{title}</h3>
+      <h3 className="text-[14px] font-medium uppercase tracking-wide text-fg-muted">{title}</h3>
       <div className="space-y-1 text-[15px] text-fg">{children}</div>
     </section>
   );
+}
+
+/** What OpenStreetMap says about the business itself: cuisine, hours, a description. */
+function aboutLines(r: ResultRow): React.ReactNode[] {
+  const tags = r.tags ?? {};
+  const out: React.ReactNode[] = [];
+  const cuisine = tags.cuisine
+    ?.split(";")
+    .map((c) => c.trim().replace(/_/g, " "))
+    .filter(Boolean)
+    .join(", ");
+  if (cuisine) out.push(<p key="cuisine">{fill(CARD_TEXT.cuisine, { v: cuisine })}</p>);
+  const hours = openingHoursWords(tags.opening_hours);
+  if (hours) out.push(<p key="hours">{fill(CARD_TEXT.openingHours, { v: hours })}</p>);
+  if (tags.description) out.push(<p key="description" className="text-fg-muted">{tags.description}</p>);
+  return out;
 }
 
 function registerSentences(r: ResultRow): React.ReactNode {
@@ -50,7 +66,7 @@ function registerSentences(r: ResultRow): React.ReactNode {
   return (
     <>
       <p>{sentence}</p>
-      {r.diffusion === "partial" ? <p className="text-amber-300">{CARD_TEXT.notListedPublicly}</p> : <p className="text-fg-muted">{CARD_TEXT.publiclyListed}</p>}
+      {r.diffusion === "partial" ? null : <p className="text-fg-muted">{CARD_TEXT.publiclyListed}</p>}
       <p>
         <ExtLink href={registerUrl}>{CARD_TEXT.openRegister}</ExtLink>
       </p>
@@ -111,6 +127,8 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
   const hasAddress = !!r.addressLine?.trim();
   const socials = Object.entries(r.socials ?? {}).filter(([, v]) => !!v);
   const km = formatKm(r.distanceKm);
+  const about = aboutLines(r);
+  const googleQuery = [r.name, r.city].filter(Boolean).join(" ");
 
   const frame =
     layout === "overlay"
@@ -132,83 +150,97 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
           </Button>
         ) : null}
       </div>
-      <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
-        <header>
-          <h2 id={titleId} ref={heading} tabIndex={-1} className="break-words text-[22px] leading-tight text-fg-heading outline-none">
-            {r.name}
-          </h2>
-          <p className="mt-1 text-[15px] text-fg-muted">
-            {trade}
-            {r.brand ? ` · ${fill(CARD_TEXT.chain, { brand: r.brand })}` : ""}
-          </p>
-        </header>
-
-        <Section title={CARD_TEXT.where}>
-          {hasAddress ? <p>{r.addressLine}</p> : null}
-          <p>
-            {town ? (r.cityApprox && r.city ? fill(CARD_TEXT.nearTownNoStreet, { town: r.city }) : town) : <span className="text-fg-muted">{FIND_TEXT.townUnknown}</span>}
-          </p>
-          <p>
-            {r.countryName || r.countryCode}
-            {r.countrySource === "area" ? <span className="text-fg-muted"> {CARD_TEXT.countryAssumed}</span> : null}
-          </p>
-          {r.inside === "no" ? <p className="text-amber-300">{fill(FIND_TEXT.outsideArea, { area: area.label })}</p> : null}
-          {km ? <p className="text-fg-muted">{fill(CARD_TEXT.distance, { km, area: area.label })}</p> : null}
-          {pin ? (
-            <p className="text-[14px] text-fg-muted">
-              <span className="font-mono">
-                {r.lat!.toFixed(5)}, {r.lng!.toFixed(5)}
-              </span>
-              {" · "}
-              <a href={`https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=17/${r.lat}/${r.lng}`} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
-                {CARD_TEXT.openOsm}
-              </a>
-              {" · "}
-              <a href={`https://www.google.com/maps?q=${r.lat},${r.lng}`} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
-                {CARD_TEXT.openGoogleMaps}
-              </a>
+      <div className="relative min-h-0 flex-1">
+        <div className="h-full space-y-5 overflow-y-auto px-4 pb-10 pt-4">
+          <header>
+            <h2 id={titleId} ref={heading} tabIndex={-1} className="break-words text-[22px] leading-tight text-fg-heading outline-none">
+              {r.name}
+            </h2>
+            <p className="mt-1 text-[15px] text-fg-muted">
+              {trade}
+              {r.brand ? ` · ${fill(CARD_TEXT.chain, { brand: r.brand })}` : ""}
             </p>
-          ) : (
-            <p className="text-fg-muted">{FIND_TEXT.notOnMap}</p>
-          )}
-        </Section>
+          </header>
 
-        {r.phone || r.email || r.website || socials.length > 0 ? (
-          <Section title={CARD_TEXT.contact}>
-            {r.phone ? (
-              <p>
-                <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="link-accent whitespace-nowrap">
-                  {r.phone}
-                </a>
-              </p>
-            ) : null}
-            {r.email ? (
-              <p className="break-all">
-                <a href={`mailto:${r.email}`} className="link-accent">
-                  {r.email}
-                </a>
-              </p>
-            ) : null}
-            {r.website ? (
-              <p>
-                <ExtLink href={r.website} />
-              </p>
-            ) : null}
-            {socials.length > 0 ? (
+          <Section title={CARD_TEXT.where}>
+            {hasAddress ? <p>{r.addressLine}</p> : null}
+            <p>
+              {town ? (r.cityApprox && r.city ? fill(CARD_TEXT.nearTownNoStreet, { town: r.city }) : town) : <span className="text-fg-muted">{FIND_TEXT.townUnknown}</span>}
+            </p>
+            <p>
+              {r.countryName || r.countryCode}
+              {r.countrySource === "area" ? <span className="text-fg-muted"> {CARD_TEXT.countryAssumed}</span> : null}
+            </p>
+            {r.inside === "no" ? <p className="text-amber-300">{fill(FIND_TEXT.outsideArea, { area: area.label })}</p> : null}
+            {km ? <p className="text-fg-muted">{fill(CARD_TEXT.distance, { km, area: area.label })}</p> : null}
+            {pin ? (
               <p className="flex flex-wrap gap-x-3 gap-y-1">
-                {socials.map(([k, v]) => (
-                  <ExtLink key={k} href={v}>
-                    {SOCIAL_WORD[k.toLowerCase()] ?? k}
-                  </ExtLink>
-                ))}
+                <a href={`https://www.openstreetmap.org/?mlat=${r.lat}&mlon=${r.lng}#map=17/${r.lat}/${r.lng}`} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
+                  {CARD_TEXT.openOsm}
+                </a>
+                <a href={`https://www.google.com/maps?q=${r.lat},${r.lng}`} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
+                  {CARD_TEXT.openGoogleMaps}
+                </a>
               </p>
-            ) : null}
+            ) : (
+              <p className="text-fg-muted">{FIND_TEXT.notOnMap}</p>
+            )}
           </Section>
-        ) : null}
 
-        <Section title={CARD_TEXT.register}>{registerSentences(r)}</Section>
+          {about.length > 0 ? <Section title={CARD_TEXT.about}>{about}</Section> : null}
 
-        <Section title={CARD_TEXT.origin}>{originSentences(r)}</Section>
+          {r.phone || r.email || r.website || socials.length > 0 ? (
+            <Section title={CARD_TEXT.contact}>
+              {r.phone ? (
+                <p>
+                  <a href={`tel:${r.phone.replace(/[^\d+]/g, "")}`} className="link-accent whitespace-nowrap">
+                    {r.phone}
+                  </a>
+                </p>
+              ) : null}
+              {r.email ? (
+                <p className="break-all">
+                  <a href={`mailto:${r.email}`} className="link-accent">
+                    {r.email}
+                  </a>
+                </p>
+              ) : null}
+              {r.website ? (
+                <p>
+                  <ExtLink href={r.website} />
+                </p>
+              ) : null}
+              {socials.length > 0 ? (
+                <p className="flex flex-wrap gap-x-3 gap-y-1">
+                  {socials.map(([k, v]) => (
+                    <ExtLink key={k} href={v}>
+                      {SOCIAL_WORD[k.toLowerCase()] ?? k}
+                    </ExtLink>
+                  ))}
+                </p>
+              ) : null}
+              <p>
+                <a href={googleSearchUrl(googleQuery)} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
+                  {fill(CARD_TEXT.searchGoogle, { q: googleQuery })}
+                </a>
+              </p>
+            </Section>
+          ) : (
+            <Section title={CARD_TEXT.contact}>
+              <p>
+                <a href={googleSearchUrl(googleQuery)} target="_blank" rel="noopener noreferrer nofollow" className="link-accent">
+                  {fill(CARD_TEXT.searchGoogle, { q: googleQuery })}
+                </a>
+              </p>
+            </Section>
+          )}
+
+          <Section title={CARD_TEXT.register}>{registerSentences(r)}</Section>
+
+          <Section title={CARD_TEXT.origin}>{originSentences(r)}</Section>
+        </div>
+        {/* The body scrolls under the button bar: a fade says so instead of a sliced line. */}
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-surface to-transparent" />
       </div>
 
       <div className="space-y-2 border-t border-line px-4 py-3">

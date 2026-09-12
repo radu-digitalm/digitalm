@@ -17,7 +17,7 @@ import { DataTable, type Column } from "./DataTable";
 import { ExtLink } from "./ExtLink";
 import { inputClass } from "./Field";
 import { backfillTowns } from "./finderApi";
-import { countryName, localDate, townLine } from "./format";
+import { countryName, shortDateTime, townLine } from "./format";
 import { ProspectBadges, anyPhone, badgeGlossary, usableEmail } from "./ProspectBadges";
 import { useToast } from "./Toast";
 import { LEAD_STAGE_WORDS, PROSPECT_TEXT } from "./wording";
@@ -145,7 +145,9 @@ export function ProspectTable({
           <Link href={`/admin/prospects/${p.id}`} onClick={(e) => e.stopPropagation()} className="text-[16px] text-fg-heading hover:underline">
             {p.name}
           </Link>
-          <div className="font-mono text-[13px] text-fg-muted">{p.reference}</div>
+          <div className="text-[14px] text-fg-muted">
+            <span className="font-mono">{p.reference}</span> · saved {shortDateTime(p.savedAt)}
+          </div>
         </div>
       ),
     },
@@ -215,7 +217,6 @@ export function ProspectTable({
           ""
         ),
     },
-    { key: "saved", header: "Saved", className: "whitespace-nowrap text-fg-muted", render: (p) => localDate(p.savedAt) },
   ];
 
   return (
@@ -229,7 +230,7 @@ export function ProspectTable({
             aria-current={t.view === view ? "page" : undefined}
             className={`-mb-px border-b-2 px-3 py-2 text-[15px] ${t.view === view ? "border-accent text-fg-heading" : "border-transparent text-fg-muted hover:text-fg-heading"}`}
           >
-            {t.label} <span className="font-mono text-[13px] text-fg-muted">{counts[t.view]}</span>
+            {t.label} <span className="font-mono text-[14px] text-fg-muted">{counts[t.view]}</span>
           </Link>
         ))}
         <span className="flex-1" />
@@ -283,7 +284,7 @@ export function ProspectTable({
         rows={rows}
         rowKey={(p) => p.id}
         cards
-        minWidth="64rem"
+        minWidth="58rem"
         onRowClick={(p) => router.push(`/admin/prospects/${p.id}`)}
         empty={
           view === "ready"

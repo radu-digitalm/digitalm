@@ -18,7 +18,8 @@ export type CustomTrade = { osmKey: string; osmValue: string; label?: string; na
 export type Pick = { osmType: "relation" | "node" | "way"; osmId: number };
 export type FindBody = { area: string; category: string | CustomTrade; sources?: DiscoverySource[]; pick?: Pick; confirmCap?: boolean };
 
-export type GateChild = { id: string; label: string; code?: string; countryCode: string };
+/** A chip of the over-cap gate; `query` is what a click posts as the area (a department code, "Occitanie, France") — the label otherwise. */
+export type GateChild = { id: string; label: string; code?: string; countryCode: string; query?: string };
 export type GatePlan = { expected: number | null; cap: number; units: GateChild[]; estimateMs?: number };
 export type StartResponse = { ok: true; searchId: number; area: ResolvedArea; plan: { expected: number | null; cap: number; units: number; estimateMs?: number }; alternatives?: Alternative[] };
 export type GateResponse = { ok: true; gate: "over_cap"; area: ResolvedArea; plan: GatePlan };
@@ -131,6 +132,16 @@ export function unsavableReason(r: ResultRow): "saved" | "not_listed" | "closed"
 
 export function savable(r: ResultRow): boolean {
   return unsavableReason(r) === null;
+}
+
+/** Rows nobody can act on (not listed publicly, closed, hidden) sink to the bottom of every sort; saved rows keep their place. */
+export function sinks(r: ResultRow): boolean {
+  const why = unsavableReason(r);
+  return why === "not_listed" || why === "closed" || why === "hidden";
+}
+
+export function notListed(r: ResultRow): boolean {
+  return r.diffusion === "partial";
 }
 
 /** website + phone + email present, 0–3 (the "Most complete first" sort). */

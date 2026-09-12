@@ -18,7 +18,7 @@ import { categoryByKey, tradeLabel } from "./categories";
 import { companiesHouseKey, searchCompaniesHouse } from "./companiesHouse";
 import { mergeBusinesses, type MergedBusiness } from "./dedupe";
 import { registerReason, searchRegisterScope, scopesFor, type RegisterRow } from "./frRegister";
-import { countryNameOf, finePolygon, frDepartements, frRegionDepartements, geoGouv, type GeoCommune } from "./geocode";
+import { countryNameOf, finePolygon, frDepartements, frRegionDepartements, frRegions, geoGouv, type GeoCommune } from "./geocode";
 import { googlePlacesOn } from "./google";
 import { fmtNum, listOf, note, plural } from "./notes";
 import { UnitFailure, fetchUnit, mapElement, overpassCount, type OsmBusiness } from "./overpass";
@@ -49,9 +49,10 @@ export class RunnerError extends Error {
 
 export type StoredPlan = { expected: number | null; cap: number; mode: PlanMode; estimateMs: number; units: PlanUnit[]; category: Category };
 
-export type PlanOutcome =
-  | { gate: "over_cap"; plan: { expected: number | null; cap: number; units: { id: string; label: string; code?: string; countryCode: string }[]; estimateMs: number } }
-  | { gate: null; plan: StoredPlan };
+/** A chip of the over-cap gate: a real administrative child by name; `query` is what a click posts as the area (a department code, "Occitanie, France"). */
+export type GateUnit = { id: string; label: string; code?: string; countryCode: string; query?: string };
+
+export type PlanOutcome = { gate: "over_cap"; plan: { expected: number | null; cap: number; units: GateUnit[]; estimateMs: number } } | { gate: null; plan: StoredPlan };
 
 // ---- live state ---------------------------------------------------------------------------
 
@@ -84,27 +85,71 @@ function assertNotRunning(): void {
 
 // ---- planning (§2.5, §2.6) ----------------------------------------------------------------
 
+const REGION_COUNT_TIMEOUT_S = 8; // a region's count gets a short server-side timeout: quick, or gated without one (the gate shows within ~13 s)
+
+function byName<T extends { label: string }>(list: readonly T[]): T[] {
+  return [...list].sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }));
+}
+
 /**
- * Estimate the area (one cached Overpass count), fetch administrative
- * children when the area must be split or gated, and either answer the
- * over-cap gate or return the unit plan.
+ * The gate's chips: the area's real administrative children by name, A–Z,
+ * from one lightweight lookup at most — geo.gouv for a French region (its
+ * departments; already cached by the resolver) or for France (its regions),
+ * one Overpass children query for a region or country elsewhere. A
+ * department or a town over the cap has hundreds of communes: no chips (the
+ * panel says to type a smaller area). Never tiles.
+ */
+async function gateChildren(area: ResolvedArea, maxUnits: number, signal?: AbortSignal): Promise<GateUnit[]> {
+  if (area.countryCode === "FR" && area.kind === "region" && area.admin?.regionCode) {
+    const deps = await frRegionDepartements(area.admin.regionCode).catch(() => []);
+    return byName(deps.map((d) => ({ id: `dep:${d.code}`, label: d.nom, code: d.code, countryCode: "FR", query: d.code })));
+  }
+  if (area.countryCode === "FR" && area.kind === "country") {
+    const regions = await frRegions().catch(() => []);
+    return byName(regions.map((r) => ({ id: `reg:${r.code}`, label: r.nom, code: r.code, countryCode: "FR", query: `${r.nom}, France` })));
+  }
+  if ((area.kind !== "region" && area.kind !== "country") || area.areaSelector.kind === "around") return [];
+  const levels = area.kind === "country" ? [4, 6, 8] : [6, 4, 8];
+  for (const level of levels) {
+    const list = await fetchChildren(area.areaSelector, level, signal).catch((e: unknown) => {
+      if (e instanceof HttpError && e.code === "aborted") throw e;
+      return [] as ChildRel[];
+    });
+    const pick = chooseLevel((l) => (l === level ? list : undefined), maxUnits);
+    if (pick) return byName(pick.children.map((c) => ({ id: `r${c.relId}`, label: c.name, ...(c.code ? { code: c.code } : {}), countryCode: area.countryCode })));
+  }
+  return [];
+}
+
+/**
+ * Estimate the area (one cached Overpass count — never for a country, a
+ * short one for a region), answer the over-cap gate with the children by
+ * name, or — once the owner has chosen — fetch the administrative children
+ * the split needs and return the unit plan.
  */
 export async function planSearch(area: ResolvedArea, category: Category, opts: { confirmCap?: boolean; signal?: AbortSignal } = {}): Promise<PlanOutcome> {
   const cap = findMaxRows();
   const maxUnits = findMaxUnits();
   const big = area.kind === "region" || area.kind === "country";
   const huge = area.radiusKm > HUGE_RADIUS_KM;
-  let expected: number | null;
-  let estimateMs: number;
-  try {
-    ({ expected, ms: estimateMs } = await overpassCount(area.areaSelector, category, { signal: opts.signal, timeoutS: huge ? 20 : 30 }));
-  } catch (e) {
-    if (e instanceof AreaQueryError) throw new RunnerError("bad_area", 400);
-    throw e;
+  let expected: number | null = null;
+  let estimateMs = 0;
+  // A country is never one request and its count is never quick: it is gated without an estimate (§2.6).
+  if (area.kind !== "country") {
+    try {
+      ({ expected, ms: estimateMs } = await overpassCount(area.areaSelector, category, { signal: opts.signal, timeoutS: area.kind === "region" ? REGION_COUNT_TIMEOUT_S : huge ? 20 : 30 }));
+    } catch (e) {
+      if (e instanceof AreaQueryError) throw new RunnerError("bad_area", 400);
+      throw e;
+    }
   }
   // A region or country whose count the map service could not give is still split and gated: it is never one request.
   const mustSplit = needsSplit(expected) || (expected === null && big);
   const mustGate = overCap(expected, cap) || (expected === null && big);
+  if (mustGate && !opts.confirmCap) {
+    const units = await gateChildren(area, maxUnits, opts.signal);
+    return { gate: "over_cap", plan: { expected, cap, units, estimateMs } };
+  }
   let children: ChildRel[] | null = null;
   const canSplit = area.areaSelector.kind !== "around" && area.kind !== "place";
   if (canSplit && mustSplit) {
@@ -119,18 +164,6 @@ export async function planSearch(area: ResolvedArea, category: Category, opts: {
         break;
       }
     }
-  }
-  if (mustGate && !opts.confirmCap) {
-    const { units } = planUnits({ area, expected, children, maxUnits, forceSplit: mustSplit });
-    return {
-      gate: "over_cap",
-      plan: {
-        expected,
-        cap,
-        units: units.length > 1 ? units.map((u) => ({ id: u.id, label: u.label, ...(u.code ? { code: u.code } : {}), countryCode: area.countryCode })) : [],
-        estimateMs,
-      },
-    };
   }
   const { mode, units } = planUnits({ area, expected, children, maxUnits, forceSplit: mustSplit });
   return { gate: null, plan: { expected, cap, mode, estimateMs, units, category } };
@@ -458,6 +491,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
           break;
         }
         if (e instanceof UnitFailure) {
+          console.warn(`finder: search ${searchId} unit "${unit.label}" failed (${e.error})`);
           emit({ type: "unit_failed", id: unit.id, error: e.error, at: at() });
           saveProgress();
           continue;
@@ -493,8 +527,13 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     if (sources.includes("google") && !googlePlacesOn()) notes.push(note("google_off"));
 
     // ---- merge, town fill, order ------------------------------------------------------
+    // The stage is visible: the page reads "Placing on the map and removing duplicates…" while this runs.
+    emit({ type: "stage", stage: "merge", at: new Date().toISOString() });
+    saveProgress();
     const mergedAt = new Date().toISOString();
+    const beforeMerge = osmRows.length + registerRows.length + chRows.length;
     const merged = mergeBusinesses([...osmRows, ...registerRows, ...chRows]);
+    if (beforeMerge > merged.length) notes.push(note("duplicates_removed", { n: beforeMerge - merged.length }));
     let rows = merged.map((m) => mergedToRow(m, { area, osm: osmByKey, register: registerByKey, readAt: mergedAt }));
     markAlreadySaved(rows);
     if (!cancelled) await fillTowns(rows, area, plan, progress, signal).catch(() => undefined);
@@ -518,7 +557,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     }
     if (failedUnits.length > 0) notes.push(note("units_failed", { list: listOf(failedUnits.map((u) => u.label)) }));
     if (timeLimit) notes.push(note("time_limit", { minutes: Math.round(maxMs / 60_000), done: unitsDone.length, total: plan.units.length }));
-    if (plan.expected === null) notes.push(note("estimate_unknown"));
+    if (plan.expected === null && plan.units.length > 1) notes.push(note("estimate_unknown"));
     const finishedAt = new Date().toISOString();
     emit({ type: "finished", status, at: finishedAt });
     const result = skeleton();

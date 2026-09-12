@@ -23,6 +23,7 @@ export const NOTE_CODES = [
   "time_limit",
   "ch_needs_town",
   "country_assumed",
+  "duplicates_removed",
 ] as const;
 export type NoteCode = (typeof NOTE_CODES)[number];
 
@@ -70,12 +71,13 @@ export const NOTE_TEXT: Record<NoteCode, (p: NoteParams) => string> = {
   register_outside_dropped: (p) => `${fmtNum(p.n)} register entries fell outside ${s(p, "area")} and were left out.`,
   register_failed: (p) => `The French company register could not be searched (it ${s(p, "reason")}). Businesses found on the map are shown without register details.`,
   google_off: () => "Google is switched off for now.",
-  estimate_unknown: () => "The map service could not say how many to expect — the count grows as areas finish.",
+  estimate_unknown: () => "The map service could not say how many to expect before the search — the count grows as areas finish.",
   interrupted: () => "This search was interrupted (the server restarted). Continue to finish it.",
   expired: () => "This search is more than a day old and its results were cleared. Run it again.",
   time_limit: (p) => `The search stopped after ${fmtNum(p.minutes)} minutes (${fmtNum(p.done)} of ${fmtNum(p.total)} areas). Continue to finish it.`,
   ch_needs_town: () => "Companies House is searched by town — search a UK town to include it.",
   country_assumed: (p) => `Country assumed from the search area for ${fmtNum(p.n)} businesses without an address country.`,
+  duplicates_removed: (p) => `${fmtNum(p.n)} duplicates removed — the same business listed more than once on the map or in the register.`,
 };
 
 /** A note with its text rendered from the catalogue; `params` are echoed for the UI. */

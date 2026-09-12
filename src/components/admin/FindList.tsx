@@ -14,18 +14,23 @@ import { inputClass } from "./Field";
 import { domainOf, formatInt, townLine } from "./format";
 import { ATTRIBUTION_TEXT, FIND_TEXT, STATUS_WORDS, fill } from "./wording";
 
-export type Chip = "website" | "no_website" | "phone" | "email" | "register" | "saved" | "hidden";
+export type Chip = "savable" | "website" | "no_website" | "phone" | "email" | "register" | "saved" | "not_listed" | "hidden";
 export type SortKey = "nearest" | "complete" | "town" | "name";
 
 export const CHIP_LABEL: Record<Chip, string> = {
+  savable: FIND_TEXT.chipSavable,
   website: FIND_TEXT.chipWebsite,
   no_website: FIND_TEXT.chipNoWebsite,
   phone: FIND_TEXT.chipPhone,
   email: FIND_TEXT.chipEmail,
   register: FIND_TEXT.chipRegister,
   saved: FIND_TEXT.chipSaved,
+  not_listed: FIND_TEXT.chipNotListed,
   hidden: FIND_TEXT.chipHidden,
 };
+
+/** The chips that reveal rows kept out of the way by default (off → those rows are not listed at all). */
+export const REVEAL_CHIPS: readonly Chip[] = ["not_listed", "hidden"];
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "nearest", label: FIND_TEXT.sortNearest },
@@ -73,7 +78,7 @@ function StatusWord({ r, area }: { r: ResultRow; area: string }) {
   if (s === "saved" && r.alreadySaved)
     return (
       <Link href={`/admin/prospects/${r.alreadySaved.prospectId}`} onClick={(e) => e.stopPropagation()} className="link-accent whitespace-nowrap text-[15px]" data-testid="row-status">
-        {STATUS_WORDS.saved} · <span className="font-mono text-[13px]">{r.alreadySaved.reference}</span>
+        {STATUS_WORDS.saved} · <span className="font-mono text-[14px]">{r.alreadySaved.reference}</span>
       </Link>
     );
   if (s === "not_listed")
@@ -152,8 +157,9 @@ export function FindList(p: FindListProps) {
   const summary = total === 1 ? fill(FIND_TEXT.summaryOne, { area: area.label }) : fill(FIND_TEXT.summary, { n: formatInt(total), area: area.label });
   const hasRegister = result.sources.includes("fr_register") && area.countryCode === "FR";
   const perSource = fill(p.running && hasRegister ? FIND_TEXT.perSourceRunning : FIND_TEXT.perSource, { onMap: formatInt(result.perSource.osm ?? 0), inRegister: formatInt(result.perSource.fr_register ?? 0) });
+  const savableLine = fill(FIND_TEXT.summarySavable, { n: formatInt(p.counts.savable) });
 
-  const chips: Chip[] = ["website", "no_website", "phone", "email", ...(p.showRegisterChip ? (["register"] as Chip[]) : []), "saved", "hidden"];
+  const chips: Chip[] = ["savable", "website", "no_website", "phone", "email", ...(p.showRegisterChip ? (["register"] as Chip[]) : []), "saved", ...(hasRegister ? (["not_listed"] as Chip[]) : []), "hidden"];
 
   // Town groups (sticky headers) when sorted by town.
   const groups = useMemo(() => {
@@ -239,7 +245,9 @@ export function FindList(p: FindListProps) {
         {narrow ? (
           <div className="min-w-0">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate text-[16px] text-fg-heading">{r.name}</span>
+              <span className="min-w-0 truncate text-[16px] text-fg-heading" data-testid="row-name">
+                {r.name}
+              </span>
               <span className="flex shrink-0 items-center gap-2">
                 <StatusWord r={r} area={area.label} />
                 {undoButton}
@@ -266,7 +274,9 @@ export function FindList(p: FindListProps) {
         ) : (
           <div className="grid min-w-0 grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1">
             <div className="min-w-0">
-              <div className="truncate text-[16px] text-fg-heading">{r.name}</div>
+              <div className="truncate text-[16px] text-fg-heading" data-testid="row-name">
+                {r.name}
+              </div>
               {second ? <div className="truncate text-[14px] text-fg-muted">{second}</div> : null}
             </div>
             <div className="min-w-0 truncate text-[15px] text-fg">
@@ -299,22 +309,27 @@ export function FindList(p: FindListProps) {
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div data-testid="find-summary">
             {p.compactHeader ? null : <div className="text-[18px] text-fg-heading">{summary}</div>}
-            <div className="text-[15px] text-fg-muted">{perSource}</div>
+            <div className="text-[15px] text-fg-muted">
+              <span className="text-fg">{savableLine}</span> · {perSource}
+            </div>
           </div>
           <Button variant="primary" size="sm" onClick={p.onSaveTicked} disabled={pickedCount === 0} loading={p.saving}>
             {fill(FIND_TEXT.saveTicked, { n: pickedCount })}
           </Button>
         </div>
-        <div role="group" aria-label={FIND_TEXT.filtersLabel} className="flex flex-wrap gap-1.5">
+        {/* One row of chips: it scrolls sideways in a narrow pane instead of stacking three deep. */}
+        <div role="group" aria-label={FIND_TEXT.filtersLabel} className={narrow ? "flex flex-nowrap gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin]" : "flex flex-wrap gap-1.5"}>
           {chips.map((c) => {
             const on = p.chips.has(c);
+            const reveal = REVEAL_CHIPS.includes(c);
             return (
               <button
                 key={c}
                 type="button"
                 aria-pressed={on}
                 onClick={() => p.onToggleChip(c)}
-                className={`rounded-full border px-3 py-1 text-[14px] transition-colors ${on ? "border-accent-magenta bg-accent-magenta/15 text-fg-heading" : "border-line text-fg-muted hover:border-line-strong hover:text-fg-heading"}`}
+                title={reveal ? `${CHIP_LABEL[c]} — off by default; switch on to list them (at the bottom)` : undefined}
+                className={`shrink-0 whitespace-nowrap rounded-full border px-3 py-1 text-[15px] transition-colors ${on ? "border-accent-magenta bg-accent-magenta/15 text-fg-heading" : "border-line text-fg-muted hover:border-line-strong hover:text-fg-heading"}`}
               >
                 {CHIP_LABEL[c]} <span className="text-fg-muted">({formatInt(p.counts[c])})</span>
               </button>
@@ -323,7 +338,7 @@ export function FindList(p: FindListProps) {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="search" value={p.text} onChange={(e) => p.onText(e.target.value)} placeholder={FIND_TEXT.filterPlaceholder} aria-label={FIND_TEXT.filterPlaceholder} className={`${inputClass} min-w-[10rem] flex-1`} />
-          <label className="flex items-center gap-2 text-[14px] text-fg-muted">
+          <label className="flex items-center gap-2 text-[15px] text-fg-muted" title={FIND_TEXT.sortHint}>
             <span>{FIND_TEXT.sortLabel}</span>
             <select name="sort" value={p.sort} onChange={(e) => p.onSort(e.target.value as SortKey)} className={`${inputClass} w-auto`}>
               {SORT_OPTIONS.map((o) => (
@@ -333,7 +348,7 @@ export function FindList(p: FindListProps) {
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-[14px] text-fg-muted">
+          <label className="flex items-center gap-2 text-[15px] text-fg-muted">
             <input type="checkbox" checked={p.followMap} onChange={(e) => p.onFollowMap(e.target.checked)} />
             {FIND_TEXT.followMap}
           </label>

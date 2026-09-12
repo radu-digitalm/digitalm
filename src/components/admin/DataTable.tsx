@@ -46,11 +46,11 @@ export function DataTable<T>({
 }) {
   const pad = dense ? "px-3 py-2" : "px-3 py-2.5";
   const table = (
-    <div className={`card overflow-x-auto ${cards ? "hidden md:block" : ""}`}>
+    <div className={`card ${cards ? "hidden md:block" : ""}`} style={{ overflowX: "auto" }}>
       <table className="w-full text-[15px]" style={{ minWidth }}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className="border-b border-line text-[13px] font-medium uppercase tracking-wide text-fg-muted">
+          <tr className="border-b border-line text-[14px] font-medium uppercase tracking-wide text-fg-muted">
             {columns.map((c) => (
               <th key={c.key} scope="col" className={`${pad} font-medium ${ALIGN[c.align ?? "left"]} ${c.className ?? ""}`}>
                 {c.header}

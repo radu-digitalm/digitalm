@@ -2,6 +2,8 @@
 
 // The map legend (docs/finder-ux-spec.md §5.3): the pin vocabulary, the
 // outline and the status words, opened from the "?" button in the map corner.
+// The panel is positioned under the button (the button never moves); on the
+// phone it opens as a bottom sheet with its own scroll and a Close button.
 import { useEffect, useRef, useState } from "react";
 import { FIND_TEXT, LEGEND_TEXT } from "./wording";
 
@@ -53,7 +55,7 @@ const ROWS: { icon: React.ReactNode; text: string }[] = [
 
 const STATUS_ROWS = [LEGEND_TEXT.statusSaved, LEGEND_TEXT.statusNotListed, LEGEND_TEXT.statusClosed, LEGEND_TEXT.statusChain, LEGEND_TEXT.statusOutside];
 
-export function Legend({ className = "" }: { className?: string }) {
+export function Legend({ className = "", phone = false }: { className?: string; phone?: boolean }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
@@ -73,6 +75,48 @@ export function Legend({ className = "" }: { className?: string }) {
     };
   }, [open]);
 
+  // Desktop: two columns (pins · outline, dots, discs and the words) so the whole legend fits beside the map without scrolling.
+  const pinRows = ROWS.slice(0, 6);
+  const mapRows = ROWS.slice(6);
+  const list = (rows: typeof ROWS) => (
+    <ul className="space-y-1.5">
+      {rows.map((r, i) => (
+        <li key={i} className="flex items-start gap-2">
+          {r.icon}
+          <span>{r.text}</span>
+        </li>
+      ))}
+    </ul>
+  );
+  const words = (
+    <>
+      <p className="mb-1 mt-3 text-[16px] text-fg-heading">{LEGEND_TEXT.statusTitle}</p>
+      <ul className="space-y-1">
+        {STATUS_ROWS.map((t, i) => (
+          <li key={i}>{t}</li>
+        ))}
+      </ul>
+    </>
+  );
+  const body = phone ? (
+    <>
+      <p className="mb-2 text-[16px] text-fg-heading">{LEGEND_TEXT.title}</p>
+      {list(ROWS)}
+      {words}
+    </>
+  ) : (
+    <>
+      <p className="mb-2 text-[16px] text-fg-heading">{LEGEND_TEXT.title}</p>
+      <div className="grid grid-cols-2 gap-x-6">
+        <div>{list(pinRows)}</div>
+        <div>
+          {list(mapRows)}
+          {words}
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <div ref={root} className={`absolute right-2 top-2 z-[1001] ${className}`}>
       <button
@@ -84,23 +128,18 @@ export function Legend({ className = "" }: { className?: string }) {
       >
         ?
       </button>
-      {open ? (
-        <div className="mt-2 max-h-[min(70vh,34rem)] w-[22rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-line bg-surface/95 p-4 text-[14px] text-fg shadow-2xl backdrop-blur">
-          <p className="mb-2 text-[15px] text-fg-heading">{LEGEND_TEXT.title}</p>
-          <ul className="space-y-1.5">
-            {ROWS.map((r, i) => (
-              <li key={i} className="flex items-start gap-2">
-                {r.icon}
-                <span>{r.text}</span>
-              </li>
-            ))}
-          </ul>
-          <p className="mb-1 mt-3 text-[15px] text-fg-heading">{LEGEND_TEXT.statusTitle}</p>
-          <ul className="space-y-1">
-            {STATUS_ROWS.map((t, i) => (
-              <li key={i}>{t}</li>
-            ))}
-          </ul>
+      {open && phone ? (
+        <div role="dialog" aria-label={LEGEND_TEXT.title} data-testid="legend-panel" className="fixed inset-x-0 bottom-0 z-[1002] max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface px-4 pb-6 pt-3 text-[15px] text-fg shadow-2xl">
+          <div className="mb-2 flex items-center justify-end">
+            <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-line px-3 py-1 text-[15px] text-fg-heading hover:bg-surface-2">
+              {FIND_TEXT.close}
+            </button>
+          </div>
+          {body}
+        </div>
+      ) : open ? (
+        <div role="dialog" aria-label={LEGEND_TEXT.title} data-testid="legend-panel" className="absolute right-0 top-11 max-h-[min(80vh,40rem)] w-[44rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-line bg-surface/95 p-4 text-[15px] text-fg shadow-2xl backdrop-blur [scrollbar-width:thin]">
+          {body}
         </div>
       ) : null}
     </div>

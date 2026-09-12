@@ -490,6 +490,18 @@ Two small extras taken from the same review because they cost almost nothing: th
 ## 15. Decisions log (integrator only)
 
 - 12 Sep 2026 — v2 published; branch `feat/finder-ux` created from `main` (`c7b84fe`).
+- 12 Sep 2026 — QA round 1 fixes (commit "finder-ux: QA round 1 fixes"), where they differ from the sections above:
+  - §2.6 gate: a **country is never counted** (no Overpass call before the owner decides) and a **region gets a 15 s count**; the gate's chips are the real administrative children **by name, A–Z** — geo.gouv departments for a French region, geo.gouv regions for France (`query` = the department code / "Occitanie, France" is what a chip posts), one Overpass children query for a region or country elsewhere — never tiles. A department or town over the cap gets no chips: the panel says to type a smaller area. *Continue with the N nearest the centre* and *Change area* sit at the top of the panel. Children for the split itself are fetched only after `confirmCap`.
+  - §3.3 Overpass: two servers (`OVERPASS_URL`, `OVERPASS_FALLBACK_URL`), per-server busy marks (Retry-After honoured), an immediate retry on the free server, then waits of 15 s and 30 s (two cycles, not 20/40/80 s) before a unit fails. `mapElement` keeps `cuisine`, `opening_hours` and `description` in `tags` for the card.
+  - §3.2 progress: the runner emits `stage: "merge"` before merging (UI: *Placing on the map and removing duplicates…*), a `duplicates_removed` note (folded into the finished line), and `estimate_unknown` only for multi-unit runs.
+  - §2.4 outlines: display threshold 0.0005 for towns (same cached lookup as the fine polygon) and 0.001 for places.
+  - §5.4 list: default sort *Most complete first*; every sort sinks rows that cannot be saved (not listed publicly, closed, hidden) to the bottom; chips *Can be saved (n)* and *Not listed publicly (n)* — the latter, like *Hidden*, off by default and revealing those rows when on; the header reads *n can be saved · from OpenStreetMap … · from the register …*; one scrolling row of chips in narrow panes.
+  - §5.6 progress bar: `progressModel.ts` reserves shares for the map, register and placing stages, never reads 100 % while running, shows *searching for 12 s* and a soft ETA for single-area searches; the estimate line disappears once finished; cached results say *results read 12 min ago (kept 24 hours)*; the country is left out of *Andorra — country*.
+  - §5.5 card: an *About the business* section (cuisine, opening hours in words, description), a *Search Google for "name town"* link, no raw coordinates, the not-listed sentence once (footer), a fade at the bottom of the scrolling body.
+  - §5.3 legend: the panel opens under the *?* button (which never moves); on the phone it is a bottom sheet with a Close button.
+  - §5.1 phone: the peeking sheet (68 px) shows only the title and the List / Map control.
+  - §6: *Saved* is under the reference in the Prospects table (no clipped column); badges and table headers 14 px, `.eyebrow` 13 px, chips 15 px.
+  - §6.5: `toTodaySummary()` lives in `todaySummary.ts` (plain module) — the server page never imports the `"use client"` TodayCards helpers; `scripts/e2e/finder.cjs` A0 asserts `/admin` answers 200 with five cards and A19 checks every page against the device width (390 px), including `/admin/prospects/6`.
 
 ## Appendix — fixtures and their derivation
 

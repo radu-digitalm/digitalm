@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { requireAdmin } from "@/lib/crm/auth";
 import { collectToday, summariseToday } from "@/lib/inbox/today";
-import { TodayCards, toTodaySummary } from "@/components/admin/TodayCards";
+import { TodayCards } from "@/components/admin/TodayCards";
+import { toTodaySummary } from "@/components/admin/todaySummary";
 import { localDate } from "@/components/admin/format";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +12,8 @@ export const metadata: Metadata = { title: "Today" };
 
 // /admin — the gate is this page's requireAdmin() call (contract §3), never the layout.
 // Five action cards + Housekeeping (docs/finder-ux-spec.md §6.5); toTodaySummary()
-// accepts the legacy card array until the backend's today.ts lands.
+// (a plain module — never the "use client" TodayCards) accepts the legacy card
+// array until the backend's today.ts lands.
 export default async function TodayPage() {
   await requireAdmin("/admin");
   const data = await collectToday();

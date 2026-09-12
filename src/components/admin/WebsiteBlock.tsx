@@ -97,8 +97,8 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
       label: CARD_TEXT.phone,
       value:
         p.websitePhone || p.sourcePhone ? (
-          <span className="whitespace-nowrap">
-            <a href={`tel:${(p.websitePhone ?? p.sourcePhone ?? "").replace(/[^\d+]/g, "")}`} className="link-accent">
+          <span className="min-w-0 break-words">
+            <a href={`tel:${(p.websitePhone ?? p.sourcePhone ?? "").replace(/[^\d+]/g, "")}`} className="link-accent whitespace-nowrap">
               {p.websitePhone ?? p.sourcePhone}
             </a>
             <span className="text-fg-muted"> {p.websitePhone ? PROSPECT_TEXT.fromSite : PROSPECT_TEXT.fromSource}</span>

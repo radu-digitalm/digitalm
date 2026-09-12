@@ -129,3 +129,36 @@ export function domainOf(url: string | null | undefined): string {
 export function plural(n: number, one: string, many = `${one}s`): string {
   return `${formatInt(n)} ${n === 1 ? one : many}`;
 }
+
+const DAY_WORDS: Record<string, string> = { Mo: "Mon", Tu: "Tue", We: "Wed", Th: "Thu", Fr: "Fri", Sa: "Sat", Su: "Sun", PH: "public holidays", SH: "school holidays" };
+
+/**
+ * OpenStreetMap opening_hours in plain words, lightly: day codes become
+ * words ("Tu-Su 12:00-14:00,19:00-22:00; Mo off" → "Tue–Sun 12:00–14:00,
+ * 19:00–22:00 · Mon closed"). Anything unusual is left as written.
+ */
+export function openingHoursWords(s: string | null | undefined): string {
+  if (!s) return "";
+  const rules = s
+    .split(";")
+    .map((r) => r.trim())
+    .filter(Boolean);
+  return rules
+    .map((rule) => {
+      let t = rule.replace(/\b(Mo|Tu|We|Th|Fr|Sa|Su|PH|SH)\b/g, (d) => DAY_WORDS[d] ?? d);
+      t = t.replace(/(\d{2}:\d{2})-(\d{2}:\d{2})/g, "$1–$2").replace(/,(?=\d{2}:\d{2})/g, ", ");
+      t = t.replace(/(Mon|Tue|Wed|Thu|Fri|Sat|Sun)-(Mon|Tue|Wed|Thu|Fri|Sat|Sun)/g, "$1–$2");
+      t = t.replace(/\boff\b/g, "closed").replace(/\b24\/7\b/g, "24 hours a day");
+      return t;
+    })
+    .join(" · ");
+}
+
+/** "Alzimut Alzen" → a Google web search URL (plain link, new tab). */
+export function googleSearchUrl(...terms: (string | null | undefined)[]): string {
+  const q = terms
+    .map((t) => (t ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
+  return `https://www.google.com/search?q=${encodeURIComponent(q)}`;
+}

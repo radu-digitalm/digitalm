@@ -166,9 +166,13 @@ test("countryNameOf: English names from the ISO code, the source's name as a fal
   assert.equal(first("Bavaria").countryName, "Germany");
 });
 
-test("polygon thresholds: 0.01 for countries, 0.005 otherwise; fine polygon only for town / department / place", () => {
+test("polygon thresholds: 0.01 for countries, 0.005 for departments and regions, finer for towns and places; fine polygon only for town / department / place", () => {
   assert.equal(displayThreshold("country"), 0.01);
   assert.equal(displayThreshold("department"), 0.005);
+  assert.equal(displayThreshold("region"), 0.005);
+  assert.equal(displayThreshold("town"), 0.0005);
+  assert.equal(displayThreshold("place"), 0.001);
+  assert.equal(displayThreshold("postcode"), 0.005);
   assert.equal(wantsFinePolygon("department"), true);
   assert.equal(wantsFinePolygon("town"), true);
   assert.equal(wantsFinePolygon("place"), true);

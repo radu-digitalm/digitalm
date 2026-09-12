@@ -26,9 +26,11 @@ import {
   hasPin,
   isGate,
   isTerminal,
+  notListed,
   recentFinds,
   saveFind,
   savable,
+  sinks,
   startFind,
   type Alternative,
   type Candidate,
@@ -82,12 +84,14 @@ function byNearest(a: ResultRow, b: ResultRow): number {
   return a.name.localeCompare(b.name);
 }
 
+/** Every sort puts the rows nobody can act on (not listed publicly, closed, hidden) last. */
 function sortRows(rows: ResultRow[], sort: SortKey): ResultRow[] {
   const out = [...rows];
-  if (sort === "nearest") out.sort(byNearest);
-  else if (sort === "complete") out.sort((a, b) => completeness(b) - completeness(a) || byNearest(a, b));
-  else if (sort === "town") out.sort((a, b) => (a.city ?? "\uffff").localeCompare(b.city ?? "\uffff") || a.name.localeCompare(b.name));
-  else out.sort((a, b) => a.name.localeCompare(b.name));
+  const sink = (a: ResultRow, b: ResultRow) => Number(sinks(a)) - Number(sinks(b));
+  if (sort === "nearest") out.sort((a, b) => sink(a, b) || byNearest(a, b));
+  else if (sort === "complete") out.sort((a, b) => sink(a, b) || completeness(b) - completeness(a) || byNearest(a, b));
+  else if (sort === "town") out.sort((a, b) => sink(a, b) || (a.city ?? "\uffff").localeCompare(b.city ?? "\uffff") || a.name.localeCompare(b.name));
+  else out.sort((a, b) => sink(a, b) || a.name.localeCompare(b.name));
   return out;
 }
 
@@ -134,7 +138,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const [cardOpen, setCardOpen] = useState(false);
   const [chips, setChips] = useState<Set<Chip>>(() => new Set());
   const [text, setText] = useState("");
-  const [sort, setSort] = useState<SortKey>("nearest");
+  const [sort, setSort] = useState<SortKey>("complete");
   const [followMap, setFollowMap] = useState(false);
   const [bounds, setBounds] = useState<MapBounds | null>(null);
   const [picked, setPicked] = useState<Set<string>>(() => new Set());
@@ -246,15 +250,17 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const area = result?.area ?? start?.area ?? gate?.area ?? null;
   const isFr = area?.countryCode === "FR";
 
-  const baseRows = useMemo(() => (chips.has("hidden") ? rows : rows.filter((r) => !r.hidden)), [rows, chips]);
+  // Hidden rows and register entries that are not listed publicly stay out of the way unless their chip is on.
+  const baseRows = useMemo(() => rows.filter((r) => (chips.has("hidden") || !r.hidden) && (chips.has("not_listed") || !notListed(r))), [rows, chips]);
 
   const counts = useMemo<Record<Chip, number>>(() => {
-    const c: Record<Chip, number> = { website: 0, no_website: 0, phone: 0, email: 0, register: 0, saved: 0, hidden: 0 };
+    const c: Record<Chip, number> = { savable: 0, website: 0, no_website: 0, phone: 0, email: 0, register: 0, saved: 0, not_listed: 0, hidden: 0 };
     for (const r of rows) {
-      if (r.hidden) {
-        c.hidden++;
-        if (!chips.has("hidden")) continue;
-      }
+      if (r.hidden) c.hidden++;
+      if (notListed(r)) c.not_listed++;
+      if (r.hidden && !chips.has("hidden")) continue;
+      if (notListed(r) && !chips.has("not_listed")) continue;
+      if (savable(r)) c.savable++;
       if (r.website) c.website++;
       else c.no_website++;
       if (r.phone) c.phone++;
@@ -268,6 +274,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const visibleRows = useMemo(() => {
     const q = fold(text.trim());
     const filtered = baseRows.filter((r) => {
+      if (chips.has("savable") && !savable(r)) return false;
       if (chips.has("website") && !r.website) return false;
       if (chips.has("no_website") && r.website) return false;
       if (chips.has("phone") && !r.phone) return false;
@@ -301,6 +308,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     setShown(PAGE);
     setText("");
     setUndo(null);
+    setSheetOpen(false); // the phone shows the map while a new search runs; the gate reopens the sheet
   }
 
   function bodyFromForm(f: FormValue): FindBody | null {
@@ -336,6 +344,8 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       if (isGate(r)) {
         setGate({ area: r.area, plan: r.plan });
         setPhase("gate");
+        // The gate lives in the list pane — on the phone that is the sheet, which must be open to show it.
+        setSheetOpen(true);
         return;
       }
       setStart({ area: r.area, expected: r.plan.expected, alternatives: r.alternatives });
@@ -376,7 +386,8 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     if (!body) return;
     const relId = /^r(\d+)$/.exec(c.id)?.[1];
     setForm((f) => ({ ...f, area: c.label }));
-    void runSearch({ ...body, area: c.label, pick: relId ? { osmType: "relation", osmId: Number(relId) } : undefined, confirmCap: undefined });
+    // A department chip posts its code (deterministic); an Overpass child posts its relation; anything else its label.
+    void runSearch({ ...body, area: c.query ?? c.label, pick: relId ? { osmType: "relation", osmId: Number(relId) } : undefined, confirmCap: undefined });
   }
 
   function confirmCap() {
@@ -704,7 +715,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
         fitSignal={fitSignal}
         className="h-full"
       />
-      <Legend />
+      <Legend phone={phone} />
       {undoBar ? <div className="pointer-events-none absolute bottom-8 left-1/2 z-[1000] -translate-x-1/2">{undoBar}</div> : null}
     </div>
   );
@@ -775,7 +786,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
           <div
             data-testid="find-sheet"
             className="fixed inset-x-0 bottom-0 z-40 flex flex-col rounded-t-2xl border-t border-line bg-surface shadow-2xl transition-[height] duration-200"
-            style={{ height: sheetOpen ? "78dvh" : 112 }}
+            style={{ height: sheetOpen ? "78dvh" : 68 }}
           >
             <button type="button" aria-label={sheetOpen ? FIND_TEXT.mapControl : FIND_TEXT.listControl} onClick={() => setSheetOpen((o) => !o)} className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-line-strong" />
             <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
@@ -789,7 +800,8 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
                 </button>
               </div>
             </div>
-            <div className={`min-h-0 flex-1 ${sheetOpen ? "" : "overflow-hidden"}`}>{listPane}</div>
+            {/* Peeking, the sheet shows only the title and the List / Map control — nothing half-cut underneath. */}
+            {sheetOpen ? <div className="min-h-0 flex-1">{listPane}</div> : null}
           </div>
           {card}
         </div>

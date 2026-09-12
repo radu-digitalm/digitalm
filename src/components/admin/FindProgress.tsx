@@ -2,11 +2,18 @@
 
 // Status line, progress bar and banners of the finder (docs/finder-ux-spec.md
 // §5.6) plus the over-cap gate panel (CapGate, rendered in the list pane).
-// Every sentence comes from wording.ts; notes arrive as text from the server.
+// Every sentence comes from wording.ts; the bar and its sentence come from
+// progressModel.ts (pure, tested); notes arrive as text from the server.
+// The line re-renders every second while a search runs so "searching for
+// 12 s" and the soft ETA tick.
+import { useEffect, useState } from "react";
 import { isTerminal, type Alternative, type GateChild, type GatePlan, type ResolvedArea, type SearchResultV2 } from "./finderApi";
 import { Button } from "./Button";
-import { formatDuration, formatEta, formatInt } from "./format";
-import { AREA_KIND_WORDS, CHILD_KIND_WORDS, FIND_TEXT, fill } from "./wording";
+import { formatInt } from "./format";
+import { doneText, progressFraction, resolvedText, runningText, unitsDone } from "./progressModel";
+import { AREA_KIND_WORDS, CHILD_KIND_WORDS, CHILD_KIND_WORDS_PLURAL, FIND_TEXT, fill } from "./wording";
+
+export { progressFraction } from "./progressModel";
 
 export type Phase = "idle" | "resolving" | "gate" | "running" | "finished";
 
@@ -25,65 +32,21 @@ export function tradePlural(label: string, n = 2): string {
     .join(" / ");
 }
 
-function unitsDone(r: SearchResultV2): { done: number; total: number } {
-  const total = r.progress.units.length;
-  const done = r.progress.units.filter((u) => u.state === "done" || u.state === "failed" || u.state === "skipped").length;
-  return { done, total };
-}
-
-function scopesDone(r: SearchResultV2): { done: number; total: number } {
-  const total = r.progress.registerScopes.length;
-  const done = r.progress.registerScopes.filter((s) => s.state === "done" || s.state === "failed" || s.state === "skipped").length;
-  return { done, total };
-}
-
-/** The running sentence for the progress bar. */
-export function runningText(r: SearchResultV2, now = Date.now()): string {
-  const p = r.progress;
-  if (p.retryingUntil) {
-    const s = Math.max(1, Math.round((Date.parse(p.retryingUntil) - now) / 1000));
-    if (Number.isFinite(s)) return fill(FIND_TEXT.retrying, { s });
-  }
-  if (p.stage === "osm") {
-    const u = unitsDone(r);
-    const parts = [u.total > 1 ? fill(FIND_TEXT.searchingOsm, { done: u.done, total: u.total }) : FIND_TEXT.searchingOsmOne, fill(FIND_TEXT.foundSoFar, { n: formatInt(p.found) })];
-    const eta = formatEta(p.etaSeconds);
-    if (eta) parts.push(fill(FIND_TEXT.eta, { s: eta }));
-    return parts.join(" · ");
-  }
-  if (p.stage === "register") {
-    const s = scopesDone(r);
-    const current = p.registerScopes.find((x) => x.state === "running") ?? p.registerScopes[0];
-    if (s.total <= 1 && current) return fill(FIND_TEXT.checkingRegister, { done: current.pages, total: current.totalPages ?? "?" });
-    return fill(FIND_TEXT.checkingRegisterScopes, { done: s.done, total: s.total });
-  }
-  return FIND_TEXT.placing;
-}
-
-/** 0–1 of the bar, or null while nothing measurable has happened. */
-export function progressFraction(r: SearchResultV2): number | null {
-  const u = unitsDone(r);
-  const s = scopesDone(r);
-  const total = u.total + s.total;
-  if (total === 0) return null;
-  return (u.done + s.done) / total;
-}
-
-function bothCount(r: SearchResultV2): number {
-  return r.rows.filter((x) => x.sources.includes("osm") && x.sources.includes("fr_register")).length;
-}
-
-export function doneText(r: SearchResultV2): string {
-  const hasRegister = r.sources.includes("fr_register") && r.area.countryCode === "FR";
-  const duration = formatDuration(r.durationMs);
-  const text = !hasRegister
-    ? fill(FIND_TEXT.doneNoRegister, { n: formatInt(r.total), area: r.area.label, onMap: formatInt(r.perSource.osm ?? 0), duration })
-    : fill(FIND_TEXT.done, { n: formatInt(r.total), area: r.area.label, onMap: formatInt(r.perSource.osm ?? 0), inRegister: formatInt(r.perSource.fr_register ?? 0), inBoth: formatInt(bothCount(r)), duration });
-  // No duration yet (legacy rows) → drop the trailing " · ." part.
-  return duration ? text : text.replace(/ · \.$/, ".");
-}
-
+/** Banner notes get the amber box; `duplicates_removed` is folded into the finished line; the rest go under "Details". */
 const BANNER_CODES = new Set(["capped", "units_failed", "register_failed", "interrupted", "expired", "time_limit", "unit_truncated"]);
+const INLINE_CODES = new Set(["duplicates_removed"]);
+
+/** A clock that ticks once a second while `on`. */
+function useNow(on: boolean): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (!on) return;
+    setNow(Date.now());
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [on]);
+  return now;
+}
 
 export type FindProgressProps = {
   phase: Phase;
@@ -108,14 +71,17 @@ export function FindProgress(p: FindProgressProps) {
   const trade = r?.category.label.en ?? "";
   const status = r?.progress.status ?? null;
   const running = p.phase === "running" && (!status || !isTerminal(status));
+  const now = useNow(running);
 
-  const resolvedLine = area ? fill(FIND_TEXT.resolved, { area: area.label, kind: AREA_KIND_WORDS[area.kind] ?? area.kind, country: area.countryName || area.countryCode }) : null;
-  const estimateLine = area ? (expected !== null ? fill(FIND_TEXT.estimate, { n: formatInt(expected), trade: tradePlural(trade || "business", expected) }) : running ? FIND_TEXT.estimateUnknown : "") : "";
+  const resolvedLine = area ? resolvedText(area, AREA_KIND_WORDS[area.kind] ?? area.kind) : null;
+  // The estimate is a line of its own only while the search runs; once finished the real count is the only number shown.
+  const multiUnit = (r?.progress.units.length ?? 0) > 1;
+  const estimateLine = area && running ? (expected !== null ? fill(FIND_TEXT.estimate, { n: formatInt(expected), trade: tradePlural(trade || "business", expected) }) : multiUnit ? FIND_TEXT.estimateUnknown : "") : "";
 
   const alternatives = p.start?.alternatives ?? r?.alternatives ?? [];
   const notes = r?.notes ?? [];
   const banners = notes.filter((n) => BANNER_CODES.has(n.code));
-  const plain = notes.filter((n) => !BANNER_CODES.has(n.code));
+  const plain = notes.filter((n) => !BANNER_CODES.has(n.code) && !INLINE_CODES.has(n.code));
 
   let action: React.ReactNode = null;
   if (!running && r) {
@@ -134,9 +100,9 @@ export function FindProgress(p: FindProgressProps) {
     }
   }
 
-  const fraction = r ? progressFraction(r) : null;
-  const valueMax = r ? Math.max(1, r.progress.units.length + r.progress.registerScopes.length) : 1;
-  const valueNow = r ? Math.round((fraction ?? 0) * valueMax) : 0;
+  const fraction = r ? progressFraction(r, now) : null;
+  const valueNow = fraction === null ? 0 : Math.round(fraction * 100);
+  const liveText = r ? runningText(r, now) : "";
 
   return (
     <div className="space-y-1.5" aria-live="polite">
@@ -173,7 +139,7 @@ export function FindProgress(p: FindProgressProps) {
       ) : null}
 
       {alternatives.length > 0 && (p.phase === "running" || p.phase === "finished") ? (
-        <p className="text-[14px] text-fg-muted">
+        <p className="text-[15px] text-fg-muted">
           {FIND_TEXT.notThisPlace}{" "}
           {alternatives.map((a, i) => (
             <span key={`${a.osmType}${a.osmId}`}>
@@ -188,15 +154,17 @@ export function FindProgress(p: FindProgressProps) {
 
       {running && r ? (
         <div>
-          <p className="text-[15px] text-fg-heading">{runningText(r)}</p>
-          <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={valueMax} aria-valuenow={valueNow} aria-label={runningText(r)}>
-            <div className={fraction === null ? "dm-bar-indeterminate h-full bg-accent-magenta" : "h-full bg-accent-magenta transition-[width] duration-500"} style={fraction === null ? undefined : { width: `${Math.round(fraction * 100)}%` }} />
+          <p className="text-[15px] text-fg-heading" data-testid="find-running">
+            {liveText}
+          </p>
+          <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={valueNow} aria-label={liveText}>
+            <div className={fraction === null ? "dm-bar-indeterminate h-full bg-accent-magenta" : "h-full bg-accent-magenta transition-[width] duration-700 ease-linear"} style={fraction === null ? undefined : { width: `${Math.round(fraction * 100)}%` }} />
           </div>
         </div>
       ) : running && !r ? (
         <div>
           <p className="text-[15px] text-fg-heading">{FIND_TEXT.searchingOsmOne}…</p>
-          <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={1} aria-valuenow={0} aria-label={FIND_TEXT.searchingOsmOne}>
+          <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={0} aria-label={FIND_TEXT.searchingOsmOne}>
             <div className="dm-bar-indeterminate h-full bg-accent-magenta" />
           </div>
         </div>
@@ -230,9 +198,9 @@ export function FindProgress(p: FindProgressProps) {
               ))}
               {p.capChildren && p.capChildren.length > 0 && status === "capped" ? (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[14px]">{FIND_TEXT.searchDepartment}</span>
+                  <span className="text-[15px]">{FIND_TEXT.searchDepartment}</span>
                   {p.capChildren.map((c) => (
-                    <button key={c.id} type="button" onClick={() => p.onPickChild(c)} className="rounded-full border border-amber-400/50 px-2.5 py-0.5 text-[14px] text-amber-100 hover:bg-amber-400/20">
+                    <button key={c.id} type="button" onClick={() => p.onPickChild(c)} className="rounded-full border border-amber-400/50 px-2.5 py-0.5 text-[15px] text-amber-100 hover:bg-amber-400/20">
                       {c.label}
                     </button>
                   ))}
@@ -242,11 +210,14 @@ export function FindProgress(p: FindProgressProps) {
             </div>
           ) : null}
           {plain.length > 0 ? (
-            <ul className="list-disc space-y-0.5 pl-5 text-[14px] text-fg-muted">
-              {plain.map((n, i) => (
-                <li key={i}>{n.text}</li>
-              ))}
-            </ul>
+            <details className="text-[15px]" data-testid="find-notes">
+              <summary className="cursor-pointer text-fg-muted">{fill(FIND_TEXT.notesDetails, { n: plain.length })}</summary>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-fg-muted">
+                {plain.map((n, i) => (
+                  <li key={i}>{n.text}</li>
+                ))}
+              </ul>
+            </details>
           ) : null}
         </div>
       ) : null}
@@ -265,15 +236,30 @@ export function FindProgress(p: FindProgressProps) {
 
 const ERROR_FALLBACK = "The search failed. Try again.";
 
+/**
+ * The over-cap gate (§2.6): the decision first — continue with the nearest
+ * N or change the area — then the real administrative children by name,
+ * A–Z, as one-click searches. Never internal grid cells: when the area has
+ * no children to offer, it says so and points at the Area box.
+ */
 export function CapGate({ area, plan, trade, onChild, onContinue, onChange }: { area: ResolvedArea; plan: GatePlan; trade: string; onChild: (c: GateChild) => void; onContinue: () => void; onChange: () => void }) {
   const child = CHILD_KIND_WORDS[area.kind] ?? "part";
+  const children = CHILD_KIND_WORDS_PLURAL[area.kind] ?? "smaller areas";
   return (
-    <div className="space-y-3 p-4" data-testid="cap-gate">
+    <div className="space-y-4 p-4" data-testid="cap-gate">
       <p className="text-[17px] text-fg-heading">
         {plan.expected === null
-          ? fill(FIND_TEXT.gateTitleUnknown, { area: area.label, trade: tradePlural(trade), cap: formatInt(plan.cap) })
+          ? fill(FIND_TEXT.gateTitleUnknown, { area: area.label, cap: formatInt(plan.cap) })
           : fill(FIND_TEXT.gateTitle, { expected: formatInt(plan.expected), trade: tradePlural(trade, plan.expected), area: area.label, cap: formatInt(plan.cap) })}
       </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Button variant="primary" size="sm" data-testid="cap-continue" onClick={onContinue}>
+          {fill(FIND_TEXT.gateContinue, { cap: formatInt(plan.cap) })}
+        </Button>
+        <Button size="sm" onClick={onChange}>
+          {FIND_TEXT.gateChange}
+        </Button>
+      </div>
       {plan.units.length > 0 ? (
         <div className="space-y-2">
           <p className="text-[15px] text-fg-muted">{fill(FIND_TEXT.gateChildren, { child })}</p>
@@ -285,15 +271,9 @@ export function CapGate({ area, plan, trade, onChild, onContinue, onChange }: { 
             ))}
           </div>
         </div>
-      ) : null}
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <Button variant="primary" size="sm" data-testid="cap-continue" onClick={onContinue}>
-          {fill(FIND_TEXT.gateContinue, { cap: formatInt(plan.cap) })}
-        </Button>
-        <Button size="sm" onClick={onChange}>
-          {FIND_TEXT.gateChange}
-        </Button>
-      </div>
+      ) : (
+        <p className="text-[15px] text-fg-muted">{fill(FIND_TEXT.gateNoChildren, { area: area.label, children })}</p>
+      )}
     </div>
   );
 }
