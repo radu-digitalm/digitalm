@@ -330,3 +330,98 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* @@admin — admin CRM additions (docs/finder-ux-spec.md §1.2). Everything for
+   /admin lives between these markers: Leaflet in the dark theme, the finder's
+   pins, unit dots, progress bar, and the readability rules. */
+.admin-root input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #ee355e;
+  flex-shrink: 0;
+}
+.admin-root a:hover {
+  text-decoration: underline;
+}
+.admin-root .leaflet-container {
+  font-family: var(--font-inter), ui-sans-serif, sans-serif;
+  font-size: 14px;
+  background: #1b2230;
+  border-radius: 0.75rem;
+}
+.admin-root .leaflet-control-attribution {
+  font-size: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  color: #333;
+}
+.admin-root .leaflet-control-attribution a {
+  color: #0b57d0;
+}
+.admin-root .leaflet-bar a {
+  font-size: 18px;
+}
+.admin-root .leaflet-tooltip {
+  background: #12161f;
+  color: #f4f6fa;
+  border: 1px solid #2e3645;
+  font-size: 14px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+}
+.admin-root .leaflet-tooltip-top:before {
+  border-top-color: #2e3645;
+}
+.admin-root .dm-pin-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: rgba(27, 34, 48, 0.94);
+  border: 2px solid #ed1e79;
+  color: #f4f6fa;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.45);
+  cursor: pointer;
+}
+.admin-root .dm-unit {
+  border-radius: 9999px;
+  border: 2px solid #0a0e16;
+  box-sizing: border-box;
+}
+.admin-root .dm-unit-done {
+  background: #34d399;
+}
+.admin-root .dm-unit-failed {
+  background: repeating-linear-gradient(45deg, #ef4444 0 2px, #7f1d1d 2px 4px);
+}
+.admin-root .dm-unit-running {
+  background: #ed1e79;
+  animation: dm-pulse 1.2s ease-in-out infinite;
+}
+.admin-root .dm-unit-pending {
+  background: rgba(139, 148, 164, 0.55);
+}
+@keyframes dm-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.55;
+  }
+}
+.dm-bar-indeterminate {
+  width: 40%;
+  animation: dm-slide 1.4s ease-in-out infinite;
+}
+@keyframes dm-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}
+/* @@admin:end */
