@@ -321,6 +321,30 @@ export function chooseHit(hits: NominatimHit[]): Choice | null {
   return { ambiguous: false, chosen: top, alternatives };
 }
 
+/** What a resolved Google suggestion knows about the place (finder-google §4.4). */
+export type AreaHint = { lat: number; lng: number; countryCode: string; kind?: AreaKind | null };
+
+/**
+ * Auto-pick among ambiguous candidates from a hint: keep the hint's country,
+ * then the candidates whose bounding box holds the point (the kind too, when
+ * one is given and any candidate has it). Null when nothing fits — the
+ * chooser then shows as today.
+ */
+export function pickByHint(list: readonly Classified[], hint: AreaHint): Classified | null {
+  const cc = (hint.countryCode ?? "").toUpperCase();
+  const country = cc ? list.filter((c) => c.countryCode === cc) : [...list];
+  const holds = country.filter((c) => {
+    const [s, w, n, e] = c.bbox;
+    return hint.lat >= s && hint.lat <= n && hint.lng >= w && hint.lng <= e;
+  });
+  if (holds.length === 0) return null;
+  if (hint.kind) {
+    const sameKind = holds.filter((c) => c.kind === hint.kind);
+    if (sameKind.length > 0) return sameKind[0]!;
+  }
+  return holds[0]!;
+}
+
 /** Radius for node/way hits: 1.5 km for villages, hamlets and neighbourhoods; 4 km for towns, suburbs and anything else. */
 export function circleKmFor(addresstype: string): number {
   return SMALL_PLACE_TYPES.has(addresstype) ? 1.5 : 4;

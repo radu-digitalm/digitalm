@@ -18,6 +18,7 @@ import { OUTREACH_MODULE } from "@/lib/crm/features";
 import { CHECK_WEIGHTS } from "@/lib/crm/types";
 import type { Audit, CheckKey, CheckResult, CheckStatus } from "@/lib/crm/types";
 import { localDateTime } from "./format";
+import { googleReasonWord, googleStatusFromCheck, googleStatusWord } from "./googleWords";
 
 type PanelState = {
   ok: true;
@@ -108,9 +109,15 @@ function factLine(key: CheckKey, c: CheckResult): string {
       if (d.robotsStatus === null) parts.push("robots.txt unreachable");
       break;
     }
-    case "google_listing":
-      if (typeof d.listing === "string") parts.push(d.listing);
+    case "google_listing": {
+      // Status words only (docs/finder-google-spec.md §5.6): this block shares the page with the
+      // visible mini map, so no signal word, count or raw token ever appears here.
+      const g = googleStatusFromCheck(c);
+      parts.push(googleStatusWord(g.status, true));
+      const why = googleReasonWord(g.reason);
+      if (why) parts.push(why);
       break;
+    }
     case "housekeeping":
       if (typeof d.copyrightYear === "number") parts.push(`© ${d.copyrightYear}`);
       if (d.legalLink === false) parts.push("no legal link");

@@ -198,3 +198,42 @@ test("a hand-built C site lands under 50 with WEB first", () => {
   assert.equal(s.fits[0]!.pkg, "WEB");
   assert.deepEqual(s.top, ["speed", "https", "schema"]);
 });
+
+test("finder-google §4.6: a points override carries into the score (8 stays 8, not 5); clamped to the weight", () => {
+  const eight = makeCheck("google_listing", "partial", { listing: "found" }, 8);
+  assert.equal(eight.points, 8);
+  assert.equal(eight.measured, true);
+  assert.equal(makeCheck("google_listing", "pass", {}, 10).points, 10);
+  assert.equal(makeCheck("google_listing", "partial", {}, 4).points, 4);
+  assert.equal(makeCheck("google_listing", "pass", {}, 42).points, 10);
+  assert.equal(makeCheck("google_listing", "not_measured", {}, 8).points, 0); // an unmeasured check never scores
+  const s = auditScore({ ...fixture(), google_listing: eight });
+  assert.equal(s.earned, 98);
+  assert.equal(s.score, 98);
+  assert.deepEqual(s.flags, []);
+  assert.deepEqual(s.top, ["google_listing"]);
+  const four = auditScore({ ...fixture(), google_listing: makeCheck("google_listing", "partial", { listing: "found" }, 4) });
+  assert.equal(four.earned, 94);
+});
+
+test("finder-google §4.6: an automatic miss is not measured and carries no flag; a manual not_found fails with no-gbp", () => {
+  const miss = auditScore(fixture({ google_listing: { status: "not_measured", details: { listing: "unverified", reason: "no_match" } } }));
+  assert.equal(miss.measured, 90);
+  assert.deepEqual(miss.flags, []);
+  const rejected = auditScore(fixture({ google_listing: { status: "fail", details: { listing: "not_found" } } }));
+  assert.deepEqual(rejected.flags, ["no-gbp"]);
+  assert.equal(rejected.score, 90);
+});
+
+test("finder-google §4.6: no website caps the grade at C whatever the listing scores; the score number is untouched", () => {
+  const checks = noSiteChecks();
+  checks.google_listing = makeCheck("google_listing", "pass", { listing: "found" }, 10);
+  const s = auditScore(checks);
+  assert.equal(s.measured, 20);
+  assert.equal(s.earned, 10);
+  assert.equal(s.score, 50); // would read B
+  assert.equal(s.grade, "C");
+  assert.deepEqual(s.flags, ["no-site"]);
+  // With a site the grade follows the score as before.
+  assert.equal(auditScore(fixture({ speed: { status: "fail" }, ai_ready: { status: "fail" } })).grade, "B");
+});

@@ -45,6 +45,23 @@ const nextConfig = {
           },
         ],
       },
+      // Admin pages with the Google map and the Places UI Kit (docs/finder-google-spec.md §5.1) —
+      // only when the browser key is set at build time; the public site's CSP above is untouched
+      // (for the same header key Next applies the last matching entry).
+      ...(process.env.NEXT_PUBLIC_GOOGLE_MAPS_KEY
+        ? [
+            {
+              source: "/admin/:path*",
+              headers: [
+                {
+                  key: "Content-Security-Policy",
+                  value:
+                    "default-src 'self'; script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://maps.googleapis.com https://*.gstatic.com https://*.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: https: blob:; font-src 'self' data: https://fonts.gstatic.com; connect-src 'self' https://challenges.cloudflare.com https://maps.googleapis.com https://*.googleapis.com https://*.gstatic.com https://*.google.com data: blob:; frame-src 'self' https://challenges.cloudflare.com https://*.google.com; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'",
+                },
+              ],
+            },
+          ]
+        : []),
       {
         // Static assets are content-addressed or rarely change — cache hard.
         source: "/:dir(brand|badges|media)/:path*",

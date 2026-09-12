@@ -90,6 +90,7 @@ export function FindForm({
   onPick,
   companiesHouseOn,
   googleOn,
+  onSuggestion,
   error,
   compact = false,
 }: {
@@ -104,6 +105,8 @@ export function FindForm({
   onPick: (c: Candidate) => void;
   companiesHouseOn: boolean;
   googleOn: boolean;
+  /** Google place suggestions in the Area box (docs/finder-google-spec.md §5.3); a pick posts the place id. */
+  onSuggestion?: (s: { placeId: string }) => void;
   error: string | null;
   /** Once a search exists the onboarding lines go, so the map and list get the height. */
   compact?: boolean;
@@ -121,7 +124,19 @@ export function FindForm({
       aria-label={FIND_TEXT.title}
     >
       <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto_auto] lg:items-start">
-        <AreaInput value={value.area} onChange={(area) => onChange({ ...value, area })} candidates={candidates} onPick={onPick} disabled={busy} showHint={!compact} />
+        <AreaInput
+          value={value.area}
+          onChange={(area) => onChange({ ...value, area })}
+          candidates={candidates}
+          onPick={onPick}
+          disabled={busy}
+          showHint={!compact}
+          googleOn={googleOn && !!onSuggestion}
+          onSuggestion={onSuggestion}
+          onEnter={() => {
+            if (!busy) onSubmit();
+          }}
+        />
         <TradePicker trades={trades} value={value.categoryKey} onChange={(categoryKey) => onChange({ ...value, categoryKey })} custom={value.custom} onCustomChange={(custom) => onChange({ ...value, custom })} disabled={busy} />
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:col-span-2 lg:contents">
           <div className="min-w-0 lg:pt-[29px]">

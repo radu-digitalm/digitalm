@@ -1,0 +1,60 @@
+{
+  "id": "ChIJ3R2snwNrYYc2F0041fd8rMq",
+  "types": [
+    "locality",
+    "political"
+  ],
+  "formattedAddress": "Cambridge, UK",
+  "addressComponents": [
+    {
+      "longText": "Cambridge",
+      "shortText": "Cambridge",
+      "types": [
+        "locality",
+        "political"
+      ],
+      "languageCode": "fr"
+    },
+    {
+      "longText": "Cambridgeshire",
+      "shortText": "Cambridgeshire",
+      "types": [
+        "administrative_area_level_2",
+        "political"
+      ],
+      "languageCode": "fr"
+    },
+    {
+      "longText": "England",
+      "shortText": "England",
+      "types": [
+        "administrative_area_level_1",
+        "political"
+      ],
+      "languageCode": "fr"
+    },
+    {
+      "longText": "United Kingdom",
+      "shortText": "GB",
+      "types": [
+        "country",
+        "political"
+      ],
+      "languageCode": "fr"
+    }
+  ],
+  "location": {
+    "latitude": 52.2053,
+    "longitude": 0.1218
+  },
+  "viewport": {
+    "low": {
+      "latitude": 52.1579,
+      "longitude": 0.0481
+    },
+    "high": {
+      "latitude": 52.2371,
+      "longitude": 0.1926
+    }
+  }
+}

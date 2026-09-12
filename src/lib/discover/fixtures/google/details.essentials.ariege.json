@@ -1,0 +1,51 @@
+{
+  "id": "ChIJ9yWakxeNB6ekQ53Er8_AoJ1",
+  "types": [
+    "administrative_area_level_2",
+    "political"
+  ],
+  "formattedAddress": "Ariège, France",
+  "addressComponents": [
+    {
+      "longText": "Ariège",
+      "shortText": "Ariège",
+      "types": [
+        "administrative_area_level_2",
+        "political"
+      ],
+      "languageCode": "fr"
+    },
+    {
+      "longText": "Occitanie",
+      "shortText": "Occitanie",
+      "types": [
+        "administrative_area_level_1",
+        "political"
+      ],
+      "languageCode": "fr"
+    },
+    {
+      "longText": "France",
+      "shortText": "FR",
+      "types": [
+        "country",
+        "political"
+      ],
+      "languageCode": "fr"
+    }
+  ],
+  "location": {
+    "latitude": 42.9455368,
+    "longitude": 1.4065544
+  },
+  "viewport": {
+    "low": {
+      "latitude": 42.5738461,
+      "longitude": 0.8267506
+    },
+    "high": {
+      "latitude": 43.3162514,
+      "longitude": 2.1758135
+    }
+  }
+}

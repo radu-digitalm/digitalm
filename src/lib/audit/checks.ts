@@ -3,17 +3,26 @@
 // outside Next. Each CheckResult carries scalar `details` (the keys score.ts
 // reads for flags are named there: certDaysLeft, timedOut, viewport, channel,
 // booking, llmsTxt, chat, stale, mixedContent).
-import type { AuditChecks, CheckResult, CheckStatus, PsiSummary } from "../crm/types.ts";
+import type { AuditChecks, CheckResult, CheckStatus, GoogleListingReason, GoogleSignals, PsiSummary } from "../crm/types.ts";
 import type { Extraction } from "./extract.ts";
 import type { SiteCrawl } from "./crawler.ts";
 import { SLOW_MS } from "./crawler.ts";
+import { CHECK_WEIGHTS } from "../crm/types.ts";
 import { makeCheck } from "./score.ts";
+
+/** The Google-listing input (finder-google §4.6): the stored state, the derived signals of one Place Details answer, and why they are missing. */
+export interface GoogleListingInput {
+  status: "unverified" | "found" | "not_found";
+  signals: GoogleSignals | null;
+  reason?: GoogleListingReason;
+  checkedAt?: string | null;
+}
 
 export interface ChecksInput {
   site: SiteCrawl | null;
   psi: PsiSummary | null;
   extraction: Extraction | null;
-  googleListing: "unverified" | "found" | "not_found";
+  google: GoogleListingInput;
   now?: Date;
 }
 
@@ -121,11 +130,40 @@ function aiReady(site: SiteCrawl | null, extraction: Extraction | null): CheckRe
   return makeCheck("ai_ready", "partial", details);
 }
 
-function googleListing(listing: ChecksInput["googleListing"]): CheckResult {
-  const details: CheckResult["details"] = { listing };
-  if (listing === "found") return makeCheck("google_listing", "pass", details);
-  if (listing === "not_found") return makeCheck("google_listing", "fail", details);
-  return makeCheck("google_listing", "not_measured", details);
+/** Points of a found listing (finder-google §4.6): 4 exists + 1 open + 2 website on the listing + 1 hours + 1 reviews ≥ 5 + 1 photos ≥ 1. */
+export function listingPoints(s: GoogleSignals): number {
+  return 4 + (s.operational === true ? 1 : 0) + (s.websiteOnListing ? 2 : 0) + (s.hours ? 1 : 0) + (s.reviews >= 5 ? 1 : 0) + (s.photos >= 1 ? 1 : 0);
+}
+
+/**
+ * The Google-listing check. `unverified` and a found listing without signals
+ * are not measured (the details say why); `not_found` — set by Radu only —
+ * fails; a found listing with signals scores its points (pass ≥ 9, else
+ * partial). The details hold our derived booleans and counts and the joined
+ * attribution provider names — never a string from the listing.
+ */
+export function googleListing(google: GoogleListingInput): CheckResult {
+  const { status, signals } = google;
+  if (status === "not_found") return makeCheck("google_listing", "fail", { listing: "not_found", checkedAt: google.checkedAt ?? null });
+  if (status !== "found") {
+    const details: CheckResult["details"] = { listing: "unverified" };
+    if (google.reason) details.reason = google.reason;
+    if (google.checkedAt) details.checkedAt = google.checkedAt;
+    return makeCheck("google_listing", "not_measured", details);
+  }
+  if (!signals) return makeCheck("google_listing", "not_measured", { listing: "found", reason: google.reason ?? "unavailable" });
+  const points = Math.min(CHECK_WEIGHTS.google_listing, listingPoints(signals));
+  const details: CheckResult["details"] = {
+    listing: "found",
+    operational: signals.operational,
+    websiteOnListing: signals.websiteOnListing,
+    hours: signals.hours,
+    reviews: signals.reviews,
+    photos: signals.photos,
+    fetchedAt: signals.fetchedAt,
+    attributions: signals.attributions.join(" · "),
+  };
+  return makeCheck("google_listing", points >= 9 ? "pass" : "partial", details, points);
 }
 
 function housekeeping(site: SiteCrawl | null, extraction: Extraction | null, hasHtml: boolean, now: Date): CheckResult {
@@ -154,7 +192,7 @@ export function runChecks(input: ChecksInput): AuditChecks {
     socials: socials(extraction, hasHtml),
     schema: schema(extraction, hasHtml),
     ai_ready: aiReady(site, extraction),
-    google_listing: googleListing(input.googleListing),
+    google_listing: googleListing(input.google),
     housekeeping: housekeeping(site, extraction, hasHtml, now),
   };
 }

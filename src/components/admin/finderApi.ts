@@ -3,26 +3,42 @@
 // Typed client for the finder routes (docs/finder-ux-spec.md §4). The §3.1
 // shapes come from the backend's `// @@finder-ux:types` block in
 // src/lib/crm/types.ts and are re-exported here for the finder components.
-import type { DiscoverySource } from "@/lib/crm/types";
+import type { DiscoverySource, Prospect } from "@/lib/crm/types";
 import { AdminFetchError, adminFetch, adminGet } from "./adminFetch";
+import { placeIdOk } from "./googleMaps";
 
 // ---- §3.1 shapes — the backend's `// @@finder-ux:types` block; re-exported so the
 // list, map, card and progress components keep importing them from here.
-import type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea, SearchStatus, UnitState, SearchUnit, RegisterScope, SearchProgress, SearchNote, ResultRow, SearchResultV2, SearchSummaryV2 } from "@/lib/crm/types";
-export type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea, SearchStatus, UnitState, SearchUnit, RegisterScope, SearchProgress, SearchNote, ResultRow, SearchResultV2, SearchSummaryV2 };
+import type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea, SearchStatus, UnitState, SearchUnit, RegisterScope, SearchProgress as SearchProgressBase, SearchNote, ResultRow as ResultRowBase, SearchResultV2 as SearchResultBase, SearchSummaryV2 } from "@/lib/crm/types";
+export type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea, SearchStatus, UnitState, SearchUnit, RegisterScope, SearchNote, SearchSummaryV2 };
+
+// ---- docs/finder-google-spec.md §4.1 — the Google shapes come from the backend's
+// `// @@finder-google:types` block in src/lib/crm/types.ts (re-exported here); the optional
+// fields the backend added in place (`ResultRow.googlePlaceId` / `onGoogle`,
+// `SearchProgress.google` + stage "google", `SearchResultV2.googlePins`, the Prospect
+// fields) are on the base types, so the finder shapes are plain aliases.
+import type { GoogleMatch, GoogleSignals, GooglePin, GoogleProgress, GoogleUsage, GoogleCandidate, GoogleListingReason } from "@/lib/crm/types";
+export type { GoogleMatch, GoogleSignals, GooglePin, GoogleProgress, GoogleUsage, GoogleCandidate, GoogleListingReason };
+
+export type ResultRow = ResultRowBase;
+export type SearchProgress = SearchProgressBase;
+/** `googlePins` is present only when the Google phase ran (never an empty array otherwise). */
+export type SearchResultV2 = SearchResultBase;
+export type ProspectWithGoogle = Prospect;
 export type Alternative = NonNullable<SearchResultV2["alternatives"]>[number];
 
 // ---- §4 request / response shapes ------------------------------------------------------
 
 export type CustomTrade = { osmKey: string; osmValue: string; label?: string; naf?: string; sic?: string };
 export type Pick = { osmType: "relation" | "node" | "way"; osmId: number };
-/** `fresh`: "Run again" — every source is read anew instead of from the 24 h cache. */
-export type FindBody = { area: string; category: string | CustomTrade; sources?: DiscoverySource[]; pick?: Pick; confirmCap?: boolean; fresh?: boolean };
+/** `fresh`: "Run again" — every source is read anew instead of from the 24 h cache. `suggestion`: an Area-box pick (the place id only; `area` may be empty then). */
+export type FindBody = { area: string; category: string | CustomTrade; sources?: DiscoverySource[]; pick?: Pick; confirmCap?: boolean; fresh?: boolean; suggestion?: { placeId: string } };
 
 /** A chip of the over-cap gate; `query` is what a click posts as the area (a department code, "Occitanie, France") — the label otherwise. */
 export type GateChild = { id: string; label: string; code?: string; countryCode: string; query?: string };
 export type GatePlan = { expected: number | null; cap: number; units: GateChild[]; estimateMs?: number };
-export type StartResponse = { ok: true; searchId: number; area: ResolvedArea; plan: { expected: number | null; cap: number; units: number; estimateMs?: number }; alternatives?: Alternative[] };
+/** `queryArea`: the derived query ("Ariège, France") when a suggestion resolved the area — shown in the Area box. */
+export type StartResponse = { ok: true; searchId: number; area: ResolvedArea; plan: { expected: number | null; cap: number; units: number; estimateMs?: number }; alternatives?: Alternative[]; queryArea?: string };
 export type GateResponse = { ok: true; gate: "over_cap"; area: ResolvedArea; plan: GatePlan };
 export type FindResponse = StartResponse | GateResponse;
 
@@ -69,12 +85,17 @@ export function startFind(body: FindBody): Promise<FindResponse> {
   return adminFetch<FindResponse>("/api/admin/find", body);
 }
 
-/** GET ?id=&after=&v= — a slice from index `after` unless the rows were reordered (then the full list, see §4). */
-export function getFind(id: number, after?: number, v?: number): Promise<SearchResultV2 & { ok: true }> {
+/**
+ * GET ?id=&after=&v=&pins= — a slice from index `after` unless the rows were reordered
+ * (then the full list, see §4). `pins` is the `pinsVersion` the client holds: the
+ * answer carries `googlePins` only on a full read or when the server's version is newer.
+ */
+export function getFind(id: number, after?: number, v?: number, pins?: number): Promise<SearchResultV2 & { ok: true }> {
   const q = new URLSearchParams({ id: String(id) });
   if (after !== undefined && v !== undefined) {
     q.set("after", String(after));
     q.set("v", String(v));
+    if (pins !== undefined) q.set("pins", String(pins));
   }
   return adminGet<SearchResultV2 & { ok: true }>(`/api/admin/find?${q.toString()}`);
 }
@@ -148,4 +169,44 @@ export function notListed(r: ResultRow): boolean {
 /** website + phone + email present, 0–3 (the "Most complete first" sort). */
 export function completeness(r: ResultRow): number {
   return (r.website ? 1 : 0) + (r.phone ? 1 : 0) + (r.email ? 1 : 0);
+}
+
+// ---- Google (docs/finder-google-spec.md §4.8) ----------------------------------------------
+
+/** Pin keys for Google-only pins: `google:<placeId>` (also the dismiss key). */
+export const GOOGLE_KEY_PREFIX = "google:";
+
+export function isGoogleKey(key: string | null | undefined): boolean {
+  return typeof key === "string" && key.startsWith(GOOGLE_KEY_PREFIX);
+}
+
+export function googleKeyOf(placeId: string): string {
+  return `${GOOGLE_KEY_PREFIX}${placeId}`;
+}
+
+/** The place id behind a `google:<id>` key, or null for any other key or a malformed id. */
+export function placeIdOfKey(key: string | null | undefined): string | null {
+  if (!isGoogleKey(key)) return null;
+  const id = (key as string).slice(GOOGLE_KEY_PREFIX.length);
+  return placeIdOk(id) ? id : null;
+}
+
+/** Rows matched to a Google place: the card's "Also on Google" section. */
+export function onGoogle(r: ResultRow): boolean {
+  return placeIdOk(r.googlePlaceId);
+}
+
+export type AddByUrlResponse = { ok: true; id: number; reference: string; auditQueued: boolean; existing?: boolean; placeAttached?: boolean };
+
+/** Add by URL — `googlePlaceId` attaches the listing (`google_match = 'manual'`, `found`); the name comes from the site (§4.5). */
+export function addProspectByUrl(body: { url: string; name?: string; country: string; googlePlaceId?: string }): Promise<AddByUrlResponse> {
+  return adminFetch<AddByUrlResponse>("/api/admin/prospects", body);
+}
+
+export type GoogleAction = { action: "check" } | { action: "find" } | { action: "confirm"; placeId: string } | { action: "reject" } | { action: "clear" };
+export type GoogleActionResponse = { ok: true; prospect?: ProspectWithGoogle; signals?: GoogleSignals | null; reason?: GoogleListingReason | null; candidates?: GoogleCandidate[]; usage?: GoogleUsage };
+
+/** POST /api/admin/prospects/[id]/google (§4.5 actions); errors: google_off, google_monthly_cap, google_unavailable, google_refused. */
+export function googleAction(prospectId: number, body: GoogleAction): Promise<GoogleActionResponse> {
+  return adminFetch<GoogleActionResponse>(`/api/admin/prospects/${prospectId}/google`, body);
 }

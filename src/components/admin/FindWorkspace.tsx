@@ -6,12 +6,19 @@
 // the map together, opens the business card, saves and dismisses from it.
 // Layout: desktop two panes (map · list, the card over the list); tablet map
 // on top, list below, card as a right sheet; phone map + bottom sheet.
+// With Google on (docs/finder-google-spec.md §5): the map is Google Maps when
+// the browser key and Map ID are set (`googleMap`), the Area box offers place
+// suggestions (a pick posts `suggestion: { placeId }`), Google-only pins ride
+// along with the rows (`googlePins`, the "Only on Google" chip, the
+// Google-only card with Add by its website / Not this one). With Google off
+// none of that exists and the Leaflet finder behaves exactly as before.
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { DiscoverySource } from "@/lib/crm/types";
 import { AdminFetchError } from "./adminFetch";
 import { BusinessCard, type CardLayout } from "./BusinessCard";
 import { Button } from "./Button";
+import { GoogleOnlyCard } from "./GoogleOnlyCard";
 import { FindForm, EMPTY_CUSTOM, defaultSources, type FormValue } from "./FindForm";
 import { FindList, PAGE, type Chip, type SortKey } from "./FindList";
 import type { MapBounds } from "./FindMap";
@@ -23,20 +30,25 @@ import {
   continueFind,
   dismissFind,
   getFind,
+  googleKeyOf,
   hasPin,
   isGate,
+  isGoogleKey,
   isTerminal,
   notListed,
+  placeIdOfKey,
   recentFinds,
   saveFind,
   savable,
   sinks,
   startFind,
+  type AddByUrlResponse,
   type Alternative,
   type Candidate,
   type FindBody,
   type GateChild,
   type GatePlan,
+  type GooglePin,
   type ResolvedArea,
   type ResultRow,
   type SearchResultV2,
@@ -47,9 +59,10 @@ import { Legend } from "./Legend";
 import { summaryText } from "./progressModel";
 import { useToast } from "./Toast";
 import { CUSTOM_KEY, type TradeOption } from "./TradePicker";
-import { ERROR_TEXT, FIND_TEXT, SEARCH_STATUS_WORDS, fill } from "./wording";
+import { ERROR_TEXT, FIND_TEXT, GOOGLE_TEXT, SEARCH_STATUS_WORDS, fill } from "./wording";
 
 const FindMap = dynamic(() => import("./FindMap"), { ssr: false, loading: () => <div className="h-full min-h-[320px] rounded-xl border border-line bg-surface-2" aria-hidden="true" /> });
+const GoogleFindMap = dynamic(() => import("./GoogleFindMap"), { ssr: false, loading: () => <div className="h-full min-h-[320px] rounded-xl border border-line bg-surface-2" aria-hidden="true" /> });
 
 const OSM_VALUE_RE = /^[a-z_]{2,40}$/;
 const EUROPE = { lat: 48.5, lng: 6, zoom: 4 };
@@ -99,7 +112,9 @@ function sortRows(rows: ResultRow[], sort: SortKey): ResultRow[] {
 function mergeResult(prev: SearchResultV2 | null, next: SearchResultV2, askedAfter: number | null, askedV: number | null): SearchResultV2 {
   if (!prev || prev.searchId !== next.searchId || askedAfter === null || askedV === null) return next;
   if (next.progress.rowsVersion !== askedV || askedAfter === 0) return next;
-  return { ...next, rows: [...prev.rows, ...next.rows] };
+  // A slice omits `googlePins` unless the server holds a newer pinsVersion — keep the pins we have.
+  const pins = next.googlePins === undefined && prev.googlePins !== undefined ? { googlePins: prev.googlePins } : {};
+  return { ...next, rows: [...prev.rows, ...next.rows], ...pins };
 }
 
 export type FindWorkspaceProps = {
@@ -107,9 +122,11 @@ export type FindWorkspaceProps = {
   initialSearchId?: number;
   companiesHouseOn: boolean;
   googleOn: boolean;
+  /** Google Maps instead of Leaflet — the browser key and Map ID are set (docs/finder-google-spec.md §5.2, D4). */
+  googleMap?: boolean;
 };
 
-export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googleOn }: FindWorkspaceProps) {
+export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googleOn, googleMap = false }: FindWorkspaceProps) {
   const toast = useToast();
   const desktop = useMedia("(min-width: 1024px)");
   const tablet = useMedia("(min-width: 768px)");
@@ -138,6 +155,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const [hoverKey, setHoverKey] = useState<string | null>(null);
   const [cardOpen, setCardOpen] = useState(false);
   const [chips, setChips] = useState<Set<Chip>>(() => new Set());
+  const googleChipTouched = useRef(false);
   const [text, setText] = useState("");
   const [sort, setSort] = useState<SortKey>("complete");
   const [followMap, setFollowMap] = useState(false);
@@ -219,7 +237,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       const after = same ? cur.rows.length : null;
       const v = same ? cur.progress.rowsVersion : null;
       try {
-        const r = same ? await getFind(searchId, after!, v!) : await getFind(searchId);
+        const r = same ? await getFind(searchId, after!, v!, cur.progress.google?.pinsVersion) : await getFind(searchId);
         if (stop) return;
         const { ok: _ok, ...res } = r;
         void _ok;
@@ -250,12 +268,15 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const rows = result?.rows ?? [];
   const area = result?.area ?? start?.area ?? gate?.area ?? null;
   const isFr = area?.countryCode === "FR";
+  // Places Google knows that no other source listed (present only when the Google phase ran).
+  const googlePins = useMemo(() => result?.googlePins ?? [], [result]);
 
   // Hidden rows and register entries that are not listed publicly stay out of the way unless their chip is on.
   const baseRows = useMemo(() => rows.filter((r) => (chips.has("hidden") || !r.hidden) && (chips.has("not_listed") || !notListed(r))), [rows, chips]);
 
   const counts = useMemo<Record<Chip, number>>(() => {
-    const c: Record<Chip, number> = { savable: 0, website: 0, no_website: 0, phone: 0, email: 0, register: 0, saved: 0, not_listed: 0, hidden: 0 };
+    const c: Record<Chip, number> = { savable: 0, website: 0, no_website: 0, phone: 0, email: 0, register: 0, saved: 0, not_listed: 0, hidden: 0, google_only: 0 };
+    c.google_only = googlePins.filter((g) => !g.hidden).length;
     for (const r of rows) {
       if (r.hidden) c.hidden++;
       if (notListed(r)) c.not_listed++;
@@ -270,7 +291,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       if (r.alreadySaved) c.saved++;
     }
     return c;
-  }, [rows, chips]);
+  }, [rows, chips, googlePins]);
 
   const visibleRows = useMemo(() => {
     const q = fold(text.trim());
@@ -295,6 +316,15 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const pinRows = useMemo(() => visibleRows.filter(hasPin), [visibleRows]);
   const selectedRow = useMemo(() => (selectedKey ? rows.find((r) => r.key === selectedKey) ?? null : null), [rows, selectedKey]);
 
+  // The Google-only pins (blue) show while their chip is on; hidden ones only with the Hidden chip, like rows.
+  const visiblePins = useMemo(() => (chips.has("google_only") ? googlePins.filter((g) => chips.has("hidden") || !g.hidden) : []), [googlePins, chips]);
+  const selectedPin = useMemo(() => (isGoogleKey(selectedKey) ? (googlePins.find((g) => googleKeyOf(g.placeId) === selectedKey) ?? null) : null), [googlePins, selectedKey]);
+  // The chip is on by default whenever a search has Google-only pins, until it is toggled by hand.
+  useEffect(() => {
+    if (googlePins.length === 0 || googleChipTouched.current) return;
+    setChips((s) => (s.has("google_only") ? s : new Set(s).add("google_only")));
+  }, [googlePins.length]);
+
   // ---- actions ------------------------------------------------------------------------------------
   function resetForNewSearch() {
     setError(null);
@@ -310,11 +340,19 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     setText("");
     setUndo(null);
     setSheetOpen(false); // the phone shows the map while a new search runs; the gate reopens the sheet
+    googleChipTouched.current = false;
+    setChips((s) => {
+      if (!s.has("google_only")) return s;
+      const n = new Set(s);
+      n.delete("google_only");
+      return n;
+    });
   }
 
-  function bodyFromForm(f: FormValue): FindBody | null {
+  /** `allowEmptyArea`: a suggestion pick carries the place id, so the typed text may be empty (§5.3). */
+  function bodyFromForm(f: FormValue, allowEmptyArea = false): FindBody | null {
     const areaText = f.area.trim();
-    if (!areaText) {
+    if (!areaText && !allowEmptyArea) {
       setFormError(FIND_TEXT.typeAreaFirst);
       return null;
     }
@@ -355,13 +393,23 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       setStart({ area: r.area, expected: r.plan.expected, alternatives: r.alternatives });
       setSearchId(r.searchId);
       setPhase("running");
+      if (r.queryArea && body.suggestion) {
+        // A suggestion pick: the box shows the area the search resolved to, and Run again re-posts that text (no second Google call).
+        const queryArea = r.queryArea;
+        setForm((f) => ({ ...f, area: queryArea }));
+        lastBody.current = { ...remembered, area: queryArea, suggestion: undefined };
+      }
       if (typeof window !== "undefined") window.history.replaceState(null, "", `/admin/find?search=${r.searchId}`);
     } catch (e) {
       const err = classifyFindError(e);
       setPhase(resultRef.current ? "finished" : "idle");
       if (err.kind === "ambiguous") setCandidates(err.candidates);
       else if (err.kind === "search_running") setError({ text: fill(ERROR_TEXT.search_running, { area: err.area, trade: err.trade }), running: { searchId: err.searchId, area: err.area, trade: err.trade } });
-      else {
+      else if (err.code === "suggestion_unresolved") {
+        // Google could not turn the pick into a place and there was no typed text to fall back on: under the field, focus back in the box.
+        setFormError(err.message ?? ERROR_TEXT.suggestion_unresolved);
+        if (typeof document !== "undefined") document.getElementById("area")?.focus();
+      } else {
         const known = (ERROR_TEXT as Record<string, string>)[err.code];
         setError({ text: known ? fill(known, { query: body.area }) : err.message ?? ERROR_TEXT.search_failed });
       }
@@ -371,6 +419,13 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   function submit() {
     const body = bodyFromForm(form);
     if (body) void runSearch(body);
+  }
+
+  /** An Area-box pick (docs/finder-google-spec.md §5.3): the place id only, plus the last typed text as the fallback. */
+  function submitSuggestion(s: { placeId: string }) {
+    setBarOpen(false);
+    const body = bodyFromForm(form, true);
+    if (body) void runSearch({ ...body, suggestion: s });
   }
 
   function pickCandidate(c: Candidate) {
@@ -480,6 +535,17 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     setResult((prev) => (prev ? { ...prev, rows: prev.rows.map((r) => (r.key === key ? { ...r, ...patch } : r)) } : prev));
   }
 
+  function updatePin(placeId: string, patch: Partial<GooglePin>) {
+    setResult((prev) => (prev && prev.googlePins ? { ...prev, googlePins: prev.googlePins.map((g) => (g.placeId === placeId ? { ...g, ...patch } : g)) } : prev));
+  }
+
+  /** Hidden state for a row key or a `google:<id>` pin key. */
+  function setHidden(key: string, hidden: boolean) {
+    const placeId = placeIdOfKey(key);
+    if (placeId) updatePin(placeId, { hidden });
+    else updateRow(key, { hidden });
+  }
+
   async function refreshFull() {
     if (!searchId) return;
     try {
@@ -572,13 +638,46 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
 
   async function undoDismiss(key: string) {
     if (!searchId) return;
-    updateRow(key, { hidden: false });
+    setHidden(key, false);
     setUndo(null);
     try {
       await dismissFind(searchId, key, true);
     } catch {
-      updateRow(key, { hidden: true });
+      setHidden(key, true);
     }
+  }
+
+  /** "Not this one" on a Google-only pin: hidden server-side under its `google:<id>` key, with the same Undo. */
+  async function dismissGoogle(pin: GooglePin) {
+    if (!searchId) return;
+    const key = googleKeyOf(pin.placeId);
+    updatePin(pin.placeId, { hidden: true });
+    if (!chips.has("hidden")) {
+      setSelectedKey(null);
+      setCardOpen(false);
+    }
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo({ key, name: GOOGLE_TEXT.onlyOnGoogle });
+    undoTimer.current = setTimeout(() => setUndo(null), 6000);
+    try {
+      await dismissFind(searchId, key, false);
+    } catch {
+      updatePin(pin.placeId, { hidden: false });
+      setUndo(null);
+      toast.push(FIND_TEXT.saveFailed, "bad");
+    }
+  }
+
+  /** "Add by its website" answered: the pin turns green at once (the next full read confirms it through `pin.saved`). */
+  function savedGoogle(pin: GooglePin, r: AddByUrlResponse) {
+    if (r.existing) {
+      toast.push(fill(r.placeAttached ? GOOGLE_TEXT.alreadySavedAttached : GOOGLE_TEXT.alreadySaved, { reference: r.reference }), r.placeAttached ? "good" : "info");
+      if (r.placeAttached) updatePin(pin.placeId, { saved: { prospectId: r.id, reference: r.reference } });
+      return;
+    }
+    toast.push(fill(GOOGLE_TEXT.savedAs, { reference: r.reference }), "good");
+    updatePin(pin.placeId, { saved: { prospectId: r.id, reference: r.reference } });
+    loadPast();
   }
 
   const running = phase === "running";
@@ -618,14 +717,15 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       rows={visibleRows}
       counts={counts}
       chips={chips}
-      onToggleChip={(c) =>
+      onToggleChip={(c) => {
+        if (c === "google_only") googleChipTouched.current = true;
         setChips((s) => {
           const n = new Set(s);
           if (n.has(c)) n.delete(c);
           else n.add(c);
           return n;
-        })
-      }
+        });
+      }}
       text={text}
       onText={setText}
       sort={sort}
@@ -633,6 +733,8 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       followMap={followMap}
       onFollowMap={setFollowMap}
       showRegisterChip={isFr}
+      showGoogleChip={googlePins.length > 0}
+      googleCounts={result.progress.google ? { also: result.progress.google.matched, only: counts.google_only } : null}
       selectedKey={selectedKey}
       onHover={setHoverKey}
       onSelect={(key) => select(key)}
@@ -677,8 +779,18 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     </div>
   );
 
+  const showOnMap = phone
+    ? () => {
+        setSheetOpen(false);
+        setCardOpen(false);
+        setFitSignal((n) => n + 1);
+      }
+    : undefined;
+
   const card =
-    cardOpen && selectedRow && area ? (
+    cardOpen && selectedPin && area ? (
+      <GoogleOnlyCard pin={selectedPin} area={area} layout={cardLayout} onClose={closeCard} onSaved={(r) => savedGoogle(selectedPin, r)} onDismiss={() => void dismissGoogle(selectedPin)} onShowOnMap={showOnMap} />
+    ) : cardOpen && selectedRow && area ? (
       <BusinessCard
         row={selectedRow}
         area={area}
@@ -688,15 +800,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
         onClose={closeCard}
         onSave={() => void saveOne(selectedRow)}
         onDismiss={() => void dismiss(selectedRow)}
-        onShowOnMap={
-          phone
-            ? () => {
-                setSheetOpen(false);
-                setCardOpen(false);
-                setFitSignal((n) => n + 1);
-              }
-            : undefined
-        }
+        onShowOnMap={showOnMap}
       />
     ) : null;
 
@@ -709,23 +813,24 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     </div>
   ) : null;
 
+  const mapProps = {
+    area,
+    rows: pinRows,
+    units: result?.progress.units ?? [],
+    running,
+    progress: result ? progressFraction(result) : null,
+    selectedKey,
+    hoverKey,
+    onSelect: (key: string) => select(key),
+    onViewport: setBounds,
+    idle: idleCenter,
+    fitSignal,
+    className: "h-full",
+  };
   const mapPane = (
     <div className="relative isolate h-full">
-      <FindMap
-        area={area}
-        rows={pinRows}
-        units={result?.progress.units ?? []}
-        running={running}
-        progress={result ? progressFraction(result) : null}
-        selectedKey={selectedKey}
-        hoverKey={hoverKey}
-        onSelect={(key) => select(key)}
-        onViewport={setBounds}
-        idle={idleCenter}
-        fitSignal={fitSignal}
-        className="h-full"
-      />
-      <Legend phone={phone} />
+      {googleMap ? <GoogleFindMap {...mapProps} googlePins={visiblePins} /> : <FindMap {...mapProps} />}
+      <Legend phone={phone} google={googleMap} />
       {undoBar ? <div className="pointer-events-none absolute bottom-8 left-1/2 z-[1000] -translate-x-1/2">{undoBar}</div> : null}
     </div>
   );
@@ -770,6 +875,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
             onPick={pickCandidate}
             companiesHouseOn={companiesHouseOn}
             googleOn={googleOn}
+            onSuggestion={googleOn ? submitSuggestion : undefined}
             error={formError}
             compact={result !== null || phase === "running" || phase === "gate"}
           />

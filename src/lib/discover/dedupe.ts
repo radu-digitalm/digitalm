@@ -133,6 +133,10 @@ function mergeCluster(rows: Business[]): MergedBusiness {
     registeredOfficeOnly: rows.every((r) => r.registeredOfficeOnly) ? true : undefined,
     tags: Object.assign({}, ...rows.map((r) => r.tags ?? {})),
   };
+  // finder-google: the place id a Google place attached to any member (first by identity rank) travels with the merged row.
+  const placeId = byIdentity.find((r) => typeof r.googlePlaceId === "string" && r.googlePlaceId)?.googlePlaceId;
+  if (placeId) merged.googlePlaceId = placeId;
+  else delete merged.googlePlaceId;
   if (merged.registeredOfficeOnly === undefined) delete merged.registeredOfficeOnly;
   if (!merged.tags || Object.keys(merged.tags).length === 0) delete merged.tags;
   return merged;

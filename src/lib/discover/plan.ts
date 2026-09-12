@@ -19,8 +19,8 @@ export const findMaxRows = (env: Env = process.env): number => Math.max(1, intEn
 export const findMaxUnits = (env: Env = process.env): number => Math.max(1, Math.min(1000, intEnv("FIND_MAX_UNITS", DEFAULT_MAX_UNITS, env)));
 export const findMaxMs = (env: Env = process.env): number => Math.max(10_000, intEnv("FIND_MAX_MS", DEFAULT_MAX_MS, env));
 
-/** An administrative child as Overpass returns it (`out tags center`). */
-export type ChildRel = { relId: number; name: string; code?: string; center: { lat: number; lng: number } };
+/** An administrative child as Overpass returns it (`out tags center bb`); `bbox` since finder-google (older cached plans lack it). */
+export type ChildRel = { relId: number; name: string; code?: string; center: { lat: number; lng: number }; bbox?: Bbox };
 
 /** A unit of work: what to ask Overpass for, plus what the progress shows. */
 export type PlanUnit = {
@@ -85,6 +85,7 @@ export function childUnits(children: readonly ChildRel[], center: { lat: number;
     code: c.code,
     center: c.center,
     selector: { kind: "relation", relId: c.relId },
+    ...(c.bbox ? { bbox: c.bbox } : {}),
   }));
   return orderUnits(units, center).slice(0, max);
 }

@@ -25,6 +25,10 @@ export {
 } from "./runner";
 export type { PlanOutcome, StartInput, StoredPlan } from "./runner";
 export { note, NOTE_CODES } from "./notes";
+// finder-google (docs/finder-google-spec.md §4.8)
+export { GoogleError, googlePlacesOn, googleDiscoveryOn, googleMapConfigured, googleKeyMissing, googleUsage } from "./google";
+export { GOOGLE_TYPES, placeIdOk } from "./googleRequests";
+export { resolveSuggestion } from "./googleSuggest";
 
 /** Legacy names kept for the components that still import them; the shapes are the v2 ones. */
 export type SearchResult = SearchResultV2;

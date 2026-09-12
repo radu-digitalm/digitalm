@@ -31,6 +31,8 @@ export type OverpassElement = {
   lat?: number;
   lon?: number;
   center?: { lat: number; lon: number };
+  /** `out … bb`: the element's bounding box (children queries only). */
+  bounds?: { minlat: number; minlon: number; maxlat: number; maxlon: number };
   tags?: Record<string, string>;
 };
 

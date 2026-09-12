@@ -11,10 +11,12 @@ import { rowStatus, savable, type ResultRow, type SearchResultV2 } from "./finde
 import { Button } from "./Button";
 import { inputClass } from "./Field";
 import { domainOf, formatInt, townLine } from "./format";
+import { GoogleAttribution } from "./GoogleAttribution";
 import { bothCount, summaryText } from "./progressModel";
-import { ATTRIBUTION_TEXT, FIND_TEXT, STATUS_WORDS, fill } from "./wording";
+import { ATTRIBUTION_TEXT, FIND_TEXT, GOOGLE_TEXT, STATUS_WORDS, fill } from "./wording";
 
-export type Chip = "savable" | "website" | "no_website" | "phone" | "email" | "register" | "saved" | "not_listed" | "hidden";
+/** `google_only` (docs/finder-google-spec.md §5.4) toggles the blue Google-only pins on the map; it filters no rows. */
+export type Chip = "savable" | "website" | "no_website" | "phone" | "email" | "register" | "saved" | "not_listed" | "hidden" | "google_only";
 export type SortKey = "nearest" | "complete" | "town" | "name";
 
 export const CHIP_LABEL: Record<Chip, string> = {
@@ -27,13 +29,14 @@ export const CHIP_LABEL: Record<Chip, string> = {
   saved: FIND_TEXT.chipSaved,
   not_listed: FIND_TEXT.chipNotListed,
   hidden: FIND_TEXT.chipHidden,
+  google_only: GOOGLE_TEXT.onlyOnGoogleChip,
 };
 
 /** The chips that reveal rows kept out of the way by default (off → those rows are not listed at all). */
 export const REVEAL_CHIPS: readonly Chip[] = ["not_listed", "hidden"];
 
 /** Always visible; the other chips sit behind "More filters" so the row never scrolls sideways. */
-export const PRIMARY_CHIPS: readonly Chip[] = ["savable", "website", "no_website"];
+export const PRIMARY_CHIPS: readonly Chip[] = ["savable", "website", "no_website", "google_only"];
 
 export const SORT_OPTIONS: { value: SortKey; label: string }[] = [
   { value: "nearest", label: FIND_TEXT.sortNearest },
@@ -57,6 +60,10 @@ export type FindListProps = {
   followMap: boolean;
   onFollowMap: (v: boolean) => void;
   showRegisterChip: boolean;
+  /** A search with Google-only pins shows the "Only on Google" chip (on by default). */
+  showGoogleChip?: boolean;
+  /** "· 201 also on Google · 23 only on Google" after the sources sentence, when the Google phase ran. */
+  googleCounts?: { also: number; only: number } | null;
   selectedKey: string | null;
   onHover: (key: string | null) => void;
   onSelect: (key: string) => void;
@@ -163,7 +170,7 @@ export function FindList(p: FindListProps) {
   const perSource = hasRegister ? fill(p.running ? FIND_TEXT.perSourceRunning : FIND_TEXT.perSource, { onMap: formatInt(result.perSource.osm ?? 0), inRegister: formatInt(result.perSource.fr_register ?? 0), inBoth: formatInt(bothCount(result)) }) : "";
   const savableLine = fill(FIND_TEXT.summarySavable, { n: formatInt(p.counts.savable) });
 
-  const chips: Chip[] = ["savable", "website", "no_website", "phone", "email", ...(p.showRegisterChip ? (["register"] as Chip[]) : []), "saved", ...(hasRegister ? (["not_listed"] as Chip[]) : []), "hidden"];
+  const chips: Chip[] = ["savable", "website", "no_website", ...(p.showGoogleChip ? (["google_only"] as Chip[]) : []), "phone", "email", ...(p.showRegisterChip ? (["register"] as Chip[]) : []), "saved", ...(hasRegister ? (["not_listed"] as Chip[]) : []), "hidden"];
   const secondaryChips = chips.filter((c) => !PRIMARY_CHIPS.includes(c));
   // An active filter is never hidden behind the toggle.
   const showAllChips = moreFilters || secondaryChips.some((c) => p.chips.has(c));
@@ -316,6 +323,12 @@ export function FindList(p: FindListProps) {
             <div className="text-[16px] text-fg-muted">
               <span className="text-fg">{savableLine}</span>
               {perSource ? ` · ${perSource}` : null}
+              {p.googleCounts ? (
+                <span data-testid="google-counts">
+                  {` · ${fill(GOOGLE_TEXT.alsoOnGoogleCount, { n: formatInt(p.googleCounts.also) })} · ${fill(GOOGLE_TEXT.onlyOnGoogleCount, { n: formatInt(p.googleCounts.only) })}`}
+                  <GoogleAttribution text />
+                </span>
+              ) : null}
             </div>
           </div>
           <Button variant="primary" size="sm" onClick={p.onSaveTicked} disabled={pickedCount === 0} loading={p.saving}>

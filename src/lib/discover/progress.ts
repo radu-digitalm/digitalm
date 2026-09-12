@@ -1,7 +1,7 @@
 // The search progress reducer (docs/finder-ux-spec.md §3.2): pure so
 // runner.test.ts can drive it. `runner.ts` applies events as units and
 // register pages finish, then persists the result; every event is immutable.
-import type { RegisterScope, SearchProgress, SearchStatus, SearchUnit, UnitState } from "../crm/types.ts";
+import type { GoogleProgress, RegisterScope, SearchProgress, SearchStatus, SearchUnit, UnitState } from "../crm/types.ts";
 
 export const STALE_MS = 90_000; // a running search whose updatedAt is older than this, with no controller, is interrupted
 export const UNIT_ERRORS = ["busy", "timeout", "network"] as const;
@@ -22,6 +22,7 @@ export type ProgressEvent =
   | { type: "scope_reset"; id: string; at: string }
   | { type: "scopes"; scopes: { id: string; label: string }[]; at: string }
   | { type: "found"; found: number; at: string }
+  | { type: "google"; google: GoogleProgress; at: string }
   | { type: "merged"; found: number; at: string }
   | { type: "finished"; status: SearchStatus; at: string }
   | { type: "resumed"; at: string }
@@ -107,6 +108,9 @@ export function applyEvent(p: SearchProgress, e: ProgressEvent): SearchProgress 
       return { ...base, registerScopes: mapScope(base, e.id, (s) => ({ ...s, state: "pending", pages: 0, found: 0 })) };
     case "found":
       return { ...base, found: e.found };
+    case "google":
+      // finder-google §4.3: the Google phase's own counters; `resolveStatus` never reads them.
+      return { ...base, google: e.google };
     case "merged":
       return { ...base, stage: "merge", found: e.found, rowsVersion: p.rowsVersion + 1 };
     case "finished":

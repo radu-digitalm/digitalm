@@ -15,6 +15,7 @@
     "@ai-sdk/anthropic": "^3.0.84",
     "@ai-sdk/openai": "^3.0.71",
     "@ai-sdk/react": "^3.0.207",
+    "@googlemaps/markerclusterer": "2.6.2",
     "ai": "^6.0.205",
     "better-sqlite3": "^12.11.1",
     "leaflet": "1.9.4",
@@ -26,6 +27,7 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
+    "@types/google.maps": "^3.66.2",
     "@types/leaflet": "^1.9.22",
     "@types/node": "^22.10.2",
     "@types/nodemailer": "^8.0.1",

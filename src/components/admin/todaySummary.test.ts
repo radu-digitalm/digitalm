@@ -42,6 +42,23 @@ test("legacy cards become exactly five actions in the spec order, with the week 
   assert.equal(s.housekeeping[0]!.text, "Audits: 1 queued · 0 running · 0 failed this week");
 });
 
+test("the two Google housekeeping lines (docs/finder-google-spec.md §4.7, §5.8)", () => {
+  const withGoogle = toTodaySummary([...legacy, { key: "google", title: "Google usage this month", value: "12 / 900", detail: "40 / 4,500 searches", tone: "neutral" }]);
+  const g = withGoogle.housekeeping.find((h) => h.key === "google");
+  assert.equal(g?.text, "Google usage: 12 of 900 listing checks · 40 of 4,500 searches this month");
+  assert.equal(g?.tone, "neutral");
+  // Shown even at zero — the card only exists while Google is on.
+  const zero = toTodaySummary([{ key: "google", title: "Google usage this month", value: "0 / 900", detail: "0 / 4,500 searches", tone: "neutral" }]);
+  assert.equal(zero.housekeeping.find((h) => h.key === "google")?.text, "Google usage: 0 of 900 listing checks · 0 of 4,500 searches this month");
+  const warn = toTodaySummary([{ key: "google", title: "Google usage this month", value: "850 / 900", tone: "warn" }]);
+  assert.equal(warn.housekeeping[0]?.text, "Google usage: 850 of 900 listing checks this month");
+  assert.equal(warn.housekeeping[0]?.tone, "warn");
+  const key = toTodaySummary([{ key: "google-key", title: "Google key", value: "missing", tone: "warn" }]);
+  assert.deepEqual(key.housekeeping, [{ key: "google-key", text: "Google is switched on, but its key is missing.", tone: "warn" }]);
+  // Google off: no card, no line.
+  assert.ok(!toTodaySummary(legacy).housekeeping.some((h) => h.key.startsWith("google")));
+});
+
 test("the new shape passes through untouched; junk becomes five empty cards", () => {
   const ready = { actions: [], week: { newLeads: 0, bySource: [] }, housekeeping: [] };
   assert.equal(toTodaySummary(ready), ready);

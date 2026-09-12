@@ -46,7 +46,7 @@ test("bbox clip: the tile box follows the area filter in the same statement, 5 d
 test("children / communes / containing-commune queries", () => {
   assert.equal(
     childrenQuery(rel, 6),
-    '[out:json][timeout:60];area(3600007439)->.a;rel(area.a)["boundary"="administrative"]["type"="boundary"]["admin_level"="6"];out tags center;',
+    '[out:json][timeout:60];area(3600007439)->.a;rel(area.a)["boundary"="administrative"]["type"="boundary"]["admin_level"="6"];out tags center bb;',
   );
   assert.throws(() => childrenQuery(rel, 11), AreaQueryError);
   assert.throws(() => childrenQuery({ kind: "around", lat: 1, lng: 1, m: 100 }, 8), AreaQueryError);

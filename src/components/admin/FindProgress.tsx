@@ -23,6 +23,8 @@ export type StartInfo = { area: ResolvedArea; expected: number | null; alternati
 
 /** Banner notes get the amber box; the rest (duplicates removed, rows dropped…) go under "Details". */
 const BANNER_CODES = new Set(["capped", "units_failed", "register_failed", "interrupted", "expired", "time_limit", "unit_truncated"]);
+/** A failed Google phase (docs/finder-google-spec.md §5.4, notes 19–21): a muted line with "Run again", never an amber banner — the search is complete without Google. */
+const GOOGLE_NOTE_CODES = new Set(["google_failed", "google_refused", "google_allowance"]);
 
 /** A clock that ticks once a second while `on`. */
 function useNow(on: boolean): number {
@@ -71,7 +73,8 @@ export function FindProgress(p: FindProgressProps) {
   const alternatives = p.start?.alternatives ?? r?.alternatives ?? [];
   const notes = r?.notes ?? [];
   const banners = notes.filter((n) => BANNER_CODES.has(n.code));
-  const plain = notes.filter((n) => !BANNER_CODES.has(n.code));
+  const googleNotes = notes.filter((n) => GOOGLE_NOTE_CODES.has(n.code));
+  const plain = notes.filter((n) => !BANNER_CODES.has(n.code) && !GOOGLE_NOTE_CODES.has(n.code));
   const resultsFrom = r && !running ? resultsFromText(r) : "";
 
   let action: React.ReactNode = null;
@@ -194,6 +197,14 @@ export function FindProgress(p: FindProgressProps) {
             </p>
           ) : null}
           {alternativesLine}
+          {googleNotes.length > 0 ? (
+            <p className="text-[15px] text-fg-muted" data-testid="google-note">
+              {googleNotes.map((n) => n.text).join(" ")}{" "}
+              <button type="button" className="link-accent" onClick={p.onRunAgain}>
+                {FIND_TEXT.runAgain}
+              </button>
+            </p>
+          ) : null}
           {banners.length > 0 || action ? (
             <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[16px] text-amber-200">
               {banners.map((n, i) => (
