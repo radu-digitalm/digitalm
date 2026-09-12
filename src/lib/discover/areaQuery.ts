@@ -95,9 +95,10 @@ export function unitQuery(category: Pick<Category, "osm">, sel: AreaSelector, bb
   return `[out:json][timeout:60][maxsize:67108864];${selectorStatement(sel)}${nwrUnion(category, spatialFilter(sel, bbox))};out center tags ${UNIT_LIMIT};`;
 }
 
-/** The estimate: how many elements the whole area holds for the trade. */
-export function countQuery(category: Pick<Category, "osm">, sel: AreaSelector): string {
-  return `[out:json][timeout:30];${selectorStatement(sel)}${nwrUnion(category, spatialFilter(sel))};out count;`;
+/** The estimate: how many elements the whole area holds for the trade (server-side timeout 5…120 s). */
+export function countQuery(category: Pick<Category, "osm">, sel: AreaSelector, timeoutS = 30): string {
+  if (!Number.isInteger(timeoutS) || timeoutS < 5 || timeoutS > 120) throw new AreaQueryError("bad timeout");
+  return `[out:json][timeout:${timeoutS}];${selectorStatement(sel)}${nwrUnion(category, spatialFilter(sel))};out count;`;
 }
 
 /** Administrative children of a relation / INSEE-set area at one admin level (names, codes, centres). */
@@ -107,11 +108,11 @@ export function childrenQuery(sel: AreaSelector, level: number): string {
   return `[out:json][timeout:60];${selectorStatement(sel)}rel(area.a)["boundary"="administrative"]["type"="boundary"]["admin_level"="${level}"];out tags center;`;
 }
 
-/** admin_level-8 boundaries (communes / municipalities) of a unit, for the town fill (§3.8). */
+/** Commune / municipality boundaries (admin_level 8, or 7 where a country has no 8 — Andorra's parishes) of a unit, for the town fill (§3.8). */
 export function communesQuery(sel: AreaSelector, bbox?: Bbox): string {
   assertSelector(sel);
   const filter = sel.kind === "around" ? spatialFilter(sel) : `(area.a)${bbox ? `(${bboxText(bbox)})` : ""}`;
-  return `[out:json][timeout:60];${selectorStatement(sel)}rel["boundary"="administrative"]["admin_level"="8"]${filter};out tags center;`;
+  return `[out:json][timeout:60];${selectorStatement(sel)}rel["boundary"="administrative"]["admin_level"~"^[78]$"]${filter};out tags center;`;
 }
 
 /** The admin_level-8 area containing one point (prospect town backfill, non-FR rows). */

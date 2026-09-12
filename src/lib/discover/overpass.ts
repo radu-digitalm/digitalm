@@ -15,7 +15,8 @@ import type { UnitError } from "./progress";
 export const OVERPASS_GAP_MS = 1000;
 export const BACKOFF_MS = [20_000, 40_000, 80_000] as const;
 const UNIT_TIMEOUT_MS = 60_000;
-const COUNT_TIMEOUT_MS = 35_000;
+const COUNT_GRACE_MS = 5_000; // client timeout = the query's server-side timeout + this
+const COUNT_RETRY_MS = 3_000;
 
 export type OverpassElement = {
   type: "node" | "way" | "relation";
@@ -111,12 +112,23 @@ function categoryKeyOf(category: Category): string {
  * (selector, trade). Null when the service is busy or slow — the search still
  * runs, the progress just shows "found so far".
  */
-export async function overpassCount(selector: AreaSelector, category: Category, signal?: AbortSignal): Promise<{ expected: number | null; ms: number }> {
+export async function overpassCount(selector: AreaSelector, category: Category, opts: { signal?: AbortSignal; timeoutS?: number } = {}): Promise<{ expected: number | null; ms: number }> {
   const started = Date.now();
-  const query = countQuery(category, selector);
+  const timeoutS = opts.timeoutS ?? 30;
+  const query = countQuery(category, selector, timeoutS);
+  const signal = opts.signal;
+  const post = () => overpassPost<{ elements?: { tags?: Record<string, string> }[] }>(query, { timeoutMs: timeoutS * 1000 + COUNT_GRACE_MS, signal });
   try {
     const { value, hit } = await cached<{ total: number }>("overpass_count", { selector, trade: categoryKeyOf(category) }, DAY_MS, async () => {
-      const data = await overpassPost<{ elements?: { tags?: Record<string, string> }[] }>(query, { timeoutMs: COUNT_TIMEOUT_MS, signal });
+      let data: { elements?: { tags?: Record<string, string> }[] };
+      try {
+        data = await post();
+      } catch (e) {
+        // One quick retry when the service is merely busy; a slow count is not retried (the route's budget).
+        if (!(e instanceof HttpError && (e.status === 429 || e.status === 503)) || signal?.aborted) throw e;
+        await sleep(COUNT_RETRY_MS, signal);
+        data = await post();
+      }
       const total = Number(data.elements?.[0]?.tags?.total ?? Number.NaN);
       if (!Number.isFinite(total)) throw new HttpError("bad_json");
       return { total };

@@ -147,8 +147,10 @@ export function planUnits(input: {
   expected: number | null;
   children: ChildRel[] | null;
   maxUnits: number;
+  /** Split even without an estimate (a region or country whose count the map service could not give). */
+  forceSplit?: boolean;
 }): { mode: PlanMode; units: PlanUnit[] } {
-  if (!needsSplit(input.expected)) return { mode: "single", units: [singleUnit(input.area)] };
+  if (!needsSplit(input.expected) && !input.forceSplit) return { mode: "single", units: [singleUnit(input.area)] };
   if (input.children && input.children.length >= 2 && input.area.areaSelector.kind !== "around" && input.area.kind !== "place") {
     return { mode: "children", units: childUnits(input.children, input.area.center, input.maxUnits) };
   }

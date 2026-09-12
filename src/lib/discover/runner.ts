@@ -18,7 +18,7 @@ import { categoryByKey, tradeLabel } from "./categories";
 import { companiesHouseKey, searchCompaniesHouse } from "./companiesHouse";
 import { mergeBusinesses, type MergedBusiness } from "./dedupe";
 import { registerReason, searchRegisterScope, scopesFor, type RegisterRow } from "./frRegister";
-import { countryNameOf, finePolygon, frRegionDepartements, geoGouv, type GeoCommune } from "./geocode";
+import { countryNameOf, finePolygon, frDepartements, frRegionDepartements, geoGouv, type GeoCommune } from "./geocode";
 import { googlePlacesOn } from "./google";
 import { fmtNum, listOf, note, plural } from "./notes";
 import { UnitFailure, fetchUnit, mapElement, overpassCount, type OsmBusiness } from "./overpass";
@@ -29,6 +29,7 @@ import { departementsOfPostcode, nearestCentre, type CentrePoint } from "./townF
 
 export const SEARCH_CACHE_MS = DAY_MS;
 const HEARTBEAT_MS = 15_000;
+const HUGE_RADIUS_KM = 300; // beyond this the estimate gets a shorter server-side timeout so the route stays under its budget
 const CANCEL_WAIT_MS = 4_000;
 const MAX_TOWN_FILL_UNITS = 20;
 
@@ -49,7 +50,7 @@ export class RunnerError extends Error {
 export type StoredPlan = { expected: number | null; cap: number; mode: PlanMode; estimateMs: number; units: PlanUnit[]; category: Category };
 
 export type PlanOutcome =
-  | { gate: "over_cap"; plan: { expected: number; cap: number; units: { id: string; label: string; code?: string; countryCode: string }[]; estimateMs: number } }
+  | { gate: "over_cap"; plan: { expected: number | null; cap: number; units: { id: string; label: string; code?: string; countryCode: string }[]; estimateMs: number } }
   | { gate: null; plan: StoredPlan };
 
 // ---- live state ---------------------------------------------------------------------------
@@ -91,17 +92,22 @@ function assertNotRunning(): void {
 export async function planSearch(area: ResolvedArea, category: Category, opts: { confirmCap?: boolean; signal?: AbortSignal } = {}): Promise<PlanOutcome> {
   const cap = findMaxRows();
   const maxUnits = findMaxUnits();
+  const big = area.kind === "region" || area.kind === "country";
+  const huge = area.radiusKm > HUGE_RADIUS_KM;
   let expected: number | null;
   let estimateMs: number;
   try {
-    ({ expected, ms: estimateMs } = await overpassCount(area.areaSelector, category, opts.signal));
+    ({ expected, ms: estimateMs } = await overpassCount(area.areaSelector, category, { signal: opts.signal, timeoutS: huge ? 20 : 30 }));
   } catch (e) {
     if (e instanceof AreaQueryError) throw new RunnerError("bad_area", 400);
     throw e;
   }
+  // A region or country whose count the map service could not give is still split and gated: it is never one request.
+  const mustSplit = needsSplit(expected) || (expected === null && big);
+  const mustGate = overCap(expected, cap) || (expected === null && big);
   let children: ChildRel[] | null = null;
   const canSplit = area.areaSelector.kind !== "around" && area.kind !== "place";
-  if (canSplit && (needsSplit(expected) || overCap(expected, cap))) {
+  if (canSplit && mustSplit) {
     for (const level of CHILD_LEVELS) {
       const list = await fetchChildren(area.areaSelector, level, opts.signal).catch((e: unknown) => {
         if (e instanceof HttpError && e.code === "aborted") throw e;
@@ -114,19 +120,19 @@ export async function planSearch(area: ResolvedArea, category: Category, opts: {
       }
     }
   }
-  if (overCap(expected, cap) && !opts.confirmCap) {
-    const { units } = planUnits({ area, expected, children, maxUnits });
+  if (mustGate && !opts.confirmCap) {
+    const { units } = planUnits({ area, expected, children, maxUnits, forceSplit: mustSplit });
     return {
       gate: "over_cap",
       plan: {
-        expected: expected!,
+        expected,
         cap,
         units: units.length > 1 ? units.map((u) => ({ id: u.id, label: u.label, ...(u.code ? { code: u.code } : {}), countryCode: area.countryCode })) : [],
         estimateMs,
       },
     };
   }
-  const { mode, units } = planUnits({ area, expected, children, maxUnits });
+  const { mode, units } = planUnits({ area, expected, children, maxUnits, forceSplit: mustSplit });
   return { gate: null, plan: { expected, cap, mode, estimateMs, units, category } };
 }
 
@@ -526,8 +532,8 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     const done = progress.units.filter((u) => u.state === "done");
     const names: Record<string, string> = {};
     if ((area.kind === "region" || area.kind === "country") && plan.units.length <= 1) {
-      // a single-unit region: department names for the labels come from geo.gouv (cached 30 d)
-      const list = area.admin?.regionCode ? await frRegionDepartements(area.admin.regionCode).catch(() => []) : [];
+      // a single-unit region or country: department names for the labels come from geo.gouv (cached 30 d)
+      const list = area.kind === "country" ? await frDepartements().catch(() => []) : area.admin?.regionCode ? await frRegionDepartements(area.admin.regionCode).catch(() => []) : [];
       for (const d of list) names[d.code] = d.nom;
     }
     const scopes = scopesFor(area, done, names, plan.units.length <= 1);

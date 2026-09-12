@@ -50,11 +50,14 @@ test("children / communes / containing-commune queries", () => {
   );
   assert.throws(() => childrenQuery(rel, 11), AreaQueryError);
   assert.throws(() => childrenQuery({ kind: "around", lat: 1, lng: 1, m: 100 }, 8), AreaQueryError);
-  assert.equal(communesQuery(rel), '[out:json][timeout:60];area(3600007439)->.a;rel["boundary"="administrative"]["admin_level"="8"](area.a);out tags center;');
+  assert.equal(communesQuery(rel), '[out:json][timeout:60];area(3600007439)->.a;rel["boundary"="administrative"]["admin_level"~"^[78]$"](area.a);out tags center;');
   assert.equal(
     communesQuery({ kind: "around", lat: 42.9646, lng: 1.6053, m: 4000 }),
-    '[out:json][timeout:60];rel["boundary"="administrative"]["admin_level"="8"](around:4000,42.964600,1.605300);out tags center;',
+    '[out:json][timeout:60];rel["boundary"="administrative"]["admin_level"~"^[78]$"](around:4000,42.964600,1.605300);out tags center;',
   );
+  assert.equal(countQuery(restaurant, rel, 20), '[out:json][timeout:20];area(3600007439)->.a;(nwr["amenity"="restaurant"](area.a););out count;');
+  assert.throws(() => countQuery(restaurant, rel, 3), AreaQueryError);
+  assert.throws(() => countQuery(restaurant, rel, 2.5), AreaQueryError);
   assert.equal(containingCommuneQuery(42.9646, 1.6053), '[out:json][timeout:30];is_in(42.964600,1.605300)->.a;area.a["boundary"="administrative"]["admin_level"="8"];out tags;');
   assert.throws(() => containingCommuneQuery(91, 0), AreaQueryError);
 });

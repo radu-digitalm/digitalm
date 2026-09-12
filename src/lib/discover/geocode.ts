@@ -6,7 +6,7 @@
 // without polygons, then a lookup with the polygon of the chosen hit).
 // Nominatim: identifying User-Agent, ≥ 1100 ms between calls, never in
 // parallel, 30-day cache, area-level lookups only — never one per business.
-import { DAY_MS, cached } from "@/lib/crm/apiCache";
+import { DAY_MS, cacheGet, cacheSet, cached } from "@/lib/crm/apiCache";
 import { countApiUsage } from "@/lib/crm/apiUsage";
 import { HOSTS, HttpError, fetchJson, spaced } from "@/lib/crm/http";
 import type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea } from "@/lib/crm/types";
@@ -27,7 +27,7 @@ import {
   type NominatimHit,
   type OsmType,
 } from "./geocodeRules";
-import { bboxOf, bboxRadiusKm, circlePolygon, isGeoPolygon, pointCount, type Bbox } from "./polygon";
+import { bboxOf, bboxRadiusKm, circlePolygon, isGeoPolygon, pointCount, roundPolygon, simplifyPolygon, type Bbox } from "./polygon";
 
 /** Error with a stable code the API routes map to a status (404 / 409 / 400 / 502) and an optional detail object. */
 export class DiscoverError extends Error {
@@ -124,8 +124,11 @@ async function postcodeArea(code: string): Promise<ResolvedArea | null> {
   if (communes.length === 0) return null;
   const main = [...communes].sort((a, b) => (b.population ?? 0) - (a.population ?? 0))[0]!;
   const [lng, lat] = main.centre!.coordinates;
-  const polygon = unionOfContours(communes);
-  const bbox: Bbox = (polygon ? bboxOf(polygon) : null) ?? [lat - 0.03, lng - 0.04, lat + 0.03, lng + 0.04];
+  const exact = unionOfContours(communes);
+  // The exact union is what the register rows are tested against (finePolygon); the outline sent to the map is thinned.
+  if (exact) cacheSet(postcodeExactKey(code), "geo_gouv", roundPolygon(exact, 6), GEO_CACHE_MS);
+  const polygon = exact ? roundPolygon(simplifyPolygon(exact, DISPLAY_MAX_POINTS), 5) : null;
+  const bbox: Bbox = (exact ? bboxOf(exact) : null) ?? [lat - 0.03, lng - 0.04, lat + 0.03, lng + 0.04];
   const center = { lat, lng };
   const postcodes = [...new Set(communes.flatMap((c) => c.codesPostaux ?? []))].filter((p) => POSTCODE_RE.test(p)).sort();
   return {
@@ -148,6 +151,10 @@ async function postcodeArea(code: string): Promise<ResolvedArea | null> {
     radiusKm: bboxRadiusKm(center, bbox),
     provider: "geo_gouv",
   };
+}
+
+function postcodeExactKey(code: string): string {
+  return `postcode_exact:${code}`;
 }
 
 // ---- Nominatim ------------------------------------------------------------------------
@@ -222,7 +229,7 @@ async function lookupWithOutline(pick: AreaPick, kind: AreaKind, maxPoints = DIS
     if (!h) throw new DiscoverError("area_not_found", 404, "That place could not be looked up");
     last = h;
     if (isGeoPolygon(h.geojson)) {
-      if (pointCount(h.geojson) <= maxPoints) return { hit: h, polygon: h.geojson };
+      if (pointCount(h.geojson) <= maxPoints) return { hit: h, polygon: roundPolygon(h.geojson, 5) };
     } else {
       return { hit: h, polygon: null };
     }
@@ -354,6 +361,15 @@ export async function resolveArea(query: string, pick?: AreaPick): Promise<Resol
  * "use the display outline". Cached 30 d under its own lookup key.
  */
 export async function finePolygon(area: ResolvedArea): Promise<GeoPolygon | null> {
+  if (area.kind === "postcode") {
+    // Postcodes: the exact union of geo.gouv contours kept at resolution time (re-fetched when the cache has gone).
+    const code = area.admin?.postcodes?.[0];
+    if (!code || !POSTCODE_RE.test(code)) return null;
+    const exact = cacheGet<GeoPolygon>(postcodeExactKey(code));
+    if (exact && isGeoPolygon(exact)) return exact;
+    const fresh = await postcodeArea(code).catch(() => null);
+    return fresh ? (cacheGet<GeoPolygon>(postcodeExactKey(code)) ?? null) : null;
+  }
   if (!wantsFinePolygon(area.kind) || area.areaSelector.kind !== "relation" || !area.osmRelationId) return null;
   try {
     const { polygon } = await lookupWithOutline({ osmType: "relation", osmId: area.osmRelationId }, area.kind, FINE_MAX_POINTS, FINE_THRESHOLD);

@@ -164,6 +164,74 @@ function round6(x: number): number {
   return Math.round(x * 1e6) / 1e6;
 }
 
+/** Every coordinate rounded to `dp` decimals (5 ≈ 1 m) — smaller payloads, same shape. */
+export function roundPolygon(geom: GeoPolygon, dp = 5): GeoPolygon {
+  const f = 10 ** dp;
+  const r = (x: number) => Math.round(x * f) / f;
+  const polys = polygonsOf(geom).map((rings) => rings.map((ring) => ring.map(([lng, lat]) => [r(lng), r(lat)] as Position)));
+  return geom.type === "Polygon" ? { type: "Polygon", coordinates: polys[0] ?? [] } : { type: "MultiPolygon", coordinates: polys };
+}
+
+function perpDistance(p: Position, a: Position, b: Position): number {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  if (dx === 0 && dy === 0) return Math.hypot(p[0] - a[0], p[1] - a[1]);
+  const t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy);
+  const u = Math.max(0, Math.min(1, t));
+  return Math.hypot(p[0] - (a[0] + u * dx), p[1] - (a[1] + u * dy));
+}
+
+/** Douglas–Peucker on one closed ring; keeps at least a triangle (4 positions with the closing point). */
+function simplifyRing(ring: Ring, tolerance: number): Ring {
+  if (ring.length <= 4) return ring;
+  const keep = new Array<boolean>(ring.length).fill(false);
+  keep[0] = true;
+  keep[ring.length - 1] = true;
+  const stack: [number, number][] = [[0, ring.length - 1]];
+  while (stack.length > 0) {
+    const [i, j] = stack.pop()!;
+    let best = -1;
+    let bestD = tolerance;
+    for (let k = i + 1; k < j; k++) {
+      const d = perpDistance(ring[k]!, ring[i]!, ring[j]!);
+      if (d > bestD) {
+        bestD = d;
+        best = k;
+      }
+    }
+    if (best !== -1) {
+      keep[best] = true;
+      stack.push([i, best], [best, j]);
+    }
+  }
+  const out = ring.filter((_, k) => keep[k]);
+  if (out.length < 4) {
+    // Degenerate: keep the three points furthest apart plus the closing one.
+    const third = ring[Math.floor(ring.length / 3)]!;
+    const twoThirds = ring[Math.floor((2 * ring.length) / 3)]!;
+    return [ring[0]!, third, twoThirds, ring[0]!];
+  }
+  return out;
+}
+
+/**
+ * Thin a geometry to at most `maxPoints` positions: Douglas–Peucker on every
+ * ring with a tolerance that doubles from 0.0001° until the count fits
+ * (12 passes at most). Below the cap already → returned as is.
+ */
+export function simplifyPolygon(geom: GeoPolygon, maxPoints: number): GeoPolygon {
+  if (pointCount(geom) <= maxPoints) return geom;
+  let tolerance = 0.0001;
+  let out = geom;
+  for (let pass = 0; pass < 12; pass++) {
+    const polys = polygonsOf(geom).map((rings) => rings.map((ring) => simplifyRing(ring, tolerance)));
+    out = geom.type === "Polygon" ? { type: "Polygon", coordinates: polys[0] ?? [] } : { type: "MultiPolygon", coordinates: polys };
+    if (pointCount(out) <= maxPoints) return out;
+    tolerance *= 2;
+  }
+  return out;
+}
+
 /** True when the geometry is a usable Polygon / MultiPolygon. */
 export function isGeoPolygon(x: unknown): x is GeoPolygon {
   if (!x || typeof x !== "object") return false;

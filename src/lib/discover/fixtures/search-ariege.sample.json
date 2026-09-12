@@ -1,0 +1,4478 @@
+{
+ "licence": "Rows: data © OpenStreetMap contributors (ODbL) · Sirene/RNE via API Recherche d’entreprises (Licence Ouverte 2.0)",
+ "source": "Assembled from a real Ariège / Restaurant run on 12 Sep 2026 (rows trimmed to 40; the running snapshot replays the register phase at page 7 of 18)",
+ "running": {
+  "version": 2,
+  "searchId": 7,
+  "queryArea": "ariege",
+  "area": {
+   "label": "Ariège",
+   "countryCode": "FR",
+   "countryName": "France",
+   "kind": "department",
+   "center": {
+    "lat": 42.9455368,
+    "lng": 1.4065544
+   },
+   "bbox": [
+    42.5738461,
+    0.8267506,
+    43.3162514,
+    2.1758135
+   ],
+   "polygon": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       0.8267506,
+       42.9141974
+      ],
+      [
+       0.8441916,
+       42.8897205
+      ],
+      [
+       0.8352752,
+       42.8718532
+      ],
+      [
+       0.8480763,
+       42.8655911
+      ],
+      [
+       0.8606461,
+       42.8369882
+      ],
+      [
+       0.8582999,
+       42.8238624
+      ],
+      [
+       0.9074181,
+       42.7969634
+      ],
+      [
+       0.9310323,
+       42.7888719
+      ],
+      [
+       0.9600625,
+       42.8059563
+      ],
+      [
+       0.9838122,
+       42.7867475
+      ],
+      [
+       1.005348,
+       42.7908617
+      ],
+      [
+       1.0478247,
+       42.780961
+      ],
+      [
+       1.0787949,
+       42.7883147
+      ],
+      [
+       1.1282256,
+       42.7555542
+      ],
+      [
+       1.1334318,
+       42.7280883
+      ],
+      [
+       1.1704775,
+       42.7079277
+      ],
+      [
+       1.2292443,
+       42.7278269
+      ],
+      [
+       1.2531897,
+       42.7144819
+      ],
+      [
+       1.3322639,
+       42.7247722
+      ],
+      [
+       1.3379636,
+       42.7184981
+      ],
+      [
+       1.3573528,
+       42.7196855
+      ],
+      [
+       1.3510716,
+       42.7027628
+      ],
+      [
+       1.3891107,
+       42.6871674
+      ],
+      [
+       1.3874947,
+       42.6686079
+      ],
+      [
+       1.4137012,
+       42.6555901
+      ],
+      [
+       1.4204147,
+       42.6250773
+      ],
+      [
+       1.4380315,
+       42.6028203
+      ],
+      [
+       1.4568874,
+       42.6023031
+      ],
+      [
+       1.4767063,
+       42.6130857
+      ],
+      [
+       1.4680937,
+       42.6308876
+      ],
+      [
+       1.4790009,
+       42.6516221
+      ],
+      [
+       1.5187807,
+       42.6454274
+      ],
+      [
+       1.5493298,
+       42.6558959
+      ],
+      [
+       1.5747584,
+       42.6479388
+      ],
+      [
+       1.6003844,
+       42.6258772
+      ],
+      [
+       1.637122,
+       42.630316
+      ],
+      [
+       1.6639012,
+       42.6189812
+      ],
+      [
+       1.683443,
+       42.6249425
+      ],
+      [
+       1.7154978,
+       42.6145763
+      ],
+      [
+       1.73608,
+       42.6178377
+      ],
+      [
+       1.7276538,
+       42.5882686
+      ],
+      [
+       1.78118,
+       42.58253
+      ],
+      [
+       1.7899445,
+       42.5738461
+      ],
+      [
+       1.8373958,
+       42.5847195
+      ],
+      [
+       1.865036,
+       42.5788235
+      ],
+      [
+       1.8928605,
+       42.5951302
+      ],
+      [
+       1.9008324,
+       42.6153967
+      ],
+      [
+       1.9340643,
+       42.6047975
+      ],
+      [
+       1.9499543,
+       42.6174959
+      ],
+      [
+       1.9723651,
+       42.6175462
+      ],
+      [
+       1.9985662,
+       42.6617085
+      ],
+      [
+       2.0277348,
+       42.652464
+      ],
+      [
+       2.0708387,
+       42.6667944
+      ],
+      [
+       2.1006037,
+       42.6645588
+      ],
+      [
+       2.1243692,
+       42.6725157
+      ],
+      [
+       2.1657986,
+       42.6637524
+      ],
+      [
+       2.1758135,
+       42.6828695
+      ],
+      [
+       2.1680266,
+       42.6977849
+      ],
+      [
+       2.1458744,
+       42.7024838
+      ],
+      [
+       2.0913226,
+       42.735179
+      ],
+      [
+       2.0862628,
+       42.7521721
+      ],
+      [
+       2.056326,
+       42.7550196
+      ],
+      [
+       2.0292869,
+       42.7382796
+      ],
+      [
+       2.0035606,
+       42.7335016
+      ],
+      [
+       1.9490806,
+       42.7367215
+      ],
+      [
+       1.9472124,
+       42.7450952
+      ],
+      [
+       1.9136806,
+       42.7580317
+      ],
+      [
+       1.908418,
+       42.7689844
+      ],
+      [
+       1.9287794,
+       42.77506
+      ],
+      [
+       1.8964385,
+       42.808143
+      ],
+      [
+       1.8598979,
+       42.8199845
+      ],
+      [
+       1.8764874,
+       42.8403786
+      ],
+      [
+       1.8769093,
+       42.8529091
+      ],
+      [
+       1.9458735,
+       42.8557
+      ],
+      [
+       1.987431,
+       42.870596
+      ],
+      [
+       1.9808318,
+       42.8786253
+      ],
+      [
+       1.9842204,
+       42.9029514
+      ],
+      [
+       1.9918781,
+       42.9055569
+      ],
+      [
+       1.9806714,
+       42.9297873
+      ],
+      [
+       1.9334942,
+       42.9396482
+      ],
+      [
+       1.936575,
+       42.9539113
+      ],
+      [
+       1.9524394,
+       42.9550016
+      ],
+      [
+       1.9576372,
+       42.9640719
+      ],
+      [
+       1.9952041,
+       42.9530341
+      ],
+      [
+       2.0061389,
+       42.9625684
+      ],
+      [
+       1.985371,
+       42.9668452
+      ],
+      [
+       1.986921,
+       43.0026567
+      ],
+      [
+       1.9694147,
+       43.0080092
+      ],
+      [
+       1.9848284,
+       43.0220231
+      ],
+      [
+       1.9853973,
+       43.0323227
+      ],
+      [
+       1.9725681,
+       43.0466023
+      ],
+      [
+       1.940988,
+       43.0535014
+      ],
+      [
+       1.9422663,
+       43.0676913
+      ],
+      [
+       1.9639284,
+       43.0692493
+      ],
+      [
+       1.9498897,
+       43.0803757
+      ],
+      [
+       1.9556257,
+       43.0852916
+      ],
+      [
+       1.9530332,
+       43.1126815
+      ],
+      [
+       1.9465726,
+       43.1223854
+      ],
+      [
+       1.9142,
+       43.1334547
+      ],
+      [
+       1.9021608,
+       43.1297876
+      ],
+      [
+       1.8934349,
+       43.1155605
+      ],
+      [
+       1.8912056,
+       43.125608
+      ],
+      [
+       1.8807269,
+       43.1269789
+      ],
+      [
+       1.88156,
+       43.1478416
+      ],
+      [
+       1.8567564,
+       43.1444391
+      ],
+      [
+       1.8522179,
+       43.1604324
+      ],
+      [
+       1.8417583,
+       43.155385
+      ],
+      [
+       1.8491813,
+       43.1458835
+      ],
+      [
+       1.8259169,
+       43.1454301
+      ],
+      [
+       1.7928459,
+       43.1589421
+      ],
+      [
+       1.7833805,
+       43.1512102
+      ],
+      [
+       1.743942,
+       43.1829373
+      ],
+      [
+       1.7115274,
+       43.186779
+      ],
+      [
+       1.7086782,
+       43.1982784
+      ],
+      [
+       1.7254747,
+       43.2119537
+      ],
+      [
+       1.7235048,
+       43.2248478
+      ],
+      [
+       1.7026063,
+       43.2396576
+      ],
+      [
+       1.706877,
+       43.2453112
+      ],
+      [
+       1.6950978,
+       43.2469941
+      ],
+      [
+       1.7029039,
+       43.2547668
+      ],
+      [
+       1.6998169,
+       43.2629705
+      ],
+      [
+       1.6736604,
+       43.2816097
+      ],
+      [
+       1.6499717,
+       43.260937
+      ],
+      [
+       1.6553414,
+       43.2440004
+      ],
+      [
+       1.6356835,
+       43.237039
+      ],
+      [
+       1.6374876,
+       43.2556072
+      ],
+      [
+       1.5729783,
+       43.2764461
+      ],
+      [
+       1.5747069,
+       43.2624168
+      ],
+      [
+       1.5659166,
+       43.2529401
+      ],
+      [
+       1.5471466,
+       43.2779027
+      ],
+      [
+       1.5181604,
+       43.2697599
+      ],
+      [
+       1.5180316,
+       43.2891596
+      ],
+      [
+       1.5126868,
+       43.293607
+      ],
+      [
+       1.5064694,
+       43.2860624
+      ],
+      [
+       1.4964849,
+       43.2932176
+      ],
+      [
+       1.4894749,
+       43.2587785
+      ],
+      [
+       1.5047665,
+       43.2493666
+      ],
+      [
+       1.4930734,
+       43.2372562
+      ],
+      [
+       1.5095356,
+       43.2220728
+      ],
+      [
+       1.4867533,
+       43.2277661
+      ],
+      [
+       1.4677738,
+       43.2089343
+      ],
+      [
+       1.4157409,
+       43.2266527
+      ],
+      [
+       1.4287522,
+       43.2546511
+      ],
+      [
+       1.3759773,
+       43.2884813
+      ],
+      [
+       1.3775737,
+       43.2960133
+      ],
+      [
+       1.3638362,
+       43.3073496
+      ],
+      [
+       1.3729782,
+       43.310147
+      ],
+      [
+       1.3314871,
+       43.3162514
+      ],
+      [
+       1.3179973,
+       43.2958808
+      ],
+      [
+       1.3052023,
+       43.2985616
+      ],
+      [
+       1.3026511,
+       43.2863376
+      ],
+      [
+       1.292559,
+       43.288952
+      ],
+      [
+       1.3023336,
+       43.272411
+      ],
+      [
+       1.293622,
+       43.264067
+      ],
+      [
+       1.3306478,
+       43.2625622
+      ],
+      [
+       1.318365,
+       43.2511989
+      ],
+      [
+       1.3400072,
+       43.2442345
+      ],
+      [
+       1.37356,
+       43.2446224
+      ],
+      [
+       1.3832155,
+       43.22926
+      ],
+      [
+       1.3745176,
+       43.2140155
+      ],
+      [
+       1.3274868,
+       43.2047798
+      ],
+      [
+       1.329814,
+       43.1970464
+      ],
+      [
+       1.3211068,
+       43.1899703
+      ],
+      [
+       1.2741374,
+       43.1962926
+      ],
+      [
+       1.2509459,
+       43.183257
+      ],
+      [
+       1.2324823,
+       43.1883741
+      ],
+      [
+       1.2141856,
+       43.1623521
+      ],
+      [
+       1.2195235,
+       43.1525655
+      ],
+      [
+       1.2741866,
+       43.1484286
+      ],
+      [
+       1.3029328,
+       43.1226795
+      ],
+      [
+       1.2913111,
+       43.1240962
+      ],
+      [
+       1.280357,
+       43.1101306
+      ],
+      [
+       1.2601179,
+       43.1091933
+      ],
+      [
+       1.2616996,
+       43.0916539
+      ],
+      [
+       1.2234362,
+       43.0858489
+      ],
+      [
+       1.2084159,
+       43.1189935
+      ],
+      [
+       1.1752688,
+       43.1408682
+      ],
+      [
+       1.1661365,
+       43.1298396
+      ],
+      [
+       1.1246372,
+       43.1561003
+      ],
+      [
+       1.1131413,
+       43.144528
+      ],
+      [
+       1.0897567,
+       43.1418051
+      ],
+      [
+       1.0875355,
+       43.1338895
+      ],
+      [
+       1.0532479,
+       43.1458331
+      ],
+      [
+       1.046158,
+       43.1352487
+      ],
+      [
+       1.0508747,
+       43.1200017
+      ],
+      [
+       1.0388995,
+       43.1005448
+      ],
+      [
+       1.0025466,
+       43.1140772
+      ],
+      [
+       1.004142,
+       43.1042382
+      ],
+      [
+       0.9908792,
+       43.0930886
+      ],
+      [
+       1.0066681,
+       43.0821556
+      ],
+      [
+       0.9970465,
+       43.0726312
+      ],
+      [
+       0.9791461,
+       43.0723504
+      ],
+      [
+       0.9847926,
+       43.050608
+      ],
+      [
+       0.9940489,
+       43.0469352
+      ],
+      [
+       0.9931083,
+       43.0393894
+      ],
+      [
+       0.9835326,
+       43.0448205
+      ],
+      [
+       0.9865856,
+       43.0248025
+      ],
+      [
+       1.0219543,
+       43.00981
+      ],
+      [
+       1.0032472,
+       43.0050961
+      ],
+      [
+       0.9803294,
+       42.9747832
+      ],
+      [
+       0.9627612,
+       42.9684466
+      ],
+      [
+       0.8752532,
+       42.9576336
+      ],
+      [
+       0.8845375,
+       42.9320334
+      ],
+      [
+       0.8446619,
+       42.9259137
+      ],
+      [
+       0.8267506,
+       42.9141974
+      ]
+     ]
+    ]
+   },
+   "osmRelationId": 7439,
+   "areaSelector": {
+    "kind": "relation",
+    "relId": 7439
+   },
+   "radiusKm": 75.18154482742305,
+   "provider": "nominatim",
+   "admin": {
+    "departement": "09"
+   }
+  },
+  "category": {
+   "key": "restaurant",
+   "label": {
+    "fr": "Restaurant",
+    "en": "Restaurant"
+   },
+   "custom": false
+  },
+  "sources": [
+   "osm",
+   "fr_register"
+  ],
+  "rows": [
+   {
+    "source": "osm",
+    "sourceId": "node/2589517861",
+    "sourceUrl": "https://www.openstreetmap.org/node/2589517861",
+    "name": "Auberge de la Sapinière",
+    "addressLine": "Col de Port",
+    "postcode": "09000",
+    "city": "Le Bosc",
+    "countryCode": "FR",
+    "lat": 42.8992942,
+    "lng": 1.4536586,
+    "geoSource": "source",
+    "phone": "+33967290632",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/2589517861",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 6.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "socials": {
+     "facebook": "https://www.facebook.com/aubergelasapiniere/"
+    },
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/329271549",
+    "sourceUrl": "https://www.openstreetmap.org/way/329271549",
+    "name": "Alzimut",
+    "addressLine": "Hameau Vidallac",
+    "postcode": "09240",
+    "city": "Alzen",
+    "countryCode": "FR",
+    "lat": 42.986024,
+    "lng": 1.473501,
+    "geoSource": "source",
+    "website": "https://alzimut.fr/",
+    "phone": "+33 5 81 49 99 85",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/329271549",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/1403099809",
+    "sourceUrl": "https://www.openstreetmap.org/node/1403099809",
+    "name": "Cantine scolaire",
+    "postcode": "09240",
+    "city": "La Bastide-de-Sérou",
+    "countryCode": "FR",
+    "lat": 43.0102889,
+    "lng": 1.4299311,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/1403099809",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/13249410642",
+    "sourceUrl": "https://www.openstreetmap.org/node/13249410642",
+    "name": "Le Boréal",
+    "postcode": "09240",
+    "city": "La Bastide-de-Sérou",
+    "countryCode": "FR",
+    "lat": 43.0126313,
+    "lng": 1.4088306,
+    "geoSource": "source",
+    "website": "https://leborealariege.com/",
+    "phone": "+33 6 29 59 77 47",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/13249410642",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.5,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "socials": {
+     "facebook": "https://www.facebook.com/leborealariege"
+    },
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/3514792008",
+    "sourceUrl": "https://www.openstreetmap.org/node/3514792008",
+    "name": "L'Oumbass",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8888001,
+    "lng": 1.3471628,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/3514792008",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.9,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/300868968",
+    "sourceUrl": "https://www.openstreetmap.org/way/300868968",
+    "name": "Auberge Les Trois Seigneurs",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8911651,
+    "lng": 1.3430508,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/300868968",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 8,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/11329985470",
+    "sourceUrl": "https://www.openstreetmap.org/node/11329985470",
+    "name": "Le Maxil'",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8881786,
+    "lng": 1.3473266,
+    "geoSource": "source",
+    "website": "https://www.le-maxil-cafe.fr/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/11329985470",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 8,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/1914398223",
+    "sourceUrl": "https://www.openstreetmap.org/node/1914398223",
+    "name": "Auberge du Gypaete barbu",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8981789,
+    "lng": 1.3150098,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/1914398223",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 9.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/9986031617",
+    "sourceUrl": "https://www.openstreetmap.org/node/9986031617",
+    "name": "Les terrasses de Cadarcet",
+    "postcode": "09240",
+    "city": "Cadarcet",
+    "countryCode": "FR",
+    "lat": 43.0050793,
+    "lng": 1.5160559,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/9986031617",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 11.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/579945530",
+    "sourceUrl": "https://www.openstreetmap.org/node/579945530",
+    "name": "La Barguillère",
+    "postcode": "09000",
+    "city": "Saint-Pierre-de-Rivière",
+    "countryCode": "FR",
+    "lat": 42.9609252,
+    "lng": 1.5586323,
+    "geoSource": "source",
+    "website": "https://www.barguillere.fr/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/579945530",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 12.5,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/3235826681",
+    "sourceUrl": "https://www.openstreetmap.org/node/3235826681",
+    "name": "Le Châlet",
+    "postcode": "09400",
+    "city": "Bédeilhac-et-Aynat",
+    "countryCode": "FR",
+    "lat": 42.8782353,
+    "lng": 1.5480355,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/3235826681",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 13.7,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/289348297",
+    "sourceUrl": "https://www.openstreetmap.org/way/289348297",
+    "name": "Les 7 Familles",
+    "postcode": "09140",
+    "city": "Ercé",
+    "countryCode": "FR",
+    "lat": 42.8476131,
+    "lng": 1.2903326,
+    "geoSource": "source",
+    "phone": "+33561046118",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/289348297",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 14.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4318210887",
+    "sourceUrl": "https://www.openstreetmap.org/node/4318210887",
+    "name": "Auberge de la grotte Chez Peïo",
+    "postcode": "09400",
+    "city": "Bédeilhac-et-Aynat",
+    "countryCode": "FR",
+    "lat": 42.8731153,
+    "lng": 1.5643949,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4318210887",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.2,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4821002803",
+    "sourceUrl": "https://www.openstreetmap.org/node/4821002803",
+    "name": "kiwi",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0785591,
+    "lng": 1.360314,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4821002803",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4383950831",
+    "sourceUrl": "https://www.openstreetmap.org/node/4383950831",
+    "name": "La terrasse du mas",
+    "addressLine": "4 Place du Champ de Mars",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0792979,
+    "lng": 1.360797,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4383950831",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/10592232449",
+    "sourceUrl": "https://www.openstreetmap.org/node/10592232449",
+    "name": "Par hazard",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0788929,
+    "lng": 1.3603895,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/10592232449",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/127004544",
+    "sourceUrl": "https://www.openstreetmap.org/way/127004544",
+    "name": "Bar Restaurant Glacier de l'Étang de Lers",
+    "postcode": "09320",
+    "city": "Le Port",
+    "countryCode": "FR",
+    "lat": 42.8082998,
+    "lng": 1.3807474,
+    "geoSource": "source",
+    "phone": "+33 5 61 04 93 22",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/127004544",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/471554743",
+    "sourceUrl": "https://www.openstreetmap.org/node/471554743",
+    "name": "Coumariau",
+    "postcode": "09140",
+    "city": "Oust",
+    "countryCode": "FR",
+    "lat": 42.8756194,
+    "lng": 1.2314463,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/471554743",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.2,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/12784616505",
+    "sourceUrl": "https://www.openstreetmap.org/node/12784616505",
+    "name": "Aro i èn",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9669701,
+    "lng": 1.6045419,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/12784616505",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/10601198905",
+    "sourceUrl": "https://www.openstreetmap.org/node/10601198905",
+    "name": "Chez l'espagnole",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9653747,
+    "lng": 1.6055297,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/10601198905",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/10601199405",
+    "sourceUrl": "https://www.openstreetmap.org/node/10601199405",
+    "name": "L'encas",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9649052,
+    "lng": 1.6052342,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/10601199405",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/13114977384",
+    "sourceUrl": "https://www.openstreetmap.org/node/13114977384",
+    "name": "La Rose d'Alep",
+    "addressLine": "43 Rue des Chapeliers",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9651839,
+    "lng": 1.605367,
+    "geoSource": "source",
+    "website": "https://gratuit-4809587.webadorsite.com/",
+    "phone": "+33 5 61 96 00 08",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/13114977384",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/2959576582",
+    "sourceUrl": "https://www.openstreetmap.org/node/2959576582",
+    "name": "Le Vertigo",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.964876,
+    "lng": 1.6055124,
+    "geoSource": "source",
+    "phone": "+33561649536",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/2959576582",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/6086291414",
+    "sourceUrl": "https://www.openstreetmap.org/node/6086291414",
+    "name": "Les 1001 nuits",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9643823,
+    "lng": 1.6047276,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/6086291414",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/10601199305",
+    "sourceUrl": "https://www.openstreetmap.org/node/10601199305",
+    "name": "Mamie et Papi'lles",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.96516,
+    "lng": 1.6053367,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/10601199305",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/9145510868",
+    "sourceUrl": "https://www.openstreetmap.org/node/9145510868",
+    "name": "NOMADE - Bar Restaurant",
+    "addressLine": "42 Rue des Chapeliers",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9652757,
+    "lng": 1.6055209,
+    "geoSource": "source",
+    "phone": "+33 7 45 26 28 23",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/9145510868",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/9292589219",
+    "sourceUrl": "https://www.openstreetmap.org/node/9292589219",
+    "name": "Café de la Halle",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9643402,
+    "lng": 1.606705,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/9292589219",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/9145510860",
+    "sourceUrl": "https://www.openstreetmap.org/node/9145510860",
+    "name": "Castel Rock",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9659993,
+    "lng": 1.6061914,
+    "geoSource": "source",
+    "website": "https://lecastelrock.e-monsite.com/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/9145510860",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "socials": {
+     "facebook": "https://www.facebook.com/castelrockcafe/"
+    },
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/3446216293",
+    "sourceUrl": "https://www.openstreetmap.org/node/3446216293",
+    "name": "Guarana",
+    "addressLine": "3 Rue de la Faurie",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9653386,
+    "lng": 1.6066238,
+    "geoSource": "source",
+    "phone": "+33 6 05 89 12 99",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/3446216293",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/7416528458",
+    "sourceUrl": "https://www.openstreetmap.org/node/7416528458",
+    "name": "La Table du Léo",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9649077,
+    "lng": 1.6060703,
+    "geoSource": "source",
+    "website": "http://www.leodefoix.com/index.php/fr/le-restaurant",
+    "phone": "+33 5 61 65 09 04",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/7416528458",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/10601173007",
+    "sourceUrl": "https://www.openstreetmap.org/node/10601173007",
+    "name": "Le Chat Chapeauté",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9657338,
+    "lng": 1.6058369,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/10601173007",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/1828059949",
+    "sourceUrl": "https://www.openstreetmap.org/node/1828059949",
+    "name": "Le Gei Sha",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9652792,
+    "lng": 1.6065091,
+    "geoSource": "source",
+    "phone": "+33 7 49 31 18 13",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/1828059949",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/8441261014",
+    "sourceUrl": "https://www.openstreetmap.org/node/8441261014",
+    "name": "ôlalama",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9663502,
+    "lng": 1.6064903,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/8441261014",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4854757616",
+    "sourceUrl": "https://www.openstreetmap.org/node/4854757616",
+    "name": "Restaurant l'Atlas",
+    "addressLine": "14 Place Pyrène",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9657605,
+    "lng": 1.6059113,
+    "geoSource": "source",
+    "phone": "+33 5 61 65 04 04",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4854757616",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "socials": {
+     "facebook": "https://www.facebook.com/Restaurant-LAtlas-232500256895875"
+    }
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/8464706633",
+    "sourceUrl": "https://www.openstreetmap.org/node/8464706633",
+    "name": "Peppo's Pizza",
+    "addressLine": "19 Rue Bayle",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9644466,
+    "lng": 1.6070456,
+    "geoSource": "source",
+    "website": "https://www.peppos-pizza.fr/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/8464706633",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.5,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/1828063380",
+    "sourceUrl": "https://www.openstreetmap.org/node/1828063380",
+    "name": "Au XIXème siécle",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9660233,
+    "lng": 1.6087275,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/1828063380",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.6,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/2959576581",
+    "sourceUrl": "https://www.openstreetmap.org/node/2959576581",
+    "name": "Le Phoebus",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9674,
+    "lng": 1.6084087,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/2959576581",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.6,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/9907657774",
+    "sourceUrl": "https://www.openstreetmap.org/node/9907657774",
+    "name": "Restaurant Brasserie de la Fourche",
+    "addressLine": "6 Rue du Rival",
+    "postcode": "09000",
+    "city": "Foix",
+    "countryCode": "FR",
+    "lat": 42.9666614,
+    "lng": 1.6081241,
+    "geoSource": "source",
+    "phone": "+33 5 61 05 91 81",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/9907657774",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.6,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/539412943",
+    "sourceUrl": "https://www.openstreetmap.org/way/539412943",
+    "name": "La Table de Gaya",
+    "postcode": "09200",
+    "city": "Encourtiech",
+    "countryCode": "FR",
+    "lat": 42.985724,
+    "lng": 1.2092581,
+    "geoSource": "source",
+    "website": "https://www.leschampsdegaya.com/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/539412943",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.7,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4780331268",
+    "sourceUrl": "https://www.openstreetmap.org/node/4780331268",
+    "name": "Relais de Seignas",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0817517,
+    "lng": 1.3202816,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4780331268",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 16.7,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   }
+  ],
+  "total": 215,
+  "perSource": {
+   "osm": 215
+  },
+  "progress": {
+   "status": "running",
+   "stage": "register",
+   "units": [
+    {
+     "id": "r7439",
+     "label": "Ariège",
+     "code": "09",
+     "center": {
+      "lat": 42.9455368,
+      "lng": 1.4065544
+     },
+     "state": "done",
+     "found": 273
+    }
+   ],
+   "registerScopes": [
+    {
+     "id": "dep:09",
+     "label": "Ariège (09)",
+     "state": "running",
+     "pages": 7,
+     "totalPages": 18,
+     "found": 175
+    }
+   ],
+   "found": 215,
+   "expected": 292,
+   "cap": 2000,
+   "rowsVersion": 0,
+   "retryingUntil": null,
+   "startedAt": "2026-09-12T09:07:44.321Z",
+   "updatedAt": "2026-09-12T09:08:13.321Z",
+   "finishedAt": null,
+   "etaSeconds": null
+  },
+  "notes": [],
+  "durationMs": null,
+  "createdAt": "2026-09-12T09:07:44.321Z"
+ },
+ "done": {
+  "version": 2,
+  "searchId": 7,
+  "queryArea": "ariege",
+  "area": {
+   "label": "Ariège",
+   "countryCode": "FR",
+   "countryName": "France",
+   "kind": "department",
+   "center": {
+    "lat": 42.9455368,
+    "lng": 1.4065544
+   },
+   "bbox": [
+    42.5738461,
+    0.8267506,
+    43.3162514,
+    2.1758135
+   ],
+   "polygon": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       0.8267506,
+       42.9141974
+      ],
+      [
+       0.8441916,
+       42.8897205
+      ],
+      [
+       0.8352752,
+       42.8718532
+      ],
+      [
+       0.8480763,
+       42.8655911
+      ],
+      [
+       0.8606461,
+       42.8369882
+      ],
+      [
+       0.8582999,
+       42.8238624
+      ],
+      [
+       0.9074181,
+       42.7969634
+      ],
+      [
+       0.9310323,
+       42.7888719
+      ],
+      [
+       0.9600625,
+       42.8059563
+      ],
+      [
+       0.9838122,
+       42.7867475
+      ],
+      [
+       1.005348,
+       42.7908617
+      ],
+      [
+       1.0478247,
+       42.780961
+      ],
+      [
+       1.0787949,
+       42.7883147
+      ],
+      [
+       1.1282256,
+       42.7555542
+      ],
+      [
+       1.1334318,
+       42.7280883
+      ],
+      [
+       1.1704775,
+       42.7079277
+      ],
+      [
+       1.2292443,
+       42.7278269
+      ],
+      [
+       1.2531897,
+       42.7144819
+      ],
+      [
+       1.3322639,
+       42.7247722
+      ],
+      [
+       1.3379636,
+       42.7184981
+      ],
+      [
+       1.3573528,
+       42.7196855
+      ],
+      [
+       1.3510716,
+       42.7027628
+      ],
+      [
+       1.3891107,
+       42.6871674
+      ],
+      [
+       1.3874947,
+       42.6686079
+      ],
+      [
+       1.4137012,
+       42.6555901
+      ],
+      [
+       1.4204147,
+       42.6250773
+      ],
+      [
+       1.4380315,
+       42.6028203
+      ],
+      [
+       1.4568874,
+       42.6023031
+      ],
+      [
+       1.4767063,
+       42.6130857
+      ],
+      [
+       1.4680937,
+       42.6308876
+      ],
+      [
+       1.4790009,
+       42.6516221
+      ],
+      [
+       1.5187807,
+       42.6454274
+      ],
+      [
+       1.5493298,
+       42.6558959
+      ],
+      [
+       1.5747584,
+       42.6479388
+      ],
+      [
+       1.6003844,
+       42.6258772
+      ],
+      [
+       1.637122,
+       42.630316
+      ],
+      [
+       1.6639012,
+       42.6189812
+      ],
+      [
+       1.683443,
+       42.6249425
+      ],
+      [
+       1.7154978,
+       42.6145763
+      ],
+      [
+       1.73608,
+       42.6178377
+      ],
+      [
+       1.7276538,
+       42.5882686
+      ],
+      [
+       1.78118,
+       42.58253
+      ],
+      [
+       1.7899445,
+       42.5738461
+      ],
+      [
+       1.8373958,
+       42.5847195
+      ],
+      [
+       1.865036,
+       42.5788235
+      ],
+      [
+       1.8928605,
+       42.5951302
+      ],
+      [
+       1.9008324,
+       42.6153967
+      ],
+      [
+       1.9340643,
+       42.6047975
+      ],
+      [
+       1.9499543,
+       42.6174959
+      ],
+      [
+       1.9723651,
+       42.6175462
+      ],
+      [
+       1.9985662,
+       42.6617085
+      ],
+      [
+       2.0277348,
+       42.652464
+      ],
+      [
+       2.0708387,
+       42.6667944
+      ],
+      [
+       2.1006037,
+       42.6645588
+      ],
+      [
+       2.1243692,
+       42.6725157
+      ],
+      [
+       2.1657986,
+       42.6637524
+      ],
+      [
+       2.1758135,
+       42.6828695
+      ],
+      [
+       2.1680266,
+       42.6977849
+      ],
+      [
+       2.1458744,
+       42.7024838
+      ],
+      [
+       2.0913226,
+       42.735179
+      ],
+      [
+       2.0862628,
+       42.7521721
+      ],
+      [
+       2.056326,
+       42.7550196
+      ],
+      [
+       2.0292869,
+       42.7382796
+      ],
+      [
+       2.0035606,
+       42.7335016
+      ],
+      [
+       1.9490806,
+       42.7367215
+      ],
+      [
+       1.9472124,
+       42.7450952
+      ],
+      [
+       1.9136806,
+       42.7580317
+      ],
+      [
+       1.908418,
+       42.7689844
+      ],
+      [
+       1.9287794,
+       42.77506
+      ],
+      [
+       1.8964385,
+       42.808143
+      ],
+      [
+       1.8598979,
+       42.8199845
+      ],
+      [
+       1.8764874,
+       42.8403786
+      ],
+      [
+       1.8769093,
+       42.8529091
+      ],
+      [
+       1.9458735,
+       42.8557
+      ],
+      [
+       1.987431,
+       42.870596
+      ],
+      [
+       1.9808318,
+       42.8786253
+      ],
+      [
+       1.9842204,
+       42.9029514
+      ],
+      [
+       1.9918781,
+       42.9055569
+      ],
+      [
+       1.9806714,
+       42.9297873
+      ],
+      [
+       1.9334942,
+       42.9396482
+      ],
+      [
+       1.936575,
+       42.9539113
+      ],
+      [
+       1.9524394,
+       42.9550016
+      ],
+      [
+       1.9576372,
+       42.9640719
+      ],
+      [
+       1.9952041,
+       42.9530341
+      ],
+      [
+       2.0061389,
+       42.9625684
+      ],
+      [
+       1.985371,
+       42.9668452
+      ],
+      [
+       1.986921,
+       43.0026567
+      ],
+      [
+       1.9694147,
+       43.0080092
+      ],
+      [
+       1.9848284,
+       43.0220231
+      ],
+      [
+       1.9853973,
+       43.0323227
+      ],
+      [
+       1.9725681,
+       43.0466023
+      ],
+      [
+       1.940988,
+       43.0535014
+      ],
+      [
+       1.9422663,
+       43.0676913
+      ],
+      [
+       1.9639284,
+       43.0692493
+      ],
+      [
+       1.9498897,
+       43.0803757
+      ],
+      [
+       1.9556257,
+       43.0852916
+      ],
+      [
+       1.9530332,
+       43.1126815
+      ],
+      [
+       1.9465726,
+       43.1223854
+      ],
+      [
+       1.9142,
+       43.1334547
+      ],
+      [
+       1.9021608,
+       43.1297876
+      ],
+      [
+       1.8934349,
+       43.1155605
+      ],
+      [
+       1.8912056,
+       43.125608
+      ],
+      [
+       1.8807269,
+       43.1269789
+      ],
+      [
+       1.88156,
+       43.1478416
+      ],
+      [
+       1.8567564,
+       43.1444391
+      ],
+      [
+       1.8522179,
+       43.1604324
+      ],
+      [
+       1.8417583,
+       43.155385
+      ],
+      [
+       1.8491813,
+       43.1458835
+      ],
+      [
+       1.8259169,
+       43.1454301
+      ],
+      [
+       1.7928459,
+       43.1589421
+      ],
+      [
+       1.7833805,
+       43.1512102
+      ],
+      [
+       1.743942,
+       43.1829373
+      ],
+      [
+       1.7115274,
+       43.186779
+      ],
+      [
+       1.7086782,
+       43.1982784
+      ],
+      [
+       1.7254747,
+       43.2119537
+      ],
+      [
+       1.7235048,
+       43.2248478
+      ],
+      [
+       1.7026063,
+       43.2396576
+      ],
+      [
+       1.706877,
+       43.2453112
+      ],
+      [
+       1.6950978,
+       43.2469941
+      ],
+      [
+       1.7029039,
+       43.2547668
+      ],
+      [
+       1.6998169,
+       43.2629705
+      ],
+      [
+       1.6736604,
+       43.2816097
+      ],
+      [
+       1.6499717,
+       43.260937
+      ],
+      [
+       1.6553414,
+       43.2440004
+      ],
+      [
+       1.6356835,
+       43.237039
+      ],
+      [
+       1.6374876,
+       43.2556072
+      ],
+      [
+       1.5729783,
+       43.2764461
+      ],
+      [
+       1.5747069,
+       43.2624168
+      ],
+      [
+       1.5659166,
+       43.2529401
+      ],
+      [
+       1.5471466,
+       43.2779027
+      ],
+      [
+       1.5181604,
+       43.2697599
+      ],
+      [
+       1.5180316,
+       43.2891596
+      ],
+      [
+       1.5126868,
+       43.293607
+      ],
+      [
+       1.5064694,
+       43.2860624
+      ],
+      [
+       1.4964849,
+       43.2932176
+      ],
+      [
+       1.4894749,
+       43.2587785
+      ],
+      [
+       1.5047665,
+       43.2493666
+      ],
+      [
+       1.4930734,
+       43.2372562
+      ],
+      [
+       1.5095356,
+       43.2220728
+      ],
+      [
+       1.4867533,
+       43.2277661
+      ],
+      [
+       1.4677738,
+       43.2089343
+      ],
+      [
+       1.4157409,
+       43.2266527
+      ],
+      [
+       1.4287522,
+       43.2546511
+      ],
+      [
+       1.3759773,
+       43.2884813
+      ],
+      [
+       1.3775737,
+       43.2960133
+      ],
+      [
+       1.3638362,
+       43.3073496
+      ],
+      [
+       1.3729782,
+       43.310147
+      ],
+      [
+       1.3314871,
+       43.3162514
+      ],
+      [
+       1.3179973,
+       43.2958808
+      ],
+      [
+       1.3052023,
+       43.2985616
+      ],
+      [
+       1.3026511,
+       43.2863376
+      ],
+      [
+       1.292559,
+       43.288952
+      ],
+      [
+       1.3023336,
+       43.272411
+      ],
+      [
+       1.293622,
+       43.264067
+      ],
+      [
+       1.3306478,
+       43.2625622
+      ],
+      [
+       1.318365,
+       43.2511989
+      ],
+      [
+       1.3400072,
+       43.2442345
+      ],
+      [
+       1.37356,
+       43.2446224
+      ],
+      [
+       1.3832155,
+       43.22926
+      ],
+      [
+       1.3745176,
+       43.2140155
+      ],
+      [
+       1.3274868,
+       43.2047798
+      ],
+      [
+       1.329814,
+       43.1970464
+      ],
+      [
+       1.3211068,
+       43.1899703
+      ],
+      [
+       1.2741374,
+       43.1962926
+      ],
+      [
+       1.2509459,
+       43.183257
+      ],
+      [
+       1.2324823,
+       43.1883741
+      ],
+      [
+       1.2141856,
+       43.1623521
+      ],
+      [
+       1.2195235,
+       43.1525655
+      ],
+      [
+       1.2741866,
+       43.1484286
+      ],
+      [
+       1.3029328,
+       43.1226795
+      ],
+      [
+       1.2913111,
+       43.1240962
+      ],
+      [
+       1.280357,
+       43.1101306
+      ],
+      [
+       1.2601179,
+       43.1091933
+      ],
+      [
+       1.2616996,
+       43.0916539
+      ],
+      [
+       1.2234362,
+       43.0858489
+      ],
+      [
+       1.2084159,
+       43.1189935
+      ],
+      [
+       1.1752688,
+       43.1408682
+      ],
+      [
+       1.1661365,
+       43.1298396
+      ],
+      [
+       1.1246372,
+       43.1561003
+      ],
+      [
+       1.1131413,
+       43.144528
+      ],
+      [
+       1.0897567,
+       43.1418051
+      ],
+      [
+       1.0875355,
+       43.1338895
+      ],
+      [
+       1.0532479,
+       43.1458331
+      ],
+      [
+       1.046158,
+       43.1352487
+      ],
+      [
+       1.0508747,
+       43.1200017
+      ],
+      [
+       1.0388995,
+       43.1005448
+      ],
+      [
+       1.0025466,
+       43.1140772
+      ],
+      [
+       1.004142,
+       43.1042382
+      ],
+      [
+       0.9908792,
+       43.0930886
+      ],
+      [
+       1.0066681,
+       43.0821556
+      ],
+      [
+       0.9970465,
+       43.0726312
+      ],
+      [
+       0.9791461,
+       43.0723504
+      ],
+      [
+       0.9847926,
+       43.050608
+      ],
+      [
+       0.9940489,
+       43.0469352
+      ],
+      [
+       0.9931083,
+       43.0393894
+      ],
+      [
+       0.9835326,
+       43.0448205
+      ],
+      [
+       0.9865856,
+       43.0248025
+      ],
+      [
+       1.0219543,
+       43.00981
+      ],
+      [
+       1.0032472,
+       43.0050961
+      ],
+      [
+       0.9803294,
+       42.9747832
+      ],
+      [
+       0.9627612,
+       42.9684466
+      ],
+      [
+       0.8752532,
+       42.9576336
+      ],
+      [
+       0.8845375,
+       42.9320334
+      ],
+      [
+       0.8446619,
+       42.9259137
+      ],
+      [
+       0.8267506,
+       42.9141974
+      ]
+     ]
+    ]
+   },
+   "osmRelationId": 7439,
+   "areaSelector": {
+    "kind": "relation",
+    "relId": 7439
+   },
+   "radiusKm": 75.18154482742305,
+   "provider": "nominatim",
+   "admin": {
+    "departement": "09"
+   }
+  },
+  "category": {
+   "key": "restaurant",
+   "label": {
+    "fr": "Restaurant",
+    "en": "Restaurant"
+   },
+   "custom": false
+  },
+  "sources": [
+   "osm",
+   "fr_register"
+  ],
+  "rows": [
+   {
+    "source": "fr_register",
+    "sourceId": "99466732700013",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/99466732700013",
+    "name": "ELSA CASPARD",
+    "legalName": "ELSA CASPARD",
+    "addressLine": "LA RIBO 09240 MONTAGAGNE",
+    "postcode": "09240",
+    "city": "MONTAGAGNE",
+    "countryCode": "FR",
+    "lat": 42.9735467011026,
+    "lng": 1.40958870985572,
+    "geoSource": "source",
+    "registerId": "99466732700013",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:99466732700013",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 3.1,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/2589517861",
+    "sourceUrl": "https://www.openstreetmap.org/node/2589517861",
+    "name": "Auberge de la Sapinière",
+    "addressLine": "Col de Port",
+    "postcode": "09000",
+    "city": "Le Bosc",
+    "countryCode": "FR",
+    "lat": 42.8992942,
+    "lng": 1.4536586,
+    "geoSource": "source",
+    "phone": "+33967290632",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/2589517861",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 6.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "socials": {
+     "facebook": "https://www.facebook.com/aubergelasapiniere/"
+    },
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/329271549",
+    "sourceUrl": "https://www.openstreetmap.org/way/329271549",
+    "name": "Alzimut",
+    "addressLine": "Hameau Vidallac",
+    "postcode": "09240",
+    "city": "Alzen",
+    "countryCode": "FR",
+    "lat": 42.986024,
+    "lng": 1.473501,
+    "geoSource": "source",
+    "website": "https://alzimut.fr/",
+    "phone": "+33 5 81 49 99 85",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/329271549",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/1403099809",
+    "sourceUrl": "https://www.openstreetmap.org/node/1403099809",
+    "name": "Cantine scolaire",
+    "postcode": "09240",
+    "city": "La Bastide-de-Sérou",
+    "countryCode": "FR",
+    "lat": 43.0102889,
+    "lng": 1.4299311,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/1403099809",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/13249410642",
+    "sourceUrl": "https://www.openstreetmap.org/node/13249410642",
+    "name": "Le Boréal",
+    "postcode": "09240",
+    "city": "La Bastide-de-Sérou",
+    "countryCode": "FR",
+    "lat": 43.0126313,
+    "lng": 1.4088306,
+    "geoSource": "source",
+    "website": "https://leborealariege.com/",
+    "phone": "+33 6 29 59 77 47",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/13249410642",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.5,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "socials": {
+     "facebook": "https://www.facebook.com/leborealariege"
+    },
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "39764139000018",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/39764139000018",
+    "name": "SARL SEGM",
+    "legalName": "SARL SEGM",
+    "addressLine": "2 RUE DE L'AUJOLE 09240 LA BASTIDE-DE-SEROU",
+    "postcode": "09240",
+    "city": "LA BASTIDE-DE-SEROU",
+    "countryCode": "FR",
+    "lat": 43.013684432,
+    "lng": 1.4300903221,
+    "geoSource": "source",
+    "registerId": "39764139000018",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:39764139000018",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 7.8,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "93382428600019",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/93382428600019",
+    "name": "SIMULTAS",
+    "legalName": "SIMULTAS",
+    "addressLine": "ROUTE DE SAINT GIRONS LIEU DIT LA BOURDETTE 09240 LA BASTIDE-DE-SEROU",
+    "postcode": "09240",
+    "city": "LA BASTIDE-DE-SEROU",
+    "countryCode": "FR",
+    "lat": 43.0157708790514,
+    "lng": 1.40597783101409,
+    "geoSource": "source",
+    "registerId": "93382428600019",
+    "legalForm": "5710",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:93382428600019",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 7.8,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/3514792008",
+    "sourceUrl": "https://www.openstreetmap.org/node/3514792008",
+    "name": "L'Oumbass",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8888001,
+    "lng": 1.3471628,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/3514792008",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 7.9,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/300868968",
+    "sourceUrl": "https://www.openstreetmap.org/way/300868968",
+    "name": "Auberge Les Trois Seigneurs",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8911651,
+    "lng": 1.3430508,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/300868968",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 8,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/11329985470",
+    "sourceUrl": "https://www.openstreetmap.org/node/11329985470",
+    "name": "Le Maxil'",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8881786,
+    "lng": 1.3473266,
+    "geoSource": "source",
+    "website": "https://www.le-maxil-cafe.fr/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/11329985470",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 8,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "90806712700013",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/90806712700013",
+    "name": "Chez Victor",
+    "legalName": "CHEZ VICTOR",
+    "enseigne": "CHEZ VICTOR",
+    "addressLine": "ROUTE DE FOIX 09420 CASTELNAU-DURBAN",
+    "postcode": "09420",
+    "city": "CASTELNAU-DURBAN",
+    "countryCode": "FR",
+    "lat": 43.0002483,
+    "lng": 1.3411538,
+    "geoSource": "source",
+    "registerId": "90806712700013",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:90806712700013",
+    "sources": [
+     "fr_register",
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "fr_register"
+    },
+    "phone": "+33 5 61 96 34 02",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "distanceKm": 8.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "unitId": "r7439"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/1914398223",
+    "sourceUrl": "https://www.openstreetmap.org/node/1914398223",
+    "name": "Auberge du Gypaete barbu",
+    "postcode": "09320",
+    "city": "Biert",
+    "countryCode": "FR",
+    "lat": 42.8981789,
+    "lng": 1.3150098,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/1914398223",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 9.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "88043948400010",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/88043948400010",
+    "name": "GOLFEATS ARIEGE",
+    "legalName": "GOLFEATS ARIEGE",
+    "addressLine": "ECOGOLF ECOGOLF - UNJAT 09240 LA BASTIDE-DE-SEROU",
+    "postcode": "09240",
+    "city": "LA BASTIDE-DE-SEROU",
+    "countryCode": "FR",
+    "lat": 43.023160143,
+    "lng": 1.4677321588,
+    "geoSource": "source",
+    "registerId": "88043948400010",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:88043948400010",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 10,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/9986031617",
+    "sourceUrl": "https://www.openstreetmap.org/node/9986031617",
+    "name": "Les terrasses de Cadarcet",
+    "postcode": "09240",
+    "city": "Cadarcet",
+    "countryCode": "FR",
+    "lat": 43.0050793,
+    "lng": 1.5160559,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/9986031617",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 11.1,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "93530483200014",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/93530483200014",
+    "name": "A LA BONNE FRANQUETTE",
+    "legalName": "MAMANONO",
+    "enseigne": "A LA BONNE FRANQUETTE",
+    "addressLine": "1 PLACE DU 8 MAI 1945 09420 RIMONT",
+    "postcode": "09420",
+    "city": "RIMONT",
+    "countryCode": "FR",
+    "lat": 42.9940460135868,
+    "lng": 1.28035640708561,
+    "geoSource": "source",
+    "registerId": "93530483200014",
+    "legalForm": "5710",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:93530483200014",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 11.6,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "51134808800010",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/51134808800010",
+    "name": "WANDA PEREA",
+    "legalName": "WANDA PEREA",
+    "addressLine": "RTE DU LAC MONDELY 09240 LA BASTIDE-DE-SEROU",
+    "postcode": "09240",
+    "city": "LA BASTIDE-DE-SEROU",
+    "countryCode": "FR",
+    "lat": 43.0495761945163,
+    "lng": 1.43789413944279,
+    "geoSource": "source",
+    "registerId": "51134808800010",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:51134808800010",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 11.8,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "53470473900026",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/53470473900026",
+    "name": "LES PIZZAS DU PECH",
+    "legalName": "MICHEL PIQUEMAL (LES DELICES DU PECH)",
+    "enseigne": "LES PIZZAS DU PECH",
+    "addressLine": "11 CHEMIN DU PECH 09000 SAINT-PIERRE-DE-RIVIERE",
+    "postcode": "09000",
+    "city": "SAINT-PIERRE-DE-RIVIERE",
+    "countryCode": "FR",
+    "lat": 42.966108172,
+    "lng": 1.552265734,
+    "geoSource": "source",
+    "registerId": "53470473900026",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:53470473900026",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 12.1,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/579945530",
+    "sourceUrl": "https://www.openstreetmap.org/node/579945530",
+    "name": "La Barguillère",
+    "postcode": "09000",
+    "city": "Saint-Pierre-de-Rivière",
+    "countryCode": "FR",
+    "lat": 42.9609252,
+    "lng": 1.5586323,
+    "geoSource": "source",
+    "website": "https://www.barguillere.fr/",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/579945530",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "website": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 12.5,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "41764104000031",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/41764104000031",
+    "name": "JACQUES SENTENAC (LA CANTINE DU CURE)",
+    "legalName": "JACQUES SENTENAC (LA CANTINE DU CURE)",
+    "addressLine": "ESPOUECH 09320 ALEU",
+    "postcode": "09320",
+    "city": "ALEU",
+    "countryCode": "FR",
+    "lat": 42.894854147,
+    "lng": 1.2687083406,
+    "geoSource": "source",
+    "registerId": "41764104000031",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:41764104000031",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 12.6,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "41839046400026",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/41839046400026",
+    "name": "Le Souleilla",
+    "legalName": "VIRGINIE DARAGON",
+    "enseigne": "LE SOULEILLA",
+    "addressLine": "LE SOULEILLA - PLACE DU VILLAGE PL DU VILLAGE 09420 CLERMONT",
+    "postcode": "09420",
+    "city": "CLERMONT",
+    "countryCode": "FR",
+    "lat": 43.0395435,
+    "lng": 1.3013447,
+    "geoSource": "source",
+    "registerId": "41839046400026",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:41839046400026",
+    "sources": [
+     "fr_register",
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "fr_register"
+    },
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "distanceKm": 13.5,
+    "countryName": "France",
+    "countrySource": "area",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "unitId": "r7439"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/3235826681",
+    "sourceUrl": "https://www.openstreetmap.org/node/3235826681",
+    "name": "Le Châlet",
+    "postcode": "09400",
+    "city": "Bédeilhac-et-Aynat",
+    "countryCode": "FR",
+    "lat": 42.8782353,
+    "lng": 1.5480355,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/3235826681",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 13.7,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "81784527400015",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/81784527400015",
+    "name": "LA CIBOULETTE",
+    "legalName": "LA CIBOULETTE",
+    "enseigne": "LA CIBOULETTE",
+    "addressLine": "ROUTE DE ST PIERRE DE RIVIERE LA ROCHELLE 09000 FOIX",
+    "postcode": "09000",
+    "city": "FOIX",
+    "countryCode": "FR",
+    "lat": 42.958898959,
+    "lng": 1.580628295,
+    "geoSource": "source",
+    "registerId": "81784527400015",
+    "legalForm": "5710",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:81784527400015",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 14.2,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/289348297",
+    "sourceUrl": "https://www.openstreetmap.org/way/289348297",
+    "name": "Les 7 Familles",
+    "postcode": "09140",
+    "city": "Ercé",
+    "countryCode": "FR",
+    "lat": 42.8476131,
+    "lng": 1.2903326,
+    "geoSource": "source",
+    "phone": "+33561046118",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/289348297",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 14.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "97975767100016",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/97975767100016",
+    "name": "LES 7 FAMILLES (LES 7 FAMILLES)",
+    "legalName": "LES 7 FAMILLES",
+    "addressLine": "LE VILLAGE 09140 ERCE",
+    "postcode": "09140",
+    "city": "ERCE",
+    "countryCode": "FR",
+    "lat": 42.850233642,
+    "lng": 1.2870582056,
+    "geoSource": "source",
+    "registerId": "97975767100016",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:97975767100016",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 14.4,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "93794271200012",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/93794271200012",
+    "name": "AUBERGE DE LA GROTTE",
+    "legalName": "AUBERGE DE LA GROTTE",
+    "addressLine": "AYNAT VILLAGE 09400 BEDEILHAC-ET-AYNAT",
+    "postcode": "09400",
+    "city": "BEDEILHAC-ET-AYNAT",
+    "countryCode": "FR",
+    "lat": 42.8776793139263,
+    "lng": 1.56385725918295,
+    "geoSource": "source",
+    "registerId": "93794271200012",
+    "legalForm": "5710",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:93794271200012",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 14.9,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "30329948100109",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/30329948100109",
+    "name": "ANGEL COUGET (VILLAGE CLUB)",
+    "legalName": "ANGEL COUGET (VILLAGE CLUB)",
+    "addressLine": "VILLAGE CLUB LD LA PLANE 09420 LESCURE",
+    "postcode": "09420",
+    "city": "LESCURE",
+    "countryCode": "FR",
+    "lat": 42.998706554,
+    "lng": 1.2348726166,
+    "geoSource": "source",
+    "registerId": "30329948100109",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:30329948100109",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.2,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4318210887",
+    "sourceUrl": "https://www.openstreetmap.org/node/4318210887",
+    "name": "Auberge de la grotte Chez Peïo",
+    "postcode": "09400",
+    "city": "Bédeilhac-et-Aynat",
+    "countryCode": "FR",
+    "lat": 42.8731153,
+    "lng": 1.5643949,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4318210887",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.2,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "10736040600014",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/10736040600014",
+    "name": "CORMORAN (LE BOUFFAREL)",
+    "legalName": "CORMORAN",
+    "addressLine": "9 ROUTE DES DEUX TOURS 09400 BEDEILHAC-ET-AYNAT",
+    "postcode": "09400",
+    "city": "BEDEILHAC-ET-AYNAT",
+    "countryCode": "FR",
+    "lat": 42.87302700214952,
+    "lng": 1.5642600391888453,
+    "geoSource": "source",
+    "registerId": "10736040600014",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:10736040600014",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.2,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "94215687800012",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/94215687800012",
+    "name": "STEPHANE REVELANT",
+    "legalName": "STEPHANE REVELANT",
+    "addressLine": "15 PLACE DU BOUT DE LA VILLE 09290 LE MAS-D'AZIL",
+    "postcode": "09290",
+    "city": "LE MAS-D'AZIL",
+    "countryCode": "FR",
+    "lat": 43.0782599228075,
+    "lng": 1.36037237545221,
+    "geoSource": "source",
+    "registerId": "94215687800012",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:94215687800012",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.2,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "94035002800020",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/94035002800020",
+    "name": "Chez Suzon",
+    "legalName": "CHEZ SUZON",
+    "enseigne": "CHEZ SUZON",
+    "addressLine": "8 GRANDE ROUTE 09290 LE MAS-D'AZIL",
+    "postcode": "09290",
+    "city": "LE MAS-D'AZIL",
+    "countryCode": "FR",
+    "lat": 43.0790277,
+    "lng": 1.3602787,
+    "geoSource": "source",
+    "registerId": "94035002800020",
+    "legalForm": "5710",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:94035002800020",
+    "sources": [
+     "fr_register",
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "fr_register"
+    },
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "unitId": "r7439"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "88371899100010",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/88371899100010",
+    "name": "ELLY",
+    "legalName": "ELLY",
+    "addressLine": "RUE DU MOURET 09290 LE MAS-D'AZIL",
+    "postcode": "09290",
+    "city": "LE MAS-D'AZIL",
+    "countryCode": "FR",
+    "lat": 43.079905802,
+    "lng": 1.3637126779,
+    "geoSource": "source",
+    "registerId": "88371899100010",
+    "legalForm": "5202",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:88371899100010",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4821002803",
+    "sourceUrl": "https://www.openstreetmap.org/node/4821002803",
+    "name": "kiwi",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0785591,
+    "lng": 1.360314,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4821002803",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/4383950831",
+    "sourceUrl": "https://www.openstreetmap.org/node/4383950831",
+    "name": "La terrasse du mas",
+    "addressLine": "4 Place du Champ de Mars",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0792979,
+    "lng": 1.360797,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/4383950831",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "10690862700016",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/10690862700016",
+    "name": "Le Moulin de Langoust",
+    "legalName": "L'ESTADIA",
+    "enseigne": "LE MOULIN DE LANGOUST",
+    "addressLine": "35 RUE ANDRE LAGUERRE 09400 GOURBIT",
+    "postcode": "09400",
+    "city": "GOURBIT",
+    "countryCode": "FR",
+    "lat": 42.8455898,
+    "lng": 1.5353295,
+    "geoSource": "source",
+    "registerId": "10690862700016",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:10690862700016",
+    "sources": [
+     "fr_register",
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "fr_register"
+    },
+    "phone": "+33 5 61 05 64 10",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "unitId": "r7439"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "44127699500020",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/44127699500020",
+    "name": "MARK CORRIE (LE KIWI)",
+    "legalName": "MARK CORRIE (LE KIWI)",
+    "addressLine": "5 PLACE DU BOUT DE LA VILLE 09290 LE MAS-D'AZIL",
+    "postcode": "09290",
+    "city": "LE MAS-D'AZIL",
+    "countryCode": "FR",
+    "lat": 43.07848686,
+    "lng": 1.3605003255,
+    "geoSource": "source",
+    "registerId": "44127699500020",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:44127699500020",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "node/10592232449",
+    "sourceUrl": "https://www.openstreetmap.org/node/10592232449",
+    "name": "Par hazard",
+    "postcode": "09290",
+    "city": "Le Mas-d'Azil",
+    "countryCode": "FR",
+    "lat": 43.0788929,
+    "lng": 1.3603895,
+    "geoSource": "source",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:node/10592232449",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "53476590400022",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/53476590400022",
+    "name": "THALI DJI",
+    "legalName": "JEANIE MASSCHELEIN (THALI DJI)",
+    "enseigne": "THALI DJI",
+    "addressLine": "5 GRANDE ROUTE 09290 LE MAS-D'AZIL",
+    "postcode": "09290",
+    "city": "LE MAS-D'AZIL",
+    "countryCode": "FR",
+    "lat": 43.07930347,
+    "lng": 1.3602786268,
+    "geoSource": "source",
+    "registerId": "53476590400022",
+    "legalForm": "1000",
+    "soleTrader": true,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:53476590400022",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.3,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "osm",
+    "sourceId": "way/127004544",
+    "sourceUrl": "https://www.openstreetmap.org/way/127004544",
+    "name": "Bar Restaurant Glacier de l'Étang de Lers",
+    "postcode": "09320",
+    "city": "Le Port",
+    "countryCode": "FR",
+    "lat": 42.8082998,
+    "lng": 1.3807474,
+    "geoSource": "source",
+    "phone": "+33 5 61 04 93 22",
+    "tags": {
+     "amenity": "restaurant"
+    },
+    "key": "osm:way/127004544",
+    "sources": [
+     "osm"
+    ],
+    "provenance": {
+     "name": "osm",
+     "phone": "osm",
+     "geo": "osm",
+     "address": "osm"
+    },
+    "inside": "yes",
+    "distanceKm": 15.4,
+    "countryName": "France",
+    "countrySource": "area",
+    "unitId": "r7439",
+    "readAt": "2026-09-12T09:07:46.086Z",
+    "cityApprox": true
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "83944453600024",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/83944453600024",
+    "name": "DUCAS",
+    "legalName": "DUCAS",
+    "addressLine": "20 B RUE DE LA RESISTANCE 09000 FOIX",
+    "postcode": "09000",
+    "city": "FOIX",
+    "countryCode": "FR",
+    "lat": 42.962737535,
+    "lng": 1.5952099344,
+    "geoSource": "source",
+    "registerId": "83944453600024",
+    "legalForm": "5710",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:83944453600024",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 15.5,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   },
+   {
+    "source": "fr_register",
+    "sourceId": "79938323700010",
+    "sourceUrl": "https://annuaire-entreprises.data.gouv.fr/etablissement/79938323700010",
+    "name": "CROQ' EN BOUCHE",
+    "legalName": "CROQ' EN BOUCHE",
+    "enseigne": "CROQ' EN BOUCHE",
+    "addressLine": "LD LOUBERSENAC 09420 LESCURE",
+    "postcode": "09420",
+    "city": "LESCURE",
+    "countryCode": "FR",
+    "lat": 43.0231034521454,
+    "lng": 1.24148564460098,
+    "geoSource": "source",
+    "registerId": "79938323700010",
+    "legalForm": "5499",
+    "soleTrader": false,
+    "diffusion": "partial",
+    "active": true,
+    "inside": "yes",
+    "key": "fr_register:79938323700010",
+    "sources": [
+     "fr_register"
+    ],
+    "provenance": {
+     "name": "fr_register",
+     "geo": "fr_register",
+     "address": "fr_register"
+    },
+    "distanceKm": 16,
+    "countryName": "France",
+    "countrySource": "source",
+    "readAt": "2026-09-12T09:07:50.036Z"
+   }
+  ],
+  "total": 572,
+  "perSource": {
+   "fr_register": 357,
+   "osm": 269
+  },
+  "progress": {
+   "status": "done",
+   "stage": "finished",
+   "units": [
+    {
+     "id": "r7439",
+     "label": "Ariège",
+     "code": "09",
+     "center": {
+      "lat": 42.9455368,
+      "lng": 1.4065544
+     },
+     "state": "done",
+     "found": 273
+    }
+   ],
+   "registerScopes": [
+    {
+     "id": "dep:09",
+     "label": "Ariège (09)",
+     "state": "done",
+     "pages": 18,
+     "totalPages": 18,
+     "found": 369
+    }
+   ],
+   "found": 572,
+   "expected": 292,
+   "cap": 2000,
+   "rowsVersion": 1,
+   "retryingUntil": null,
+   "startedAt": "2026-09-12T09:07:44.321Z",
+   "updatedAt": "2026-09-12T09:07:50.262Z",
+   "finishedAt": "2026-09-12T09:07:50.262Z",
+   "etaSeconds": null
+  },
+  "notes": [],
+  "durationMs": 5939,
+  "createdAt": "2026-09-12T09:07:44.321Z"
+ }
+}

@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { bboxOf, bboxRadiusKm, bboxesOverlap, centroidOf, circlePolygon, haversineKm, isGeoPolygon, pointCount, pointInPolygon } from "./polygon.ts";
+import { bboxOf, bboxRadiusKm, bboxesOverlap, centroidOf, circlePolygon, haversineKm, isGeoPolygon, pointCount, pointInPolygon, roundPolygon, simplifyPolygon } from "./polygon.ts";
 import type { GeoPolygon } from "../crm/types.ts";
 
 const here = new URL(".", import.meta.url).pathname;
@@ -91,6 +91,24 @@ test("circlePolygon: n + 1 closed points, every vertex about `km` from the centr
   assert.equal(pointInPolygon(1.66, 42.9646, c), false); // ~4.5 km east
   assert.equal(isGeoPolygon(c), true);
   assert.equal(isGeoPolygon({ type: "Point", coordinates: [1, 2] }), false);
+});
+
+test("simplifyPolygon thins the fine Ariège outline under a cap and keeps the test points on the right side; roundPolygon rounds to 5 dp", () => {
+  const thin = simplifyPolygon(fine, 1000);
+  assert.ok(pointCount(thin) <= 1000 && pointCount(thin) >= 100, `${pointCount(thin)} points`);
+  assert.equal(thin.type, "Polygon");
+  assert.equal(pointInPolygon(...FOIX, thin), true);
+  assert.equal(pointInPolygon(...PAMIERS, thin), true);
+  assert.equal(pointInPolygon(...LA_MASSANA_AD, thin), false);
+  assert.equal(pointInPolygon(...CAMURAC_11, thin), false);
+  assert.equal(simplifyPolygon(display, 5000), display); // under the cap → untouched
+  const multi: GeoPolygon = { type: "MultiPolygon", coordinates: [fine.coordinates, display.coordinates] };
+  const thinMulti = simplifyPolygon(multi, 600);
+  assert.equal(thinMulti.type, "MultiPolygon");
+  assert.ok(pointCount(thinMulti) <= 600);
+  const rounded = roundPolygon({ type: "Polygon", coordinates: [[[1.123456789, 42.987654321], [1.2, 42.9], [1.3, 43.0], [1.123456789, 42.987654321]]] });
+  assert.deepEqual(rounded.coordinates, [[[1.12346, 42.98765], [1.2, 42.9], [1.3, 43.0], [1.12346, 42.98765]]]);
+  assert.equal(pointInPolygon(...FOIX, roundPolygon(display)), true);
 });
 
 test("haversineKm / bboxRadiusKm / bboxesOverlap", () => {

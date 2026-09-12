@@ -17,6 +17,16 @@ const area = {
   admin: { departement: "09" },
 };
 
+const occitanie = { lat: 43.7, lng: 2.2 };
+const deps: ChildRel[] = [
+  { relId: 7439, name: "Ariège", code: "09", center: { lat: 42.95, lng: 1.41 } },
+  { relId: 7413, name: "Haute-Garonne", code: "31", center: { lat: 43.36, lng: 1.17 } },
+  { relId: 7462, name: "Lozère", code: "48", center: { lat: 44.52, lng: 3.5 } },
+  { relId: 7416, name: "Tarn", code: "81", center: { lat: 43.79, lng: 2.17 } },
+  { relId: 7450, name: "Aveyron", code: "12", center: { lat: 44.28, lng: 2.68 } },
+];
+
+
 test("split rule: one unit at or under 5,000 and when the estimate is unknown; split above", () => {
   assert.equal(UNIT_SPLIT_THRESHOLD, 5000);
   assert.equal(needsSplit(292), false);
@@ -32,16 +42,11 @@ test("split rule: one unit at or under 5,000 and when the estimate is unknown; s
   assert.equal(single.mode, "single");
   assert.deepEqual(single.units, [{ id: "r7439", label: "Ariège", code: "09", center: area.center, selector: { kind: "relation", relId: 7439 } }]);
   assert.equal(planUnits({ area, expected: null, children: null, maxUnits: 200 }).mode, "single");
+  // a region / country whose estimate is unknown is still split when the caller says so
+  assert.equal(planUnits({ area: { ...area, kind: "region" }, expected: null, children: deps, maxUnits: 200, forceSplit: true }).mode, "children");
+  assert.equal(planUnits({ area, expected: null, children: null, maxUnits: 200, forceSplit: true }).mode, "tiles");
 });
 
-const occitanie = { lat: 43.7, lng: 2.2 };
-const deps: ChildRel[] = [
-  { relId: 7439, name: "Ariège", code: "09", center: { lat: 42.95, lng: 1.41 } },
-  { relId: 7413, name: "Haute-Garonne", code: "31", center: { lat: 43.36, lng: 1.17 } },
-  { relId: 7462, name: "Lozère", code: "48", center: { lat: 44.52, lng: 3.5 } },
-  { relId: 7416, name: "Tarn", code: "81", center: { lat: 43.79, lng: 2.17 } },
-  { relId: 7450, name: "Aveyron", code: "12", center: { lat: 44.28, lng: 2.68 } },
-];
 
 test("unit ordering: from the centre outward, stable on ties", () => {
   const ordered = orderUnits(deps, occitanie);
