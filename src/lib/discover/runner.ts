@@ -9,9 +9,9 @@
 import { DAY_MS, cacheGet, cacheSet } from "@/lib/crm/apiCache";
 import { parseJson } from "@/lib/crm/db";
 import { HttpError } from "@/lib/crm/http";
-import type { Area, Business, Category, DiscoverySource, ResolvedArea, ResultRow, SearchNote, SearchProgress, SearchResultV2, SearchStatus, SearchSummaryV2 } from "@/lib/crm/types";
+import type { Area, Business, Category, DiscoverySource, GooglePin, ResolvedArea, ResultRow, SearchNote, SearchProgress, SearchResultV2, SearchStatus, SearchSummaryV2 } from "@/lib/crm/types";
 import { enquiriesDb } from "@/lib/enquiries";
-import { markAlreadySaved } from "@/lib/prospects/store";
+import { markAlreadySaved, markPinsSaved } from "@/lib/prospects/store";
 import { fetchChildren, fetchCommuneCentres } from "./adminChildren";
 import { AreaQueryError } from "./areaQuery";
 import { categoryByKey, tradeLabel } from "./categories";
@@ -19,12 +19,15 @@ import { companiesHouseKey, searchCompaniesHouse } from "./companiesHouse";
 import { mergeBusinesses, type MergedBusiness } from "./dedupe";
 import { registerReason, searchRegisterScope, scopesFor, type RegisterRow } from "./frRegister";
 import { countryNameOf, finePolygon, frDepartements, frRegionDepartements, frRegions, geoGouv, type GeoCommune } from "./geocode";
-import { googlePlacesOn } from "./google";
+import { googleDiscoveryOn, googleKeyMissing, googlePlacesOn, googleSearchMaxRequests } from "./google";
+import { googleDiscover, type DiscoverOutput } from "./googleDiscover";
+import type { MatchRow } from "./googleMatch";
+import { placeIdOk } from "./googleRequests";
 import { fmtNum, listOf, note, plural } from "./notes";
 import { UnitFailure, fetchUnit, mapElement, overpassCount, type OsmBusiness } from "./overpass";
 import { RULES_VERSION, repairSearchResult } from "./searchRepair";
 import { CHILD_LEVELS, capReached, chooseLevel, findMaxMs, findMaxRows, findMaxUnits, needsSplit, overCap, planUnits, type ChildRel, type PlanMode, type PlanUnit } from "./plan";
-import { haversineKm, pointInPolygon } from "./polygon";
+import { haversineKm, pointInPolygon, type Bbox } from "./polygon";
 import { applyEvent, initialProgress, isInterrupted, legacyStatus, resolveStatus, type ProgressEvent } from "./progress";
 import { departementsOfPostcode, nearestCentre, type CentrePoint } from "./townFill";
 
@@ -224,6 +227,7 @@ function mergedToRow(m: MergedBusiness, ctx: { area: ResolvedArea; osm: Map<stri
   };
   if (osm?.socials) row.socials = osm.socials;
   if (osm?.unitId) row.unitId = osm.unitId;
+  if (m.googlePlaceId) row.onGoogle = true; // finder-google: "Also on Google"
   return row;
 }
 
@@ -529,7 +533,13 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
         }
       }
     }
-    if (sources.includes("google") && !googlePlacesOn()) notes.push(note("google_off"));
+    // ---- Google (finder-google §4.3) — searches ask Google only with GOOGLE_PLACES_DISCOVERY=on --
+    let google: DiscoverOutput | null = null;
+    if (sources.includes("google")) {
+      if (!googlePlacesOn()) notes.push(note(googleKeyMissing() ? "google_no_key" : "google_off"));
+      else if (!googleDiscoveryOn()) notes.push(note("google_discovery_off"));
+      else if (!cancelled) google = await googlePhase();
+    }
 
     // ---- merge, town fill, order ------------------------------------------------------
     // The stage is visible: the page reads "Placing on the map and removing duplicates…" while this runs.
@@ -544,6 +554,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     if (!cancelled) await fillTowns(rows, area, plan, progress, signal).catch(() => undefined);
     const hidden = new Set(parseJson<string[]>(readRow(searchId)?.dismissed, []));
     for (const r of rows) if (hidden.has(r.key)) r.hidden = true;
+    const googlePins: GooglePin[] | null = google ? google.pins.map((p) => (hidden.has(`google:${p.placeId}`) ? { ...p, hidden: true } : p)) : null;
     rows = orderRows(rows);
     // The cap is a promise about the list ("one search holds 2,000"): a big last unit or the register can overshoot it,
     // so the ordered list is cut to the cap — the rows nearest the centre survive, which is what the capped note says.
@@ -571,10 +582,54 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
     result.perSource = countPerSource(rows);
     result.notes = notes;
     result.durationMs = Date.now() - started;
+    if (googlePins) result.googlePins = googlePins; // the key exists only when the Google phase ran
     writeResult(result);
     writeProgress(searchId, progress, rows.length, result.perSource, result.durationMs);
   } finally {
     clearInterval(heartbeat);
+  }
+
+  /**
+   * The Google phase (finder-google §4.3): tiles of the area — for a capped
+   * search only the parts the finished units cover —, matched against the
+   * OpenStreetMap and register rows already in memory. Row patches carry the
+   * place id only; unmatched places become anonymous pins. Never fails the
+   * search: the OpenStreetMap / register result stands whatever Google does.
+   */
+  async function googlePhase(): Promise<DiscoverOutput> {
+    const at = () => new Date().toISOString();
+    emit({ type: "stage", stage: "google", at: at() });
+    saveProgress();
+    let ran: Bbox[] | undefined;
+    if (capped) {
+      const done = new Set(progress.units.filter((u) => u.state === "done").map((u) => u.id));
+      const units = plan.units.filter((u) => done.has(u.id));
+      if (units.length > 0 && units.every((u) => u.bbox)) ran = units.map((u) => u.bbox!);
+      else notes.push(note("google_all_parts", { area: area.label }));
+    }
+    const matchRow = (key: string, b: Business): MatchRow => ({ key, name: b.name, lat: b.lat, lng: b.lng, geoSource: b.geoSource, postcode: b.postcode ?? null });
+    const out = await googleDiscover({
+      area,
+      category,
+      expected: plan.expected,
+      osmRows: osmRows.map((r) => matchRow(r.key, r)),
+      registerRows: registerRows.map((r) => matchRow(`fr_register:${r.sourceId}`, r)),
+      ran,
+      signal,
+      budget: googleSearchMaxRequests(),
+      onProgress: (g) => {
+        emit({ type: "google", google: g, at: at() });
+        saveProgress();
+      },
+    });
+    emit({ type: "google", google: out.progress, at: at() });
+    notes.push(...out.notes);
+    for (const [key, patch] of out.patches) {
+      const row = osmByKey.get(key) ?? registerByKey.get(key);
+      if (row) row.googlePlaceId = patch.googlePlaceId;
+    }
+    saveProgress();
+    return out;
   }
 
   async function registerPhase(): Promise<void> {
@@ -750,12 +805,14 @@ function upgradeLegacy(res: LegacyResult, row: SearchRow | null): SearchResultV2
 
 /**
  * The cached search (24 h) with the fresh progress/status from the
- * `searches` row, hidden marks and already-saved marks; null when expired.
- * With `slice` (`?after=K&v=V`) only the rows from index K are returned —
- * and only those are checked against saved prospects — unless the list
- * version moved, in which case the whole list comes back.
+ * `searches` row, hidden marks and already-saved marks (rows and Google
+ * pins); null when expired. With `slice` (`?after=K&v=V[&pins=P]`) only the
+ * rows from index K are returned — and only those are checked against saved
+ * prospects — unless the list version moved, in which case the whole list
+ * comes back; the Google pins come back on a full read or when the client's
+ * `pins` version is behind `progress.google.pinsVersion`.
  */
-export function getSearch(searchId: number, slice?: { after: number | null; version: number | null }): SearchResultV2 | null {
+export function getSearch(searchId: number, slice?: { after: number | null; version: number | null; pins?: number | null }): SearchResultV2 | null {
   const raw = cacheGet<SearchResultV2 | LegacyResult>(`search:${searchId}`);
   if (!raw) return null;
   const row = readRow(searchId);
@@ -775,17 +832,32 @@ export function getSearch(searchId: number, slice?: { after: number | null; vers
       if (hidden.has(r.key)) r.hidden = true;
       else delete r.hidden;
     }
+    for (const p of result.googlePins ?? []) {
+      if (hidden.has(`google:${p.placeId}`)) p.hidden = true;
+      else delete p.hidden;
+    }
   }
   result.total = result.rows.length;
-  const out = slice ? sliceResult(result, slice.after, slice.version) : result;
+  const out = slice ? sliceResult(result, slice.after, slice.version, slice.pins) : result;
   markAlreadySaved(out.rows);
+  if (out.googlePins) markPinsSaved(out.googlePins);
   return out;
 }
 
-/** `?after=K&v=V`: the rows from index K when the list version matches, else the whole list (`total` keeps the full length). */
-export function sliceResult(result: SearchResultV2, after: number | null, version: number | null): SearchResultV2 {
+/**
+ * `?after=K&v=V[&pins=P]`: the rows from index K when the list version
+ * matches, else the whole list (`total` keeps the full length). In a slice the
+ * Google pins are included only when the client's `pins` version is absent or
+ * behind `progress.google.pinsVersion`.
+ */
+export function sliceResult(result: SearchResultV2, after: number | null, version: number | null, pins?: number | null): SearchResultV2 {
   if (after === null || after <= 0 || version === null || version !== result.progress.rowsVersion) return result;
-  return { ...result, rows: result.rows.slice(after) };
+  const out: SearchResultV2 = { ...result, rows: result.rows.slice(after) };
+  if (result.googlePins) {
+    const current = result.progress.google?.pinsVersion ?? 0;
+    if (pins !== null && pins !== undefined && pins >= current) delete out.googlePins;
+  }
+  return out;
 }
 
 function summaryOf(row: SearchRow, cached: boolean): SearchSummaryV2 {
@@ -830,13 +902,18 @@ export function searchSummary(id: number): SearchSummaryV2 | null {
   return summaryOf(row, cached);
 }
 
-/** "Not this one": remember (or forget) a row key on the search; returns the hidden keys. */
+/** "Not this one": remember (or forget) a row key — or a Google pin key `google:<placeId>` — on the search; returns the hidden keys. */
 export function dismissSearchRow(searchId: number, key: string, undo = false): { hidden: string[] } {
   const row = readRow(searchId);
   if (!row) throw new RunnerError("not_found", 404);
   const cached = cacheGet<SearchResultV2 | LegacyResult>(`search:${searchId}`);
   if (!cached) throw new RunnerError("search_expired", 410);
-  if (!cached.rows.some((r) => r.key === key)) throw new RunnerError("not_found", 404, { key });
+  if (key.startsWith("google:")) {
+    const placeId = key.slice(7);
+    if (key.length > 79 || !placeIdOk(placeId)) throw new RunnerError("bad_key", 400);
+    const pins = "googlePins" in cached ? cached.googlePins ?? [] : [];
+    if (!pins.some((p) => p.placeId === placeId)) throw new RunnerError("not_found", 404, { key });
+  } else if (!cached.rows.some((r) => r.key === key)) throw new RunnerError("not_found", 404, { key });
   const hidden = new Set(parseJson<string[]>(row.dismissed, []));
   if (undo) hidden.delete(key);
   else if (hidden.size < 5000) hidden.add(key);

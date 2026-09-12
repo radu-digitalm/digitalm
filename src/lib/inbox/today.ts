@@ -7,7 +7,7 @@
 // plain JS for the read-only Telegram digest — keep the two in step.
 import type { LeadStage } from "../crm/types.ts";
 import { OUTREACH_MODULE } from "../crm/features.ts";
-import { intEnv, sqlToMs, zonedDateString } from "../crm/time.ts";
+import { sqlToMs, zonedDateString } from "../crm/time.ts";
 import { daysSince, daysUntil, type Tone } from "./stages.ts";
 
 export interface FollowUp {
@@ -40,8 +40,15 @@ export interface TodayData {
   audits: { queued: number; running: number; failed7d: number };
   ready: number;
   call: number;
-  googleMonth: number;
-  googleCap: number;
+  /** finder-google §4.7: the three monthly pools (Pacific month), the switch and the key. */
+  googleOn: boolean;
+  googleKeyMissing: boolean;
+  googleChecksMonth: number;
+  googleChecksCap: number;
+  googleSearchMonth: number;
+  googleSearchCap: number;
+  googleOtherMonth: number;
+  googleOtherCap: number;
   noticeDeadlines5d: number;
   bounces7d: number;
   sends30d: number;
@@ -75,6 +82,15 @@ export function purgeIsStale(lastRunAt: string | null, now: Date): boolean {
 
 function plural(n: number, one: string, many = `${one}s`): string {
   return `${n} ${n === 1 ? one : many}`;
+}
+
+const num = (n: number) => n.toLocaleString("en-GB");
+
+/** neutral · warn at 90 % of any pool · bad at a cap (finder-google §4.7). */
+export function googleUsageTone(pools: readonly { used: number; cap: number }[]): Tone {
+  if (pools.some((p) => p.cap > 0 && p.used >= p.cap)) return "bad";
+  if (pools.some((p) => p.cap > 0 && p.used >= p.cap * 0.9)) return "warn";
+  return "neutral";
 }
 
 function followUpLine(f: FollowUp, today: string): { text: string; href: string } {
@@ -152,12 +168,23 @@ export function summariseToday(d: TodayData, now = new Date()): TodayCard[] {
     href: "/admin/prospects?view=call",
   });
 
-  cards.push({
-    key: "google",
-    title: "Google calls this month",
-    value: `${d.googleMonth} / ${d.googleCap}`,
-    tone: d.googleMonth >= d.googleCap ? "bad" : d.googleMonth >= d.googleCap * 0.9 ? "warn" : "neutral",
-  });
+  // finder-google §4.7: the usage card only while Google is on; the key card when the switch is on without a key.
+  if (d.googleOn) {
+    const pools = [
+      { used: d.googleChecksMonth, cap: d.googleChecksCap },
+      { used: d.googleSearchMonth, cap: d.googleSearchCap },
+      { used: d.googleOtherMonth, cap: d.googleOtherCap },
+    ];
+    cards.push({
+      key: "google",
+      title: "Google usage this month",
+      value: `${num(d.googleChecksMonth)} / ${num(d.googleChecksCap)}`,
+      detail: `${num(d.googleSearchMonth)} / ${num(d.googleSearchCap)} searches`,
+      tone: googleUsageTone(pools),
+    });
+  } else if (d.googleKeyMissing) {
+    cards.push({ key: "google-key", title: "Google key", value: "missing", tone: "warn" });
+  }
 
   cards.push({
     key: "notice-deadlines",
@@ -216,13 +243,27 @@ export function formatTodayText(cards: TodayCard[]): string {
   return out.join("\n");
 }
 
+/** The Google fields of TodayData from the client's switches and pools (finder-google §4.7). */
+export function googleToday(on: boolean, keyMissing: boolean, usage: { checks: { used: number; cap: number }; searches: { used: number; cap: number }; other: { used: number; cap: number } }) {
+  return {
+    googleOn: on,
+    googleKeyMissing: keyMissing,
+    googleChecksMonth: usage.checks.used,
+    googleChecksCap: usage.checks.cap,
+    googleSearchMonth: usage.searches.used,
+    googleSearchCap: usage.searches.cap,
+    googleOtherMonth: usage.other.used,
+    googleOtherCap: usage.other.cap,
+  };
+}
+
 /** Gathers every Today number from the DB. Async only because the DB helpers load lazily. */
 export async function collectToday(now = new Date()): Promise<TodayData> {
   const { enquiriesDb } = await import("@/lib/enquiries");
   const { CALL_WHERE, READY_WHERE, outreachDailyCap, outreachSentToday } = await import("@/lib/crm/db");
+  const { googleKeyMissing, googlePlacesOn, googleUsage } = await import("@/lib/discover/google");
   const db = enquiriesDb();
   const today = zonedDateString("Europe/Paris", now);
-  const month = today.slice(0, 7);
   const count = (sql: string, ...params: unknown[]): number => (db.prepare(sql).get(...params) as { n: number }).n;
 
   const followUps = db
@@ -279,8 +320,7 @@ export async function collectToday(now = new Date()): Promise<TodayData> {
     },
     ready: count(`SELECT COUNT(*) AS n FROM prospects WHERE ${READY_WHERE}`),
     call: count(`SELECT COUNT(*) AS n FROM prospects WHERE ${CALL_WHERE}`),
-    googleMonth: count(`SELECT COALESCE(SUM(count), 0) AS n FROM api_usage WHERE provider = 'google_places' AND day LIKE ? ESCAPE '\\'`, `${month}-%`),
-    googleCap: intEnv("GOOGLE_PLACES_MONTHLY_CAP", 900),
+    ...googleToday(googlePlacesOn(), googleKeyMissing(), googleUsage()),
     noticeDeadlines5d: count(
       `SELECT COUNT(*) AS n FROM prospects
        WHERE deleted_at IS NULL AND notice_sent_at IS NULL AND personal_wiped_at IS NULL

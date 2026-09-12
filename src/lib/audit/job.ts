@@ -15,7 +15,9 @@ import { newReference } from "@/lib/crm/refs";
 import { RescheduleJob } from "@/lib/crm/jobs";
 import { intEnv, nextParisTime, sqlNow } from "@/lib/crm/time";
 import { apiUsage, countApiUsage } from "@/lib/crm/apiUsage";
-import { classifyEmail, coerceHttpUrl, domainOf } from "@/lib/crm/classify";
+import { classifyEmail, coerceHttpUrl, domainOf, normaliseName } from "@/lib/crm/classify";
+import { googleCheckDailyCap, googlePlacesOn } from "@/lib/discover/google";
+import { googleCheck, type CheckProspect, type GoogleCheckOutcome } from "@/lib/discover/googleCheck";
 import { notifyTelegram } from "@/lib/notify";
 import { addActivity } from "@/lib/inbox/leads";
 import type { AuditChecks, Job, PsiSummary, Score } from "@/lib/crm/types";
@@ -24,7 +26,7 @@ import type { SiteCrawl } from "@/lib/audit/crawler";
 import { SsrfError, parseTarget } from "@/lib/audit/ssrf";
 import { extractSite } from "@/lib/audit/extract";
 import type { Extraction } from "@/lib/audit/extract";
-import { runChecks } from "@/lib/audit/checks";
+import { googleListing, runChecks } from "@/lib/audit/checks";
 import { auditScore, noSiteChecks } from "@/lib/audit/score";
 import { runPagespeed, timedOutSummary } from "@/lib/audit/pagespeed";
 
@@ -37,15 +39,27 @@ export type AuditJobResult =
 type ProspectRow = {
   id: number;
   reference: string;
+  name: string;
+  trade_key: string | null;
+  country: string;
+  city: string | null;
+  postcode: string | null;
+  lat: number | null;
+  lng: number | null;
   website: string | null;
   locale: "fr" | "en";
   sole_trader: number | null;
   domain_key: string | null;
+  google_place_id: string | null;
   google_listing: "unverified" | "found" | "not_found";
+  google_match: "auto" | "manual" | null;
+  google_checked_at: string | null;
   personal_wiped_at: string | null;
   deleted_at: string | null;
   lead_id: number | null;
 };
+
+const PROSPECT_COLUMNS = "id, reference, name, trade_key, country, city, postcode, lat, lng, website, locale, sole_trader, domain_key, google_place_id, google_listing, google_match, google_checked_at, personal_wiped_at, deleted_at, lead_id";
 
 /** AUDIT_DAILY_CAP (default 50). */
 export function auditDailyCap(): number {
@@ -55,6 +69,53 @@ export function auditDailyCap(): number {
 /** Today's count against the cap — the AuditBlock shows it. */
 export function auditUsageToday(): { used: number; cap: number } {
   return { used: apiUsage("audit"), cap: auditDailyCap() };
+}
+
+/** Google-only audits (a prospect without a website, finder-google §4.5) draw on their own daily allowance. */
+export function googleCheckUsageToday(): { used: number; cap: number } {
+  return { used: apiUsage("google_check_day"), cap: googleCheckDailyCap() };
+}
+
+/**
+ * The name a site gives itself (finder-google §4.5, decision D3): the JSON-LD
+ * business name, else the <title> cut at the first " | ", " – " or " - ";
+ * trimmed, ≤ 120 chars; null when neither is usable.
+ */
+export function siteName(x: Pick<Extraction, "title" | "jsonLd">): string | null {
+  const ld = (x.jsonLd.name ?? "").trim();
+  if (ld) return ld.slice(0, 120);
+  const title = (x.title ?? "").split(/\s+[|–-]\s+/)[0]!.trim();
+  return title ? title.slice(0, 120) : null;
+}
+
+/** The check's view of the prospect row. */
+function checkProspectOf(p: ProspectRow): CheckProspect {
+  return {
+    id: p.id,
+    name: p.name,
+    tradeKey: p.trade_key,
+    country: p.country,
+    city: p.city,
+    postcode: p.postcode,
+    lat: p.lat,
+    lng: p.lng,
+    googlePlaceId: p.google_place_id,
+    googleListing: p.google_listing,
+    googleMatch: p.google_match,
+    googleCheckedAt: p.google_checked_at,
+  };
+}
+
+/** The Google-listing check of an audit — never fails the job (a failed request leaves the check unmeasured with a reason). */
+async function googleForAudit(p: ProspectRow, ctx: JobCtx): Promise<GoogleCheckOutcome["google"]> {
+  try {
+    const out = await googleCheck(checkProspectOf(p), { signal: ctx.signal, retry: false });
+    if (out.requested) ctx.log(`google listing: ${out.decision}${out.error ? ` (${out.error})` : ""}`);
+    return out.google;
+  } catch (e) {
+    ctx.log(`google listing: skipped (${e instanceof Error ? e.message.slice(0, 60) : "error"})`);
+    return { status: p.google_listing, signals: null, reason: "unavailable" };
+  }
 }
 
 export function newReportToken(): string {
@@ -110,23 +171,23 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
   const prospectId = Number(job.payload.prospectId);
   if (!Number.isInteger(prospectId) || prospectId <= 0) throw new Error("bad_payload: prospectId");
 
-  const { used, cap } = auditUsageToday();
-  if (used >= cap) {
-    throw new RescheduleJob(nextParisTime(6, 0), `Daily audit cap reached (${used}/${cap}) — rescheduled to 06:00 Europe/Paris`);
-  }
-
   const db = enquiriesDb();
   const stale = sweepStaleAudits();
   if (stale) ctx.log(`${stale} stale running audit(s) marked failed`);
-  const prospect = db
-    .prepare("SELECT id, reference, website, locale, sole_trader, domain_key, google_listing, personal_wiped_at, deleted_at, lead_id FROM prospects WHERE id = ?")
-    .get(prospectId) as ProspectRow | undefined;
+  const prospect = db.prepare(`SELECT ${PROSPECT_COLUMNS} FROM prospects WHERE id = ?`).get(prospectId) as ProspectRow | undefined;
   if (!prospect || prospect.deleted_at) {
     ctx.log(`prospect ${prospectId} missing or deleted — nothing to audit`);
     return { ok: false, auditId: null, reference: null, error: "prospect_missing" };
   }
 
   const website = prospect.website ? coerceHttpUrl(prospect.website) : null;
+  // A prospect without a website gets the Google-listing check only (finder-google §4.5): its own daily allowance, its own counter.
+  const googleOnly = !website && googlePlacesOn();
+  const capProvider = googleOnly ? "google_check_day" : "audit";
+  const { used, cap } = googleOnly ? googleCheckUsageToday() : auditUsageToday();
+  if (used >= cap) {
+    throw new RescheduleJob(nextParisTime(6, 0), `Daily ${googleOnly ? "Google check" : "audit"} cap reached (${used}/${cap}) — rescheduled to 06:00 Europe/Paris`);
+  }
   // One audits row and one cap unit per JOB: a retry re-opens the row its
   // earlier attempt left 'running' or 'failed' instead of inserting another.
   const previous =
@@ -145,7 +206,7 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
     ).run(sqlNow(), website, prospect.locale === "fr" ? "fr" : "en", auditId);
     ctx.log(`${reference} re-opened for attempt ${job.attempts}`);
   } else {
-    countApiUsage("audit");
+    countApiUsage(capProvider);
     reference = newReference("AU");
     auditId = Number(
       db
@@ -164,8 +225,10 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
     let psi: PsiSummary | null = null;
     let extraction: Extraction | null = null;
 
+    const sets: [string, string | number | null][] = [];
     if (!website) {
       checks = noSiteChecks({ error: prospect.website ? "invalid_url" : "no_website" });
+      checks.google_listing = googleListing(await googleForAudit(prospect, ctx));
       score = auditScore(checks);
     } else {
       // Static refusals (scheme / port / local names) before any socket or PSI call.
@@ -194,8 +257,15 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
       site = siteResult.value;
       psi = psiResult.status === "fulfilled" ? psiResult.value : timedOutSummary();
       extraction = extractSite(site.pages);
-      checks = runChecks({ site, psi, extraction, googleListing: prospect.google_listing });
+      const google = await googleForAudit(prospect, ctx);
+      ctx.heartbeat();
+      checks = runChecks({ site, psi, extraction, google });
       score = auditScore(checks, { ecommerce: extraction.ecommerce, forbidsExtraction: extraction.forbidsExtraction });
+      // Add by URL stores the domain as the name until the site says what it is called; a name Radu typed is never touched.
+      if (prospect.domain_key && prospect.name === prospect.domain_key && site.home && site.home.text.length > 0) {
+        const name = siteName(extraction);
+        if (name && name !== prospect.name) sets.push(["name", name], ["name_key", normaliseName(name)]);
+      }
     }
 
     const now = sqlNow();
@@ -214,12 +284,7 @@ export async function runAuditJob(job: Job, ctx: JobCtx): Promise<AuditJobResult
         now,
         auditId,
       );
-      const sets: [string, string | number | null][] = [
-        ["latest_audit_id", auditId],
-        ["latest_score", score.score],
-        ["latest_grade", score.grade],
-        ["updated_at", now],
-      ];
+      sets.push(["latest_audit_id", auditId], ["latest_score", score.score], ["latest_grade", score.grade], ["updated_at", now]);
       if (site && extraction && website) sets.push(...prospectUpdates(prospect, website, extraction, site));
       db.prepare(`UPDATE prospects SET ${sets.map(([col]) => `${col} = ?`).join(", ")} WHERE id = ?`).run(...sets.map(([, v]) => v), prospectId);
       // inbox's writer: resolves the lead, bumps last_activity_at.

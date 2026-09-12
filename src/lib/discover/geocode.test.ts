@@ -8,6 +8,7 @@ import {
   areaLabel,
   candidateLabel,
   chooseHit,
+  pickByHint,
   sameOutline,
   type Classified,
   circleKmFor,
@@ -193,4 +194,17 @@ test("polygon thresholds: 0.01 for countries, 0.005 for departments and regions,
   assert.equal(wantsFinePolygon("region"), false);
   assert.equal(wantsFinePolygon("country"), false);
   assert.equal(wantsFinePolygon("postcode"), false);
+});
+
+test("pickByHint (finder-google §4.4): the country first, then the box holding the point, then the kind", () => {
+  const base: Classified = { osmType: "relation", osmId: 1, kind: "town", countryCode: "GB", countryName: "United Kingdom", name: "Cambridge", addresstype: "city", importance: 0.7, lat: 52.2, lng: 0.12, bbox: [52.15, 0.04, 52.24, 0.2] };
+  const uk = base;
+  const us = { ...base, osmId: 2, countryCode: "US", countryName: "United States", lat: 42.37, lng: -71.1, bbox: [42.35, -71.16, 42.4, -71.06] as [number, number, number, number] };
+  const county = { ...base, osmId: 3, kind: "department" as const, name: "Cambridgeshire", bbox: [52.0, -0.5, 52.75, 0.5] as [number, number, number, number] };
+  assert.equal(pickByHint([us, uk, county], { lat: 52.2053, lng: 0.1218, countryCode: "GB" })?.osmId, 1);
+  assert.equal(pickByHint([us, uk, county], { lat: 52.2053, lng: 0.1218, countryCode: "GB", kind: "department" })?.osmId, 3);
+  assert.equal(pickByHint([us, uk, county], { lat: 42.37, lng: -71.1, countryCode: "US" })?.osmId, 2);
+  assert.equal(pickByHint([us, uk], { lat: 52.2053, lng: 0.1218, countryCode: "US" }), null); // the US box does not hold the point
+  assert.equal(pickByHint([uk], { lat: 0, lng: 0, countryCode: "GB" }), null);
+  assert.equal(pickByHint([uk], { lat: 52.2, lng: 0.12, countryCode: "GB", kind: "region" })?.osmId, 1); // no candidate of that kind → the box wins
 });

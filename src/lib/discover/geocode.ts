@@ -22,6 +22,9 @@ import {
   displayThreshold,
   postcodeLabel,
   wantsFinePolygon,
+  collapseDuplicates,
+  pickByHint,
+  type AreaHint,
   type Candidate,
   type Classified,
   type NominatimHit,
@@ -43,7 +46,7 @@ export class DiscoverError extends Error {
   }
 }
 
-export type { Candidate } from "./geocodeRules";
+export type { AreaHint, Candidate } from "./geocodeRules";
 export type AreaPick = { osmType: OsmType; osmId: number };
 export type Resolution = { area: ResolvedArea; alternatives: Candidate[] };
 
@@ -318,9 +321,12 @@ function isAbort(e: unknown): boolean {
 /**
  * Resolve free text (§2.1). Throws DiscoverError: `area_not_found` (404),
  * `ambiguous` (409, detail.candidates), `bad_area` (400), `geocode_failed` (502).
- * `pick` re-resolves a chooser or alternative choice through `lookup`.
+ * `pick` re-resolves a chooser or alternative choice through `lookup`. `hint`
+ * (finder-google §4.4: the coordinates, country and kind of a Google
+ * suggestion) auto-picks among ambiguous candidates; when none fits, the
+ * chooser shows as today.
  */
-export async function resolveArea(query: string, pick?: AreaPick): Promise<Resolution> {
+export async function resolveArea(query: string, pick?: AreaPick, hint?: AreaHint): Promise<Resolution> {
   const q = query.trim().replace(/\s+/g, " ").slice(0, 120);
   if (!q && !pick) throw new DiscoverError("area_not_found", 404, "Type a town, a postcode, a department, a region or a country");
   try {
@@ -350,7 +356,11 @@ export async function resolveArea(query: string, pick?: AreaPick): Promise<Resol
     const hits = await nominatimSearch(q);
     const choice = chooseHit(hits);
     if (!choice) throw new DiscoverError("area_not_found", 404, `No area found for "${q}"`);
-    if (choice.ambiguous) throw new DiscoverError("ambiguous", 409, "Several places match — pick one", { candidates: choice.candidates });
+    if (choice.ambiguous) {
+      const settled = hint ? pickByHint(collapseDuplicates(hits.map(classifyHit).filter((c): c is Classified => c !== null)), hint) : null;
+      if (!settled) throw new DiscoverError("ambiguous", 409, "Several places match — pick one", { candidates: choice.candidates });
+      return { area: await areaFromPick({ osmType: settled.osmType, osmId: settled.osmId }, settled), alternatives: [] };
+    }
     const area = await areaFromPick({ osmType: choice.chosen.osmType, osmId: choice.chosen.osmId }, choice.chosen);
     return { area, alternatives: choice.alternatives };
   } catch (e) {

@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { runChecks } from "./checks.ts";
+import { googleListing, listingPoints, runChecks } from "./checks.ts";
+import type { GoogleSignals } from "../crm/types.ts";
 import type { SiteCrawl } from "./crawler.ts";
 import type { TlsInfo } from "./tls.ts";
 import type { Extraction } from "./extract.ts";
@@ -75,7 +76,12 @@ function extraction(over: Partial<Extraction> = {}): Extraction {
   };
 }
 
-const all = (s: SiteCrawl | null, p: PsiSummary | null, x: Extraction | null, googleListing: "unverified" | "found" | "not_found" = "unverified") => runChecks({ site: s, psi: p, extraction: x, googleListing, now: NOW });
+const all = (s: SiteCrawl | null, p: PsiSummary | null, x: Extraction | null, listing: "unverified" | "found" | "not_found" = "unverified", signals: GoogleSignals | null = null) =>
+  runChecks({ site: s, psi: p, extraction: x, google: { status: listing, signals }, now: NOW });
+
+function signals(over: Partial<GoogleSignals> = {}): GoogleSignals {
+  return { operational: true, websiteOnListing: true, hours: true, reviews: 37, photos: 3, fetchedAt: NOW.toISOString(), attributions: [], ...over };
+}
 
 test("a healthy site passes every measured check; google_listing stays unmeasured until confirmed", () => {
   const c = all(site(), psi(), extraction());
@@ -86,8 +92,44 @@ test("a healthy site passes every measured check; google_listing stays unmeasure
   assert.equal(c.ai_ready.status, "pass"); // bots allowed + chat
   assert.equal(c.google_listing.status, "not_measured");
   assert.equal(c.google_listing.measured, false);
-  assert.equal(all(site(), psi(), extraction(), "found").google_listing.status, "pass");
+  // A found listing without its signals (allowance used up, Google silent) is still not measured.
+  assert.equal(all(site(), psi(), extraction(), "found").google_listing.status, "not_measured");
+  assert.equal(all(site(), psi(), extraction(), "found", signals()).google_listing.status, "pass");
   assert.equal(all(site(), psi(), extraction(), "not_found").google_listing.status, "fail");
+});
+
+test("google_listing (finder-google §4.6): points from the derived signals, status words in details, attributions as one string", () => {
+  const maintained = googleListing({ status: "found", signals: signals() });
+  assert.equal(maintained.status, "pass");
+  assert.equal(maintained.points, 10);
+  assert.equal(maintained.measured, true);
+  assert.deepEqual(Object.keys(maintained.details).sort(), ["attributions", "fetchedAt", "hours", "listing", "operational", "photos", "reviews", "websiteOnListing"]);
+  assert.equal(maintained.details.attributions, "");
+  assert.equal(listingPoints(signals()), 10);
+  // The unmaintained fixture: open, no website, no hours, 2 reviews, no photo → 5 points, partial.
+  const unmaintained = googleListing({ status: "found", signals: signals({ websiteOnListing: false, hours: false, reviews: 2, photos: 0, attributions: ["Example Data Co"] }) });
+  assert.equal(unmaintained.status, "partial");
+  assert.equal(unmaintained.points, 5);
+  assert.equal(unmaintained.details.attributions, "Example Data Co");
+  // Closed permanently with everything else in place → 9 → pass minus the open point → 9 still passes; closed with no photos → 8 partial keeps 8.
+  assert.equal(googleListing({ status: "found", signals: signals({ operational: false }) }).points, 9);
+  const eight = googleListing({ status: "found", signals: signals({ operational: false, photos: 0 }) });
+  assert.equal(eight.status, "partial");
+  assert.equal(eight.points, 8);
+  assert.equal(googleListing({ status: "found", signals: signals({ operational: null, websiteOnListing: false, hours: false, reviews: 4, photos: 0 }) }).points, 4);
+  // Not measured cases carry the reason; not_found (manual only) fails with 0.
+  const noMatch = googleListing({ status: "unverified", signals: null, reason: "no_match", checkedAt: "2026-09-12 10:00:00" });
+  assert.equal(noMatch.status, "not_measured");
+  assert.deepEqual(noMatch.details, { listing: "unverified", reason: "no_match", checkedAt: "2026-09-12 10:00:00" });
+  assert.deepEqual(googleListing({ status: "unverified", signals: null }).details, { listing: "unverified" });
+  assert.deepEqual(googleListing({ status: "found", signals: null, reason: "allowance" }).details, { listing: "found", reason: "allowance" });
+  assert.deepEqual(googleListing({ status: "found", signals: null }).details, { listing: "found", reason: "unavailable" });
+  const rejected = googleListing({ status: "not_found", signals: null, checkedAt: "2026-09-12 10:00:00" });
+  assert.equal(rejected.status, "fail");
+  assert.equal(rejected.points, 0);
+  assert.deepEqual(rejected.details, { listing: "not_found", checkedAt: "2026-09-12 10:00:00" });
+  // Every detail is a primitive (CheckResult.details holds scalars only).
+  for (const r of [maintained, unmaintained, noMatch, rejected]) for (const v of Object.values(r.details)) assert.ok(v === null || ["string", "number", "boolean"].includes(typeof v));
 });
 
 test("no website: reachable fails, everything else is not measured", () => {

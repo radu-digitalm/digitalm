@@ -116,7 +116,16 @@ test("packageLabel / firstSteps: /pme labels verbatim, WEB reads Site + IA witho
 test("googleLine: our words only, per status", () => {
   assert.equal(googleLine(checks({ google_listing: "not_measured" }), "en"), "We have not checked your Google listing.");
   assert.equal(googleLine(checks({ google_listing: "fail" }), "fr"), "Nous n'avons pas trouvé de fiche Google pour votre établissement.");
-  assert.equal(googleLine(checks(), "en"), "Your Google listing is in place.");
+  assert.equal(googleLine(checks(), "en"), "Your Google listing is in place and complete.");
+  assert.equal(googleLine(checks(), "fr"), "Votre fiche Google est en place et complète.");
+  assert.equal(googleLine(checks({ google_listing: "partial" }), "en"), "Your Google listing exists, but it is incomplete.");
+  // Status words only (finder-google D2): no signal word or count ever reaches a prospect.
+  for (const status of ["pass", "partial", "fail", "not_measured"] as const) {
+    for (const locale of ["fr", "en"] as const) {
+      const line = googleLine(checks({ google_listing: status }), locale);
+      assert.doesNotMatch(line, /horaires|hours|avis|reviews|photos|claimed|verified|\d/i, `${status} ${locale}: ${line}`);
+    }
+  }
   assert.equal(googleLine(null, "fr"), "Nous n'avons pas vérifié votre fiche Google.");
 });
 

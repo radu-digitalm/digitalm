@@ -24,9 +24,11 @@ export function pointsFor(key: CheckKey, status: CheckStatus): number {
   return 0;
 }
 
-/** Build one CheckResult with points and `measured` derived from the status. */
-export function makeCheck(key: CheckKey, status: CheckStatus, details: CheckResult["details"] = {}): CheckResult {
-  return { key, status, points: pointsFor(key, status), measured: status !== "not_measured", details };
+/** Build one CheckResult with points and `measured` derived from the status; `points` overrides the status points (clamped to the weight — the Google listing's sub-scores). */
+export function makeCheck(key: CheckKey, status: CheckStatus, details: CheckResult["details"] = {}, points?: number): CheckResult {
+  const measured = status !== "not_measured";
+  const p = points === undefined || !measured ? pointsFor(key, status) : Math.max(0, Math.min(CHECK_WEIGHTS[key], Math.round(points)));
+  return { key, status, points: p, measured, details };
 }
 
 /** Every check not_measured except reachable = fail (no website, or an unusable URL). */
@@ -154,5 +156,7 @@ export function auditScore(checks: AuditChecks, ctx: ScoreContext = {}): Score {
   }
   const score = measured > 0 ? Math.round((100 * earned) / measured) : 0;
   const flags = flagsFor(checks, ctx);
-  return { score, grade: gradeFor(score), earned, measured, flags, fits: fitsFor(flags, ctx.ecommerce === true), top: topChecks(checks) };
+  // A business without a website never grades above C, whatever its Google listing scores (finder-google §4.6).
+  const grade: Grade = flags.includes("no-site") ? "C" : gradeFor(score);
+  return { score, grade, earned, measured, flags, fits: fitsFor(flags, ctx.ecommerce === true), top: topChecks(checks) };
 }

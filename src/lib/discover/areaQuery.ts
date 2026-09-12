@@ -101,11 +101,11 @@ export function countQuery(category: Pick<Category, "osm">, sel: AreaSelector, t
   return `[out:json][timeout:${timeoutS}];${selectorStatement(sel)}${nwrUnion(category, spatialFilter(sel))};out count;`;
 }
 
-/** Administrative children of a relation / INSEE-set area at one admin level (names, codes, centres). */
+/** Administrative children of a relation / INSEE-set area at one admin level (names, codes, centres, bounds — finder-google §4.3 asks Google per child box). */
 export function childrenQuery(sel: AreaSelector, level: number): string {
   if (!ADMIN_LEVELS.has(level)) throw new AreaQueryError("bad admin level");
   if (sel.kind === "around") throw new AreaQueryError("no children for a radius");
-  return `[out:json][timeout:60];${selectorStatement(sel)}rel(area.a)["boundary"="administrative"]["type"="boundary"]["admin_level"="${level}"];out tags center;`;
+  return `[out:json][timeout:60];${selectorStatement(sel)}rel(area.a)["boundary"="administrative"]["type"="boundary"]["admin_level"="${level}"];out tags center bb;`;
 }
 
 /**

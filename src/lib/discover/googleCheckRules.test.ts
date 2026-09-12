@@ -6,7 +6,9 @@ const NOW = new Date("2026-09-12T10:00:00Z");
 const daysAgo = (n: number) => new Date(NOW.getTime() - n * 86_400_000).toISOString();
 const sqlDaysAgo = (n: number) => sqlStamp(new Date(NOW.getTime() - n * 86_400_000));
 
-function input(over: Partial<DecideInput> & { prospect?: Partial<DecideInput["prospect"]> } = {}): DecideInput {
+type Over = Omit<Partial<DecideInput>, "prospect"> & { prospect?: Partial<DecideInput["prospect"]> };
+
+function input(over: Over = {}): DecideInput {
   const { prospect, ...rest } = over;
   return {
     on: true,

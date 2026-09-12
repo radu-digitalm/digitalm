@@ -15,7 +15,10 @@ import { CALL_WHERE, READY_WHERE, parseJson } from "@/lib/crm/db";
 import { sqlNow } from "@/lib/crm/time";
 import { enqueue } from "@/lib/crm/jobs";
 import { newReference } from "@/lib/crm/refs";
-import type { Business, EmailKind, Prospect, ResultRow, SearchResultV2 } from "@/lib/crm/types";
+import type { AuditChecks, Business, EmailKind, GoogleMatch, GooglePin, GoogleSignals, Prospect, ResultRow, SearchResultV2 } from "@/lib/crm/types";
+import { googlePlacesOn } from "@/lib/discover/google";
+import { placeIdOk } from "@/lib/discover/googleRequests";
+import type { ColumnWrites } from "@/lib/discover/googleCheckRules";
 import { enquiriesDb } from "@/lib/enquiries";
 import { addActivity } from "@/lib/inbox/leads";
 import { tradeKeyFor } from "@/lib/discover/categories";
@@ -103,6 +106,8 @@ export function rowToProspect(r: Row): ProspectRecord {
     googlePlaceId: str(r.google_place_id),
     googleListing: (str(r.google_listing) as Prospect["googleListing"]) ?? "unverified",
     googleConfirmedAt: str(r.google_confirmed_at),
+    googleCheckedAt: str(r.google_checked_at),
+    googleMatch: r.google_match === "auto" || r.google_match === "manual" ? r.google_match : null,
     locale: r.locale === "fr" ? "fr" : "en",
     localeOverridden: Number(r.locale_overridden ?? 0) === 1,
     latestAuditId: num(r.latest_audit_id),
@@ -129,10 +134,14 @@ export function rowToProspect(r: Row): ProspectRecord {
   };
 }
 
+/** One prospect, with the derived Google signals of its latest audit (finder-google §4.5) — the list rows leave them undefined. */
 export function getProspect(id: number): ProspectRecord | null {
   if (!Number.isInteger(id) || id <= 0) return null;
   const row = enquiriesDb().prepare("SELECT * FROM prospects WHERE id = ?").get(id) as Row | undefined;
-  return row ? rowToProspect(row) : null;
+  if (!row) return null;
+  const p = rowToProspect(row);
+  p.googleSignals = googleSignalsOfAudit(num(row.latest_audit_id));
+  return p;
 }
 
 export function getProspectByReference(reference: string): ProspectRecord | null {
@@ -179,6 +188,27 @@ export function markAlreadySaved(rows: Business[]): void {
   }
 }
 
+/**
+ * The Google counterpart of markAlreadySaved (finder-google §4.3): a pin whose
+ * place id belongs to a live prospect reads as saved. One query per 500 pins.
+ */
+export function markPinsSaved(pins: GooglePin[]): void {
+  if (pins.length === 0) return;
+  const db = enquiriesDb();
+  for (const p of pins) delete p.saved;
+  for (let i = 0; i < pins.length; i += 500) {
+    const chunk = pins.slice(i, i + 500);
+    const rows = db
+      .prepare(`SELECT id, reference, google_place_id FROM prospects WHERE deleted_at IS NULL AND google_place_id IN (${chunk.map(() => "?").join(",")})`)
+      .all(...chunk.map((p) => p.placeId)) as { id: number; reference: string; google_place_id: string }[];
+    const byId = new Map(rows.map((r) => [r.google_place_id, r]));
+    for (const p of chunk) {
+      const hit = byId.get(p.placeId);
+      if (hit) p.saved = { prospectId: hit.id, reference: hit.reference };
+    }
+  }
+}
+
 // ---- inserts ----------------------------------------------------------------------------
 
 export type NewProspect = {
@@ -210,6 +240,9 @@ export type NewProspect = {
   searchId?: number | null;
   cityApprox?: boolean;
   sourceSocials?: Record<string, string> | null;
+  /** finder-google §4.5: a matched place id → google_listing 'found' at save time (no Google call). */
+  googlePlaceId?: string | null;
+  googleMatch?: GoogleMatch;
 };
 
 /** Insert one prospect with saved_at = now and notice_deadline_at = saved_at + 30 days. */
@@ -222,13 +255,15 @@ export function insertProspect(p: NewProspect): { id: number; reference: string 
   const website = p.website ? coerceHttpUrl(p.website) : null;
   const savedAt = sqlNow();
   const reference = newReference("PR", db);
+  const placeId = placeIdOk(p.googlePlaceId) ? p.googlePlaceId : null;
   const r = db
     .prepare(
       `INSERT INTO prospects (
         reference, name, legal_name, enseigne, name_key, trade_key, country, address_line, postcode, city, region, lat, lng, geo_source,
         source, source_id, source_url, register_id, register_status, register_checked_at, diffusion, legal_form, sole_trader,
-        website, website_source, domain_key, source_phone, source_email, brand, locale, notice_deadline_at, search_id, saved_at, updated_at, city_approx, source_socials
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(?, '+${NOTICE_DAYS} days'), ?, ?, ?, ?, ?)`,
+        website, website_source, domain_key, source_phone, source_email, brand, locale, notice_deadline_at, search_id, saved_at, updated_at, city_approx, source_socials,
+        google_place_id, google_listing, google_match, google_confirmed_at, google_checked_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime(?, '+${NOTICE_DAYS} days'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       reference,
@@ -267,13 +302,21 @@ export function insertProspect(p: NewProspect): { id: number; reference: string 
       savedAt,
       p.cityApprox ? 1 : 0,
       p.sourceSocials && Object.keys(p.sourceSocials).length > 0 ? JSON.stringify(socialsOnly(p.sourceSocials)) : null,
+      placeId,
+      placeId ? "found" : "unverified",
+      placeId ? p.googleMatch ?? "auto" : null,
+      placeId ? savedAt : null,
+      placeId ? savedAt : null,
     );
   return { id: Number(r.lastInsertRowid), reference };
 }
 
+/** Google-only audits (no website) run after every real website audit (jobs are claimed by priority, id). */
+export const GOOGLE_ONLY_AUDIT_PRIORITY = 8;
+
 /** Queue an audit for one prospect (deduped on "audit:{id}"). */
-export function enqueueAudit(prospectId: number): { id: number; deduped: boolean } {
-  return enqueue("audit", { prospectId }, { dedupeKey: `audit:${prospectId}` });
+export function enqueueAudit(prospectId: number, opts: { priority?: number } = {}): { id: number; deduped: boolean } {
+  return enqueue("audit", { prospectId }, { dedupeKey: `audit:${prospectId}`, ...(opts.priority !== undefined ? { priority: opts.priority } : {}) });
 }
 
 function websiteSourceFor(row: Pick<MergedBusiness, "provenance" | "source">): string {
@@ -343,6 +386,7 @@ export async function saveFromSearch(searchId: number, picks: string[]): Promise
   const db = enquiriesDb();
   const out: SaveResult = { saved: 0, auditsQueued: 0, withoutWebsite: 0, alreadySaved: 0, unknown: wanted.size - rows.length, references: [], prospectIds: [] };
   const tradeKey = tradeKeyFor({ key: result.category.key, label: result.category.label, osm: [], naf: [], sic: [], custom: result.category.custom });
+  const googleOn = googlePlacesOn();
   const insertAll = db.transaction((list: SaveRow[]) => {
     for (const row of list) {
       if (row.alreadySaved) {
@@ -380,6 +424,8 @@ export async function saveFromSearch(searchId: number, picks: string[]): Promise
         sourceEmail: row.email ?? null,
         brand: row.brand ?? null,
         searchId,
+        googlePlaceId: row.googlePlaceId ?? null,
+        googleMatch: "auto",
       });
       out.saved++;
       out.references.push(reference);
@@ -389,6 +435,11 @@ export async function saveFromSearch(searchId: number, picks: string[]): Promise
         out.auditsQueued++;
       } else {
         out.withoutWebsite++;
+        // finder-google §4.5: with Google on every saved row gets a listing check — after the real website audits.
+        if (googleOn) {
+          enqueueAudit(id, { priority: GOOGLE_ONLY_AUDIT_PRIORITY });
+          out.auditsQueued++;
+        }
       }
     }
   });
@@ -397,23 +448,38 @@ export async function saveFromSearch(searchId: number, picks: string[]): Promise
   return out;
 }
 
+export type AddByUrlResult = { id: number; reference: string; existing: boolean; auditQueued: boolean; placeAttached?: boolean };
+
 /**
  * Add by URL (contract §6): `source manual`, domain_key, same 30-day deadline,
  * audit enqueued. A live prospect with the same domain is returned instead of
- * a duplicate (`existing: true`).
+ * a duplicate (`existing: true`). With a `googlePlaceId` (finder-google §4.5,
+ * "Add by its website" from a Google-only pin) the place is stored as a
+ * manual match; on an existing prospect without a place it is attached
+ * (`placeAttached: true`), one that already has a place is left alone.
  */
-export function addByUrl(input: { url: string; name?: string | null; country: string }): { id: number; reference: string; existing: boolean; auditQueued: boolean } {
+export function addByUrl(input: { url: string; name?: string | null; country: string; googlePlaceId?: string | null }): AddByUrlResult {
   const website = coerceHttpUrl(input.url);
   if (!website) throw new ProspectError("bad_url", 422);
   const country = (input.country ?? "").trim().toUpperCase();
   if (!CC_RE.test(country)) throw new ProspectError("bad_country", 422);
   const domainKey = domainOf(website);
   if (!domainKey) throw new ProspectError("bad_url", 422);
+  if (input.googlePlaceId !== undefined && input.googlePlaceId !== null && !placeIdOk(input.googlePlaceId)) throw new ProspectError("bad_place_id", 400);
+  const placeId = input.googlePlaceId ?? null;
   const db = enquiriesDb();
-  const existing = db.prepare("SELECT id, reference FROM prospects WHERE deleted_at IS NULL AND domain_key = ? LIMIT 1").get(domainKey) as { id: number; reference: string } | undefined;
-  if (existing) return { ...existing, existing: true, auditQueued: false };
+  const existing = db.prepare("SELECT id, reference, google_place_id FROM prospects WHERE deleted_at IS NULL AND domain_key = ? LIMIT 1").get(domainKey) as
+    | { id: number; reference: string; google_place_id: string | null }
+    | undefined;
+  if (existing) {
+    if (!placeId) return { id: existing.id, reference: existing.reference, existing: true, auditQueued: false };
+    if (existing.google_place_id) return { id: existing.id, reference: existing.reference, existing: true, auditQueued: false, placeAttached: false };
+    const now = sqlNow();
+    updateGoogleColumns(existing.id, { google_place_id: placeId, google_listing: "found", google_match: "manual", google_confirmed_at: now, google_checked_at: now });
+    return { id: existing.id, reference: existing.reference, existing: true, auditQueued: false, placeAttached: true };
+  }
   const name = (input.name ?? "").trim() || domainKey;
-  const { id, reference } = insertProspect({ name, country, source: "manual", website, websiteSource: "manual", geoSource: null });
+  const { id, reference } = insertProspect({ name, country, source: "manual", website, websiteSource: "manual", geoSource: null, googlePlaceId: placeId, googleMatch: "manual" });
   enqueueAudit(id);
   return { id, reference, existing: false, auditQueued: true };
 }
@@ -642,16 +708,18 @@ export function wipePersonal(p: { id: number }, opts: { keepGenericEmail: boolea
 // ---- audit next 20 ---------------------------------------------------------------------
 
 /**
- * Enqueue audits for up to `limit` prospects that have a website, are not
+ * Enqueue audits for up to `limit` prospects that have a website (or, with
+ * Google on, a Google place to re-check — finder-google §4.5), are not
  * excluded (deleted / not a fit / opted out / partial register) and have no
  * audit finished in the last 90 days, oldest first. Deduped on "audit:{id}".
  */
 export function auditNext(limit = 20): { queued: number; deduped: number; ids: number[] } {
   const n = Math.max(1, Math.min(20, limit));
+  const siteClause = googlePlacesOn() ? "(website IS NOT NULL OR (website IS NULL AND google_place_id IS NOT NULL))" : "website IS NOT NULL";
   const rows = enquiriesDb()
     .prepare(
       `SELECT id FROM prospects
-       WHERE deleted_at IS NULL AND website IS NOT NULL AND fit <> 'not_fit' AND opted_out_at IS NULL AND diffusion <> 'partial'
+       WHERE deleted_at IS NULL AND ${siteClause} AND fit <> 'not_fit' AND opted_out_at IS NULL AND diffusion <> 'partial'
          AND (latest_audit_id IS NULL OR NOT EXISTS (SELECT 1 FROM audits a WHERE a.id = prospects.latest_audit_id AND a.finished_at > datetime('now', '-90 days')))
          AND NOT EXISTS (SELECT 1 FROM jobs j WHERE j.kind = 'audit' AND j.dedupe_key = 'audit:' || prospects.id AND j.status IN ('queued', 'running'))
        ORDER BY (latest_audit_id IS NOT NULL), saved_at ASC, id ASC
@@ -659,8 +727,13 @@ export function auditNext(limit = 20): { queued: number; deduped: number; ids: n
     )
     .all(n) as { id: number }[];
   const out = { queued: 0, deduped: 0, ids: [] as number[] };
+  const noSite = new Set(
+    googlePlacesOn() && rows.length > 0
+      ? (enquiriesDb().prepare(`SELECT id FROM prospects WHERE website IS NULL AND id IN (${rows.map(() => "?").join(",")})`).all(...rows.map((r) => r.id)) as { id: number }[]).map((r) => r.id)
+      : [],
+  );
   for (const { id } of rows) {
-    const r = enqueueAudit(id);
+    const r = enqueueAudit(id, noSite.has(id) ? { priority: GOOGLE_ONLY_AUDIT_PRIORITY } : {});
     if (r.deduped) out.deduped++;
     else {
       out.queued++;
@@ -707,13 +780,48 @@ export async function backfillTowns(): Promise<{ filled: number; remaining: numb
   return { filled, remaining };
 }
 
-// ---- google (place_id only) ---------------------------------------------------------------
+// ---- google (place id + derived signals; finder-google §4.5) -------------------------------------
 
-export function setGoogleListing(id: number, listing: Prospect["googleListing"], placeId: string | null): ProspectRecord {
-  const db = enquiriesDb();
-  if (!getProspect(id)) throw new ProspectError("not_found", 404);
-  db.prepare(
-    "UPDATE prospects SET google_listing = ?, google_place_id = ?, google_confirmed_at = CASE WHEN ? = 'unverified' THEN NULL ELSE datetime('now') END, updated_at = datetime('now') WHERE id = ?",
-  ).run(listing, placeId, listing, id);
-  return getProspect(id)!;
+const GOOGLE_COLUMNS = ["google_place_id", "google_listing", "google_match", "google_checked_at", "google_confirmed_at"] as const;
+
+/** Apply the column writes of googleCheckRules (allow-listed names, bound values); no-op on an empty set. */
+export function updateGoogleColumns(id: number, columns: ColumnWrites): void {
+  const sets: string[] = [];
+  const params: unknown[] = [];
+  for (const col of GOOGLE_COLUMNS) {
+    if (!(col in columns)) continue;
+    sets.push(`${col} = ?`);
+    params.push(columns[col] ?? null);
+  }
+  if (sets.length === 0) return;
+  sets.push("updated_at = datetime('now')");
+  enquiriesDb().prepare(`UPDATE prospects SET ${sets.join(", ")} WHERE id = ?`).run(...params, id);
+}
+
+/** The derived signals stored with an audit's `google_listing` check, rebuilt into GoogleSignals (attributions from the joined string); null when the check carried none. */
+export function signalsFromChecks(checks: AuditChecks | null | undefined): GoogleSignals | null {
+  const d = checks?.google_listing?.details;
+  if (!d || d.listing !== "found" || typeof d.reviews !== "number" || typeof d.fetchedAt !== "string") return null;
+  const attributions = typeof d.attributions === "string" && d.attributions ? d.attributions.split(" · ").filter(Boolean) : [];
+  return {
+    operational: typeof d.operational === "boolean" ? d.operational : null,
+    websiteOnListing: d.websiteOnListing === true,
+    hours: d.hours === true,
+    reviews: d.reviews,
+    photos: typeof d.photos === "number" ? d.photos : 0,
+    fetchedAt: d.fetchedAt,
+    attributions,
+  };
+}
+
+function googleSignalsOfAudit(auditId: number | null): GoogleSignals | null {
+  if (!auditId) return null;
+  const row = enquiriesDb().prepare("SELECT checks FROM audits WHERE id = ? AND status = 'done'").get(auditId) as { checks: string | null } | undefined;
+  return signalsFromChecks(parseJson<AuditChecks | null>(row?.checks, null));
+}
+
+/** The latest audit's derived Google signals of a prospect (GET /api/admin/prospects/[id]). */
+export function googleSignals(prospectId: number): GoogleSignals | null {
+  const row = enquiriesDb().prepare("SELECT latest_audit_id FROM prospects WHERE id = ?").get(prospectId) as { latest_audit_id: number | null } | undefined;
+  return googleSignalsOfAudit(row?.latest_audit_id ?? null);
 }

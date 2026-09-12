@@ -108,7 +108,7 @@ export const CHECK_COPY: Record<CheckKey, CheckCopy> = {
   google_listing: {
     label: { fr: "Fiche Google", en: "Google listing" },
     what: { fr: "Votre fiche d'établissement Google (Maps et recherche locale).", en: "Your Google Business Profile (Maps and local search)." },
-    pass: { fr: "Votre fiche Google est en place.", en: "Your Google listing is in place." },
+    pass: { fr: "Votre fiche Google est en place et complète.", en: "Your Google listing is in place and complete." },
     partial: { fr: "Votre fiche Google existe, mais elle est incomplète.", en: "Your Google listing exists, but it is incomplete." },
     fail: { fr: "Nous n'avons pas trouvé de fiche Google pour votre établissement.", en: "We could not find a Google listing for your business." },
     not_measured: { fr: "Nous n'avons pas vérifié votre fiche Google.", en: "We have not checked your Google listing." },
