@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { guardAdminPost, isResponse, requireAdminApi } from "@/lib/crm/auth";
 import { HttpError } from "@/lib/crm/http";
 import { AreaQueryError } from "@/lib/discover/areaQuery";
-import { DiscoverError, RunnerError, getSearch, parseCategory, parseSources, planSearch, resolveArea, sliceResult, startSearch, type AreaPick } from "@/lib/discover/index";
+import { DiscoverError, RunnerError, getSearch, parseCategory, parseSources, planSearch, resolveArea, startSearch, type AreaPick } from "@/lib/discover/index";
 import { note } from "@/lib/discover/notes";
 
 export const runtime = "nodejs";
@@ -25,10 +25,9 @@ export async function GET(req: NextRequest) {
   if (isResponse(guard)) return guard;
   const id = Number.parseInt(req.nextUrl.searchParams.get("id") ?? "", 10);
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400 });
-  const result = getSearch(id);
+  const result = getSearch(id, { after: intParam(req.nextUrl.searchParams.get("after")), version: intParam(req.nextUrl.searchParams.get("v")) });
   if (!result) return NextResponse.json({ ok: false, error: "search_expired", message: note("expired").text }, { status: 404 });
-  const sliced = sliceResult(result, intParam(req.nextUrl.searchParams.get("after")), intParam(req.nextUrl.searchParams.get("v")));
-  return NextResponse.json({ ok: true, ...sliced });
+  return NextResponse.json({ ok: true, ...result });
 }
 
 function parsePick(v: unknown): AreaPick | null {

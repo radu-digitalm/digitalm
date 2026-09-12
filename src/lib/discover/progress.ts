@@ -112,6 +112,7 @@ export function applyEvent(p: SearchProgress, e: ProgressEvent): SearchProgress 
     case "finished":
       return { ...base, status: e.status, stage: "finished", finishedAt: e.at, retryingUntil: null, etaSeconds: null, units: base.units.map((u) => (u.state === "running" ? unitState(u, "pending") : u)) };
     case "resumed":
+      // The row list starts again from the OpenStreetMap rows: a new version, so a client slicing on the old one refetches from 0.
       return {
         ...base,
         status: "running",
@@ -119,6 +120,7 @@ export function applyEvent(p: SearchProgress, e: ProgressEvent): SearchProgress 
         finishedAt: null,
         retryingUntil: null,
         etaSeconds: null,
+        rowsVersion: p.rowsVersion + 1,
         startedAt: e.at,
         units: base.units.map((u) => (u.state === "done" ? u : unitState(u, "pending", { found: 0 }))),
         registerScopes: base.registerScopes.map((s) => (s.state === "done" ? s : { ...s, state: "pending", pages: 0, found: 0 })),

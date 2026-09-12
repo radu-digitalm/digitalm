@@ -4,7 +4,7 @@
 // 20 / 40 / 80 s backoff when the service is busy, cached 24 h per unit +
 // trade. Every foreign value goes through coerceHttpUrl / safeHttpUrl /
 // validEmail before it leaves this file; only what Business needs is kept.
-import { DAY_MS, cached } from "@/lib/crm/apiCache";
+import { DAY_MS, cacheKey, cacheSet, cached } from "@/lib/crm/apiCache";
 import { countApiUsage } from "@/lib/crm/apiUsage";
 import { coerceHttpUrl, safeHttpUrl, validEmail } from "@/lib/crm/classify";
 import { HOSTS, HttpError, fetchJson, spaced } from "@/lib/crm/http";
@@ -17,6 +17,7 @@ export const BACKOFF_MS = [20_000, 40_000, 80_000] as const;
 const UNIT_TIMEOUT_MS = 60_000;
 const COUNT_GRACE_MS = 5_000; // client timeout = the query's server-side timeout + this
 const COUNT_RETRY_MS = 3_000;
+const COUNT_UNKNOWN_MS = 10 * 60_000; // a count the service could not give is remembered as unknown for this long
 
 export type OverpassElement = {
   type: "node" | "way" | "relation";
@@ -46,6 +47,18 @@ export function errorWord(e: unknown): UnitError {
   return "network";
 }
 
+/**
+ * Overpass reports a server-side timeout or an overloaded server as HTTP 200
+ * with a `remark` and no elements — never a result. Turned into the same
+ * errors as the HTTP ones so the backoff and the notes treat them alike.
+ */
+export function assertNoRemark(data: unknown): void {
+  const remark = (data as { remark?: unknown } | null)?.remark;
+  if (typeof remark !== "string") return;
+  if (/timed out|timeout/i.test(remark)) throw new HttpError("timeout", 0, "overpass timed out");
+  if (/runtime error|out of memory|too busy|load too high|rate_limited/i.test(remark)) throw new HttpError("http_503", 503, "overpass busy");
+}
+
 /** One Overpass POST on the shared 1 req/s lane. */
 export async function overpassPost<T = { elements?: OverpassElement[] }>(query: string, opts: { timeoutMs?: number; signal?: AbortSignal } = {}): Promise<T> {
   const res = await spaced("overpass", OVERPASS_GAP_MS, () =>
@@ -57,6 +70,7 @@ export async function overpassPost<T = { elements?: OverpassElement[] }>(query: 
       signal: opts.signal,
     }),
   );
+  assertNoRemark(res.data);
   return res.data;
 }
 
@@ -118,8 +132,9 @@ export async function overpassCount(selector: AreaSelector, category: Category, 
   const query = countQuery(category, selector, timeoutS);
   const signal = opts.signal;
   const post = () => overpassPost<{ elements?: { tags?: Record<string, string> }[] }>(query, { timeoutMs: timeoutS * 1000 + COUNT_GRACE_MS, signal });
+  const request = { selector, trade: categoryKeyOf(category) };
   try {
-    const { value, hit } = await cached<{ total: number }>("overpass_count", { selector, trade: categoryKeyOf(category) }, DAY_MS, async () => {
+    const { value, hit } = await cached<{ total: number | null }>("overpass_count", request, DAY_MS, async () => {
       let data: { elements?: { tags?: Record<string, string> }[] };
       try {
         data = await post();
@@ -137,6 +152,8 @@ export async function overpassCount(selector: AreaSelector, category: Category, 
     return { expected: value.total, ms: Date.now() - started };
   } catch (e) {
     if (e instanceof HttpError && e.code === "aborted") throw e;
+    // Remember the miss briefly so the confirm-cap re-post (and a retry a minute later) does not wait another 30 s.
+    cacheSet(cacheKey("overpass_count", request), "overpass_count", { total: null }, COUNT_UNKNOWN_MS);
     return { expected: null, ms: Date.now() - started };
   }
 }

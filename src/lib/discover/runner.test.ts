@@ -115,6 +115,7 @@ test("cancel keeps found rows; resume re-runs only what is not done; interrupted
   assert.equal(p.units[1]!.state, "pending"); // the interrupted unit's page is discarded
   const resumed = applyEvent(p, { type: "resumed", at: at(60) });
   assert.equal(resumed.status, "running");
+  assert.equal(resumed.rowsVersion, p.rowsVersion + 1); // the list is replaced → clients refetch from 0
   assert.deepEqual(
     resumed.units.map((u) => u.state),
     ["done", "pending", "pending"],

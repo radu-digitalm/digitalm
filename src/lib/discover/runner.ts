@@ -379,6 +379,7 @@ async function run(searchId: number, ctx: RunContext, signal: AbortSignal): Prom
 
   const emit = (e: ProgressEvent) => {
     progress = applyEvent(progress, e);
+    ctx.progress = progress; // the crash handler in launch() writes the latest state
   };
   const saveProgress = () => writeProgress(searchId, progress, progress.found, countPerSource(osmRows), null);
   const saveRows = () => {
@@ -690,8 +691,11 @@ function upgradeLegacy(res: LegacyResult, row: SearchRow | null): SearchResultV2
 /**
  * The cached search (24 h) with the fresh progress/status from the
  * `searches` row, hidden marks and already-saved marks; null when expired.
+ * With `slice` (`?after=K&v=V`) only the rows from index K are returned —
+ * and only those are checked against saved prospects — unless the list
+ * version moved, in which case the whole list comes back.
  */
-export function getSearch(searchId: number): SearchResultV2 | null {
+export function getSearch(searchId: number, slice?: { after: number | null; version: number | null }): SearchResultV2 | null {
   const raw = cacheGet<SearchResultV2 | LegacyResult>(`search:${searchId}`);
   if (!raw) return null;
   const row = readRow(searchId);
@@ -711,11 +715,12 @@ export function getSearch(searchId: number): SearchResultV2 | null {
     }
   }
   result.total = result.rows.length;
-  markAlreadySaved(result.rows);
-  return result;
+  const out = slice ? sliceResult(result, slice.after, slice.version) : result;
+  markAlreadySaved(out.rows);
+  return out;
 }
 
-/** `?after=K&v=V`: the rows from index K when the list version matches, else the whole list. */
+/** `?after=K&v=V`: the rows from index K when the list version matches, else the whole list (`total` keeps the full length). */
 export function sliceResult(result: SearchResultV2, after: number | null, version: number | null): SearchResultV2 {
   if (after === null || after <= 0 || version === null || version !== result.progress.rowsVersion) return result;
   return { ...result, rows: result.rows.slice(after) };
