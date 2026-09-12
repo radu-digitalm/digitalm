@@ -12,58 +12,19 @@ import { placeIdOk } from "./googleMaps";
 import type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea, SearchStatus, UnitState, SearchUnit, RegisterScope, SearchProgress as SearchProgressBase, SearchNote, ResultRow as ResultRowBase, SearchResultV2 as SearchResultBase, SearchSummaryV2 } from "@/lib/crm/types";
 export type { AreaKind, AreaSelector, GeoPolygon, ResolvedArea, SearchStatus, UnitState, SearchUnit, RegisterScope, SearchNote, SearchSummaryV2 };
 
-// ---- docs/finder-google-spec.md §4.1 — the Google shapes. Mirrored here (names, fields
-// and meanings verbatim) until the backend's `// @@finder-google:types` block lands in
-// src/lib/crm/types.ts; the integrator then turns these into re-exports. The optional
-// fields the backend adds in place (`ResultRow.googlePlaceId`, `SearchProgress.google`,
-// `SearchResultV2.googlePins`, the Prospect fields) are widened here the same way —
-// harmless once the base types carry them.
-export type GoogleMatch = "auto" | "manual";
-/** Derived from one Place Details answer; never a string from Google except the attribution provider names (ToS 3.2.4). */
-export interface GoogleSignals {
-  operational: boolean | null;
-  websiteOnListing: boolean;
-  hours: boolean;
-  reviews: number;
-  photos: number;
-  fetchedAt: string;
-  attributions: string[];
-}
-/** A place Google knows that no other source listed — lat/lng may live at most 30 days (the search cache keeps them 24 h). */
-export interface GooglePin {
-  placeId: string;
-  lat: number;
-  lng: number;
-  fetchedAt: string;
-  hidden?: boolean;
-  saved?: { prospectId: number; reference: string };
-}
-export interface GoogleProgress {
-  state: UnitState;
-  tiles: number;
-  tilesDone: number;
-  requests: number;
-  found: number;
-  matched: number;
-  only: number;
-  dropped: number;
-  pinsVersion: number;
-  error?: "busy" | "timeout" | "network" | "refused" | "allowance";
-}
-export interface GoogleUsage {
-  checks: { used: number; cap: number };
-  searches: { used: number; cap: number };
-  other: { used: number; cap: number };
-}
-/** Transient (§4.5) — never stored; `attributions` are the provider names Google returned with the candidate. */
-export type GoogleCandidate = { placeId: string; name: string; addressLine: string; distanceM: number | null; attributions: string[] };
-export type GoogleListingReason = "no_match" | "no_location" | "allowance" | "unavailable";
+// ---- docs/finder-google-spec.md §4.1 — the Google shapes come from the backend's
+// `// @@finder-google:types` block in src/lib/crm/types.ts (re-exported here); the optional
+// fields the backend added in place (`ResultRow.googlePlaceId` / `onGoogle`,
+// `SearchProgress.google` + stage "google", `SearchResultV2.googlePins`, the Prospect
+// fields) are on the base types, so the finder shapes are plain aliases.
+import type { GoogleMatch, GoogleSignals, GooglePin, GoogleProgress, GoogleUsage, GoogleCandidate, GoogleListingReason } from "@/lib/crm/types";
+export type { GoogleMatch, GoogleSignals, GooglePin, GoogleProgress, GoogleUsage, GoogleCandidate, GoogleListingReason };
 
-export type ResultRow = ResultRowBase & { googlePlaceId?: string; onGoogle?: boolean };
-export type SearchProgress = Omit<SearchProgressBase, "stage"> & { stage: SearchProgressBase["stage"] | "google"; google?: GoogleProgress };
+export type ResultRow = ResultRowBase;
+export type SearchProgress = SearchProgressBase;
 /** `googlePins` is present only when the Google phase ran (never an empty array otherwise). */
-export type SearchResultV2 = Omit<SearchResultBase, "rows" | "progress"> & { rows: ResultRow[]; progress: SearchProgress; googlePins?: GooglePin[] };
-export type ProspectWithGoogle = Prospect & { googleCheckedAt?: string | null; googleMatch?: GoogleMatch | null; googleSignals?: GoogleSignals | null };
+export type SearchResultV2 = SearchResultBase;
+export type ProspectWithGoogle = Prospect;
 export type Alternative = NonNullable<SearchResultV2["alternatives"]>[number];
 
 // ---- §4 request / response shapes ------------------------------------------------------

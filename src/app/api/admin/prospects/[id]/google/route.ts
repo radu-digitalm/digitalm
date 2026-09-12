@@ -48,7 +48,8 @@ async function runCheck(id: number): Promise<NextResponse> {
     const audited = storeCheckResult(id, out.google);
     if (audited === null) enqueueAudit(id, prospect.website ? {} : { priority: GOOGLE_ONLY_AUDIT_PRIORITY });
   }
-  return NextResponse.json({ ok: true, prospect: getProspect(id), signals: out.signals, usage: googleUsage() });
+  // `reason` is additive to the §4.5 answer: the frontend words an unmeasured result with it when present.
+  return NextResponse.json({ ok: true, prospect: getProspect(id), signals: out.signals, reason: out.google.reason ?? null, usage: googleUsage() });
 }
 
 /**
