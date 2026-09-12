@@ -36,7 +36,7 @@ function foundBy(searchId: number | null): { area: string; trade: string; create
   return { area: s.areaLabel, trade: s.categoryLabel, createdAt: s.createdAt };
 }
 
-const pill = "inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 px-3 py-1 text-[15px] text-fg-heading hover:border-line-strong";
+const pill = "inline-flex items-center gap-1 rounded-full border border-line bg-surface-2 px-3 py-1 text-[16px] text-fg-heading hover:border-line-strong";
 
 // Header + contact strip + mini map, then Identity & register, Website &
 // contact, the Google block (only while Google is on) and the four
@@ -69,7 +69,7 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
           · <span className="font-mono">{p.reference}</span>
         </p>
         <h1 className="break-words text-[26px] text-fg-heading">{p.name}</h1>
-        <p className="text-[15px] text-fg-muted">
+        <p className="text-[16px] text-fg-muted">
           {[trade, [town, country].filter(Boolean).join(", ")].filter(Boolean).join(" · ")}
           {p.leadId ? (
             <>
@@ -110,10 +110,10 @@ export default async function ProspectPage({ params }: { params: Promise<{ id: s
         {p.lat !== null && p.lng !== null ? (
           <div>
             <MiniMap lat={p.lat} lng={p.lng} name={p.name} />
-            <p className="mt-1 text-[14px] text-fg-muted">{geoSourceWord}</p>
+            <p className="mt-1 text-[15px] text-fg-muted">{geoSourceWord}</p>
           </div>
         ) : null}
-        <div className="space-y-2 text-[15px]">
+        <div className="space-y-2 text-[16px]">
           {addressLines.length > 0 ? (
             <address className="not-italic text-fg">
               {addressLines.map((l, i) => (

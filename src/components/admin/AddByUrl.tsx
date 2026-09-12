@@ -89,7 +89,7 @@ export function AddByUrl({ className = "" }: { className?: string }) {
       </Button>
       <Button onClick={() => setOpen(false)}>Cancel</Button>
       {error ? (
-        <p role="alert" className="text-[15px] text-accent-soft sm:col-span-5">
+        <p role="alert" className="text-[16px] text-accent-soft sm:col-span-5">
           {error}
         </p>
       ) : null}

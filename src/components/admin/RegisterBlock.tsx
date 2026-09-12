@@ -102,14 +102,14 @@ export function RegisterBlock({ prospect: p }: { prospect: Prospect & { brand?: 
   return (
     <section className="card p-5" aria-label={PROSPECT_TEXT.identityTitle}>
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-[19px] text-fg-heading">{PROSPECT_TEXT.identityTitle}</h2>
+        <h2 className="text-[20px] text-fg-heading">{PROSPECT_TEXT.identityTitle}</h2>
         {canRecheck ? (
           <Button size="sm" onClick={recheck} loading={busy}>
             {PROSPECT_TEXT.recheck}
           </Button>
         ) : null}
       </div>
-      <div className="space-y-1 text-[15px] text-fg" data-testid="register-sentences">
+      <div className="space-y-1 text-[16px] text-fg" data-testid="register-sentences">
         {registerSentence(p)}
         {registerUrl ? (
           <p>
@@ -118,7 +118,7 @@ export function RegisterBlock({ prospect: p }: { prospect: Prospect & { brand?: 
         ) : null}
       </div>
       <KeyValue items={items} className="mt-4" />
-      <p className="mt-4 text-[14px] text-fg-muted">{ATTRIBUTION_TEXT}</p>
+      <p className="mt-4 text-[15px] text-fg-muted">{ATTRIBUTION_TEXT}</p>
     </section>
   );
 }

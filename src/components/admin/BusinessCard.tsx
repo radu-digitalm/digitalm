@@ -32,8 +32,8 @@ const SOCIAL_WORD: Record<string, string> = { facebook: CARD_TEXT.facebook, inst
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="space-y-1">
-      <h3 className="text-[14px] font-medium uppercase tracking-wide text-fg-muted">{title}</h3>
-      <div className="space-y-1 text-[15px] text-fg">{children}</div>
+      <h3 className="text-[15px] font-medium uppercase tracking-wide text-fg-muted">{title}</h3>
+      <div className="space-y-1 text-[16px] text-fg">{children}</div>
     </section>
   );
 }
@@ -156,7 +156,7 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
             <h2 id={titleId} ref={heading} tabIndex={-1} className="break-words text-[22px] leading-tight text-fg-heading outline-none">
               {r.name}
             </h2>
-            <p className="mt-1 text-[15px] text-fg-muted">
+            <p className="mt-1 text-[16px] text-fg-muted">
               {trade}
               {r.brand ? ` · ${fill(CARD_TEXT.chain, { brand: r.brand })}` : ""}
             </p>
@@ -246,10 +246,10 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
       <div className="space-y-2 border-t border-line px-4 py-3">
         {reason === "saved" && r.alreadySaved ? (
           <div className="flex flex-wrap items-center gap-2">
-            <Link href={`/admin/prospects/${r.alreadySaved.prospectId}`} className="btn-primary inline-flex items-center px-4 py-2 text-[15px]" data-testid="card-open-prospect">
+            <Link href={`/admin/prospects/${r.alreadySaved.prospectId}`} className="btn-primary inline-flex items-center px-4 py-2 text-[16px]" data-testid="card-open-prospect">
               {CARD_TEXT.openProspect}
             </Link>
-            <span className="text-[14px] text-fg-muted">{fill(CARD_TEXT.alreadySaved, { reference: r.alreadySaved.reference })}</span>
+            <span className="text-[15px] text-fg-muted">{fill(CARD_TEXT.alreadySaved, { reference: r.alreadySaved.reference })}</span>
           </div>
         ) : (
           <div className="flex flex-wrap items-center gap-2">
@@ -261,10 +261,10 @@ export function BusinessCard({ row: r, area, trade, layout, saving, onClose, onS
             </Button>
           </div>
         )}
-        {reason === null && !r.website ? <p className="text-[14px] text-fg-muted">{CARD_TEXT.noWebsiteToAudit}</p> : null}
-        {reason === "not_listed" ? <p className="text-[14px] text-amber-300">{CARD_TEXT.notListedPublicly}</p> : null}
-        {reason === "closed" ? <p className="text-[14px] text-fg-muted">{CARD_TEXT.closedInRegister}</p> : null}
-        {reason === "hidden" ? <p className="text-[14px] text-fg-muted">{CARD_TEXT.hidden}</p> : null}
+        {reason === null && !r.website ? <p className="text-[15px] text-fg-muted">{CARD_TEXT.noWebsiteToAudit}</p> : null}
+        {reason === "not_listed" ? <p className="text-[15px] text-amber-300">{CARD_TEXT.notListedPublicly}</p> : null}
+        {reason === "closed" ? <p className="text-[15px] text-fg-muted">{CARD_TEXT.closedInRegister}</p> : null}
+        {reason === "hidden" ? <p className="text-[15px] text-fg-muted">{CARD_TEXT.hidden}</p> : null}
       </div>
     </div>
   );

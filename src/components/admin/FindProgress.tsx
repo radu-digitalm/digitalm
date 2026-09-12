@@ -98,7 +98,7 @@ export function FindProgress(p: FindProgressProps) {
   // "Not this place?" sits right under the line that names the area: the resolved line while running, the status line once finished.
   const alternativesLine =
     alternatives.length > 0 && (p.phase === "running" || p.phase === "finished") ? (
-      <p className="text-[15px] text-fg-muted">
+      <p className="text-[16px] text-fg-muted">
         {FIND_TEXT.notThisPlace}{" "}
         {alternatives.map((a, i) => (
           <span key={`${a.osmType}${a.osmId}`}>
@@ -114,7 +114,7 @@ export function FindProgress(p: FindProgressProps) {
   return (
     <div className="space-y-1.5" aria-live="polite">
       {p.error ? (
-        <p role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-[15px] text-accent-soft">
+        <p role="alert" className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/40 bg-accent/10 px-3 py-2 text-[16px] text-accent-soft">
           <span>{p.error.text}</span>
           {p.error.running ? (
             <>
@@ -131,7 +131,7 @@ export function FindProgress(p: FindProgressProps) {
 
       {p.phase === "resolving" ? (
         <div>
-          <p className="text-[15px] text-fg-muted">{fill(FIND_TEXT.resolving, { query: p.query })}</p>
+          <p className="text-[16px] text-fg-muted">{fill(FIND_TEXT.resolving, { query: p.query })}</p>
           <div className="mt-1 h-1 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={1} aria-label={fill(FIND_TEXT.resolving, { query: p.query })}>
             <div className="dm-bar-indeterminate h-full bg-accent-magenta" />
           </div>
@@ -139,7 +139,7 @@ export function FindProgress(p: FindProgressProps) {
       ) : null}
 
       {area && running ? (
-        <p className="text-[15px] text-fg">
+        <p className="text-[16px] text-fg">
           <span className="text-fg-heading">{resolvedLine}</span>
           {estimateLine ? <span className="text-fg-muted"> · {estimateLine}</span> : null}
         </p>
@@ -149,7 +149,7 @@ export function FindProgress(p: FindProgressProps) {
 
       {running && r ? (
         <div>
-          <p className="text-[15px] text-fg-heading" data-testid="find-running">
+          <p className="text-[16px] text-fg-heading" data-testid="find-running">
             {liveText}
           </p>
           <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={valueNow} aria-label={liveText}>
@@ -158,7 +158,7 @@ export function FindProgress(p: FindProgressProps) {
         </div>
       ) : running && !r ? (
         <div>
-          <p className="text-[15px] text-fg-heading">{FIND_TEXT.searchingOsmOne}…</p>
+          <p className="text-[16px] text-fg-heading">{FIND_TEXT.searchingOsmOne}…</p>
           <div className="mt-1 h-1.5 overflow-hidden rounded bg-white/10" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={0} aria-label={FIND_TEXT.searchingOsmOne}>
             <div className="dm-bar-indeterminate h-full bg-accent-magenta" />
           </div>
@@ -169,7 +169,7 @@ export function FindProgress(p: FindProgressProps) {
         <div className="space-y-1.5">
           {/* One line: the area as understood · the count · when the results date from, with the way to refresh them. */}
           {status === "done" || status === "capped" || status === "partial" ? (
-            <p className="text-[15px] text-fg" data-testid="find-status">
+            <p className="text-[16px] text-fg" data-testid="find-status">
               <span className="text-fg-heading">{resolvedLine}</span>
               <span className="text-fg-muted"> · </span>
               <span className="text-fg-heading">{r.total === 0 && status === "done" ? fill(FIND_TEXT.empty, { trade: tradePlural(trade || "business"), area: r.area.label }) : doneText(r)}</span>
@@ -183,27 +183,27 @@ export function FindProgress(p: FindProgressProps) {
               ) : null}
             </p>
           ) : status === "cancelled" ? (
-            <p className="text-[15px] text-fg" data-testid="find-status">
+            <p className="text-[16px] text-fg" data-testid="find-status">
               <span className="text-fg-heading">{resolvedLine}</span>
               <span className="text-fg-muted"> · </span>
               <span className="text-fg-heading">{fill(FIND_TEXT.cancelled, { done: unitsDone(r).done, total: unitsDone(r).total, n: formatInt(r.total) })}</span>
             </p>
           ) : status === "failed" ? (
-            <p className="text-[15px] text-accent-soft" data-testid="find-status" role="alert">
+            <p className="text-[16px] text-accent-soft" data-testid="find-status" role="alert">
               {ERROR_FALLBACK}
             </p>
           ) : null}
           {alternativesLine}
           {banners.length > 0 || action ? (
-            <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[15px] text-amber-200">
+            <div className="space-y-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[16px] text-amber-200">
               {banners.map((n, i) => (
                 <p key={i}>{n.text}</p>
               ))}
               {p.capChildren && p.capChildren.length > 0 && status === "capped" ? (
                 <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[15px]">{FIND_TEXT.searchDepartment}</span>
+                  <span className="text-[16px]">{FIND_TEXT.searchDepartment}</span>
                   {p.capChildren.map((c) => (
-                    <button key={c.id} type="button" onClick={() => p.onPickChild(c)} className="rounded-full border border-amber-400/50 px-2.5 py-0.5 text-[15px] text-amber-100 hover:bg-amber-400/20">
+                    <button key={c.id} type="button" onClick={() => p.onPickChild(c)} className="rounded-full border border-amber-400/50 px-2.5 py-0.5 text-[16px] text-amber-100 hover:bg-amber-400/20">
                       {c.label}
                     </button>
                   ))}
@@ -213,7 +213,7 @@ export function FindProgress(p: FindProgressProps) {
             </div>
           ) : null}
           {plain.length > 0 ? (
-            <details className="text-[15px]" data-testid="find-notes">
+            <details className="text-[16px]" data-testid="find-notes">
               <summary className="cursor-pointer text-fg-muted">{fill(FIND_TEXT.notesDetails, { n: plain.length })}</summary>
               <ul className="mt-1 list-disc space-y-0.5 pl-5 text-fg-muted">
                 {plain.map((n, i) => (
@@ -226,7 +226,7 @@ export function FindProgress(p: FindProgressProps) {
       ) : null}
 
       {p.expired && !r ? (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[15px] text-amber-200">
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[16px] text-amber-200">
           <span>{fill(FIND_TEXT.saveExpired, {})}</span>
           <Button size="sm" onClick={p.onRunAgain}>
             {FIND_TEXT.runAgain}
@@ -250,7 +250,7 @@ export function CapGate({ area, plan, trade, onChild, onContinue, onChange }: { 
   const children = CHILD_KIND_WORDS_PLURAL[area.kind] ?? "smaller areas";
   return (
     <div className="space-y-4 p-4" data-testid="cap-gate">
-      <p className="text-[17px] text-fg-heading">
+      <p className="text-[18px] text-fg-heading">
         {plan.expected === null
           ? fill(FIND_TEXT.gateTitleUnknown, { area: area.label, cap: formatInt(plan.cap) })
           : fill(FIND_TEXT.gateTitle, { expected: formatInt(plan.expected), trade: tradePlural(trade, plan.expected), area: area.label, cap: formatInt(plan.cap) })}
@@ -265,17 +265,17 @@ export function CapGate({ area, plan, trade, onChild, onContinue, onChange }: { 
       </div>
       {plan.units.length > 0 ? (
         <div className="space-y-2">
-          <p className="text-[15px] text-fg-muted">{fill(FIND_TEXT.gateChildren, { child })}</p>
+          <p className="text-[16px] text-fg-muted">{fill(FIND_TEXT.gateChildren, { child })}</p>
           <div className="flex flex-wrap gap-1.5">
             {plan.units.map((u) => (
-              <button key={u.id} type="button" data-testid="cap-child" onClick={() => onChild(u)} className="rounded-full border border-line px-3 py-1 text-[15px] text-fg-heading hover:border-accent-magenta hover:bg-accent-magenta/10">
+              <button key={u.id} type="button" data-testid="cap-child" onClick={() => onChild(u)} className="rounded-full border border-line px-3 py-1 text-[16px] text-fg-heading hover:border-accent-magenta hover:bg-accent-magenta/10">
                 {u.label}
               </button>
             ))}
           </div>
         </div>
       ) : (
-        <p className="text-[15px] text-fg-muted">{fill(FIND_TEXT.gateNoChildren, { area: area.label, children })}</p>
+        <p className="text-[16px] text-fg-muted">{fill(FIND_TEXT.gateNoChildren, { area: area.label, children })}</p>
       )}
     </div>
   );

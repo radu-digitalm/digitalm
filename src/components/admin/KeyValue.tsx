@@ -15,8 +15,8 @@ export function KeyValue({ items, className = "", columns = 1, hideEmpty = true 
     <dl className={`grid gap-x-6 gap-y-2.5 ${columns === 2 ? "sm:grid-cols-2" : ""} ${className}`}>
       {shown.map((it, i) => (
         <div key={i} className="grid grid-cols-[minmax(7rem,30%)_1fr] gap-3">
-          <dt className="text-[14px] text-fg-muted">{it.label}</dt>
-          <dd className={`min-w-0 break-words text-[15px] ${it.muted ? "text-fg-muted" : "text-fg-heading"}`}>{isEmpty(it.value) ? <span className="text-fg-muted">not known</span> : it.value}</dd>
+          <dt className="text-[15px] text-fg-muted">{it.label}</dt>
+          <dd className={`min-w-0 break-words text-[16px] ${it.muted ? "text-fg-muted" : "text-fg-heading"}`}>{isEmpty(it.value) ? <span className="text-fg-muted">not known</span> : it.value}</dd>
         </div>
       ))}
     </dl>

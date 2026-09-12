@@ -29,7 +29,7 @@ export default async function ProspectsPage({ searchParams }: { searchParams: Pr
       <header>
         <p className="eyebrow">Outreach</p>
         <h1 className="mt-1 text-[26px] text-fg-heading">Prospects</h1>
-        <p className="mt-1 max-w-prose text-[15px] text-fg-muted">{PROSPECT_TEXT.intro}</p>
+        <p className="mt-1 max-w-prose text-[16px] text-fg-muted">{PROSPECT_TEXT.intro}</p>
       </header>
       <ProspectTable rows={rows} view={view} counts={counts} q={q} sort={sort} dir={dir} />
     </div>

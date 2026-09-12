@@ -63,7 +63,7 @@ function MoreMenu({ onAudit, onTowns, busy }: { onAudit: () => void; onTowns: ()
           <button
             type="button"
             role="menuitem"
-            className="rounded-md px-3 py-2 text-left text-[15px] text-fg-heading hover:bg-surface-2"
+            className="rounded-md px-3 py-2 text-left text-[16px] text-fg-heading hover:bg-surface-2"
             onClick={() => {
               setOpen(false);
               onAudit();
@@ -75,7 +75,7 @@ function MoreMenu({ onAudit, onTowns, busy }: { onAudit: () => void; onTowns: ()
           <button
             type="button"
             role="menuitem"
-            className="rounded-md px-3 py-2 text-left text-[15px] text-fg-heading hover:bg-surface-2"
+            className="rounded-md px-3 py-2 text-left text-[16px] text-fg-heading hover:bg-surface-2"
             onClick={() => {
               setOpen(false);
               onTowns();
@@ -142,10 +142,10 @@ export function ProspectTable({
       cardLabel: false,
       render: (p) => (
         <div className="min-w-[12rem]">
-          <Link href={`/admin/prospects/${p.id}`} onClick={(e) => e.stopPropagation()} className="text-[16px] text-fg-heading hover:underline">
+          <Link href={`/admin/prospects/${p.id}`} onClick={(e) => e.stopPropagation()} className="text-[17px] text-fg-heading hover:underline">
             {p.name}
           </Link>
-          <div className="text-[14px] text-fg-muted">
+          <div className="text-[15px] text-fg-muted">
             <span className="font-mono">{p.reference}</span> · saved {shortDateTime(p.savedAt)}
           </div>
         </div>
@@ -167,9 +167,9 @@ export function ProspectTable({
       align: "center",
       render: (p) =>
         p.latestScore === null ? (
-          <span className="text-[15px] text-fg-muted">{PROSPECT_TEXT.notAudited}</span>
+          <span className="text-[16px] text-fg-muted">{PROSPECT_TEXT.notAudited}</span>
         ) : (
-          <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[15px]" title={PROSPECT_TEXT.scoreTitle}>
+          <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-mono text-[16px]" title={PROSPECT_TEXT.scoreTitle}>
             {p.latestScore}
             <Badge variant={gradeVariant(p.latestGrade)}>{p.latestGrade ?? "?"}</Badge>
           </span>
@@ -196,10 +196,10 @@ export function ProspectTable({
         const email = usableEmail(p);
         const phone = anyPhone(p);
         return (
-          <div className="text-[15px]">
+          <div className="text-[16px]">
             {email ? <div className="break-words">{email}</div> : p.websiteEmail ? <div className="break-words text-fg-muted">{p.websiteEmail}</div> : null}
             {phone ? <div className="whitespace-nowrap">{phone}</div> : null}
-            {view === "call" ? <div className="text-[14px] text-fg-muted">{p.callAttempts30d} of 4 calls in 30 days</div> : null}
+            {view === "call" ? <div className="text-[15px] text-fg-muted">{p.callAttempts30d} of 4 calls in 30 days</div> : null}
           </div>
         );
       },
@@ -210,7 +210,7 @@ export function ProspectTable({
       header: "Lead",
       render: (p) =>
         p.leadId ? (
-          <Link href={`/admin/leads/${p.leadId}`} onClick={(e) => e.stopPropagation()} className="link-accent whitespace-nowrap text-[15px]">
+          <Link href={`/admin/leads/${p.leadId}`} onClick={(e) => e.stopPropagation()} className="link-accent whitespace-nowrap text-[16px]">
             {p.leadReference ?? `#${p.leadId}`} · {LEAD_STAGE_WORDS[p.leadStage ?? ""] ?? p.leadStage ?? ""}
           </Link>
         ) : (
@@ -228,9 +228,9 @@ export function ProspectTable({
             href={`/admin/prospects?view=${t.view}${q ? `&q=${encodeURIComponent(q)}` : ""}`}
             title={t.hint}
             aria-current={t.view === view ? "page" : undefined}
-            className={`-mb-px border-b-2 px-3 py-2 text-[15px] ${t.view === view ? "border-accent text-fg-heading" : "border-transparent text-fg-muted hover:text-fg-heading"}`}
+            className={`-mb-px border-b-2 px-3 py-2 text-[16px] ${t.view === view ? "border-accent text-fg-heading" : "border-transparent text-fg-muted hover:text-fg-heading"}`}
           >
-            {t.label} <span className="font-mono text-[14px] text-fg-muted">{counts[t.view]}</span>
+            {t.label} <span className="font-mono text-[15px] text-fg-muted">{counts[t.view]}</span>
           </Link>
         ))}
         <span className="flex-1" />
@@ -242,13 +242,13 @@ export function ProspectTable({
       <div className="flex flex-wrap items-end gap-3">
         <form method="get" action="/admin/prospects" className="flex flex-1 flex-wrap items-end gap-3">
           <input type="hidden" name="view" value={view} />
-          <label className="min-w-[14rem] flex-1 text-[15px] text-fg-muted">
+          <label className="min-w-[14rem] flex-1 text-[16px] text-fg-muted">
             <span className="mb-1.5 block">Search</span>
             <input name="q" defaultValue={q} placeholder="name, town, domain or PR- reference" className={inputClass} />
           </label>
           {view === "all" || view === "not_fit" ? (
             <>
-              <label className="text-[15px] text-fg-muted">
+              <label className="text-[16px] text-fg-muted">
                 <span className="mb-1.5 block">Sort</span>
                 <select name="sort" defaultValue={sort} className={inputClass}>
                   {SORT_OPTIONS.map((o) => (
@@ -258,7 +258,7 @@ export function ProspectTable({
                   ))}
                 </select>
               </label>
-              <label className="text-[15px] text-fg-muted">
+              <label className="text-[16px] text-fg-muted">
                 <span className="mb-1.5 block">Order</span>
                 <select name="dir" defaultValue={dir} className={inputClass}>
                   <option value="desc">Newest / highest first</option>
@@ -296,7 +296,7 @@ export function ProspectTable({
         caption={`Prospects — ${TABS.find((t) => t.view === view)?.label ?? view}`}
       />
 
-      <details className="text-[15px] text-fg">
+      <details className="text-[16px] text-fg">
         <summary className="cursor-pointer text-fg-muted">{PROSPECT_TEXT.labelsTitle}</summary>
         <dl className="mt-2 grid gap-x-6 gap-y-1.5 sm:grid-cols-2">
           {badgeGlossary().map((g) => (

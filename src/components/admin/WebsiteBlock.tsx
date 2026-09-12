@@ -134,7 +134,7 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
 
   return (
     <section className="card space-y-5 p-5" aria-label={PROSPECT_TEXT.websiteTitle}>
-      <h2 className="text-[19px] text-fg-heading">{PROSPECT_TEXT.websiteTitle}</h2>
+      <h2 className="text-[20px] text-fg-heading">{PROSPECT_TEXT.websiteTitle}</h2>
 
       <form
         className="flex flex-wrap items-end gap-2"
@@ -148,16 +148,16 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
           Save
         </Button>
         {p.website ? (
-          <span className="pb-2 text-[15px]">
+          <span className="pb-2 text-[16px]">
             <ExtLink href={p.website} />
           </span>
         ) : null}
       </form>
 
       <div>
-        <h3 className="mb-2 text-[13px] font-medium uppercase tracking-wide text-fg-muted">{PROSPECT_TEXT.whatAuditFound}</h3>
+        <h3 className="mb-2 text-[14px] font-medium uppercase tracking-wide text-fg-muted">{PROSPECT_TEXT.whatAuditFound}</h3>
         <KeyValue items={found} />
-        {found.every((f) => f.value === null || f.value === undefined || f.value === "") ? <p className="text-[15px] text-fg-muted">{p.latestAuditId ? "The audit found no contact details on the site." : PROSPECT_TEXT.notAudited}</p> : null}
+        {found.every((f) => f.value === null || f.value === undefined || f.value === "") ? <p className="text-[16px] text-fg-muted">{p.latestAuditId ? "The audit found no contact details on the site." : PROSPECT_TEXT.notAudited}</p> : null}
       </div>
 
       <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
@@ -190,7 +190,7 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
         <Select label={PROSPECT_TEXT.language} name="locale" defaultValue={p.locale} options={[{ value: "fr", label: "Français" }, { value: "en", label: "English" }]} onChange={(e) => void patch("locale", { locale: e.target.value }, e.target.value === "fr" ? "Report and emails in French" : "Report and emails in English")} />
 
         <div>
-          <p className="mb-1.5 block text-[15px] text-fg-muted">{PROSPECT_TEXT.fit}</p>
+          <p className="mb-1.5 block text-[16px] text-fg-muted">{PROSPECT_TEXT.fit}</p>
           <div className="flex overflow-hidden rounded-lg border border-line" role="group" aria-label={PROSPECT_TEXT.fit}>
             {FIT_OPTIONS.map((o) => (
               <button
@@ -199,7 +199,7 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
                 aria-pressed={p.fit === o.value}
                 disabled={busy === "fit"}
                 onClick={() => void patch("fit", { fit: o.value, not_fit_reason: o.value === "not_fit" ? notFitReason.trim() || null : null }, `Fit: ${o.label.toLowerCase()}`)}
-                className={`flex-1 px-3 py-2 text-[15px] ${p.fit === o.value ? "bg-surface-3 text-fg-heading" : "text-fg-muted hover:bg-surface-2 hover:text-fg-heading"}`}
+                className={`flex-1 px-3 py-2 text-[16px] ${p.fit === o.value ? "bg-surface-3 text-fg-heading" : "text-fg-muted hover:bg-surface-2 hover:text-fg-heading"}`}
               >
                 {o.label}
               </button>
@@ -242,7 +242,7 @@ export function WebsiteBlock({ prospect: p }: { prospect: Prospect }) {
         ) : null}
         <span className="flex-1" />
         {p.deletedAt ? (
-          <span className="text-[14px] text-fg-muted">Removed {localDateTime(p.deletedAt)}</span>
+          <span className="text-[15px] text-fg-muted">Removed {localDateTime(p.deletedAt)}</span>
         ) : (
           <ConfirmButton
             label={PROSPECT_TEXT.notThisBusiness}

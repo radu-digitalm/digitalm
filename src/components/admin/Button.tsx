@@ -13,8 +13,8 @@ const VARIANT: Record<ButtonVariant, string> = {
 };
 
 const SIZE: Record<ButtonSize, string> = {
-  sm: "px-3 py-1.5 text-[14px]",
-  md: "px-4 py-2 text-[15px]",
+  sm: "px-3 py-1.5 text-[15px]",
+  md: "px-4 py-2 text-[16px]",
 };
 
 /** Class string for links styled as buttons (`<a>` / `<Link>`). */

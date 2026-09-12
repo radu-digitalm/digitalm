@@ -588,20 +588,20 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
 
   const pastList = (
     <details data-testid="past-searches" open={!result && phase === "idle"} className="px-3 py-2">
-      <summary className="cursor-pointer text-[16px] text-fg-heading">{FIND_TEXT.pastSearches}</summary>
+      <summary className="cursor-pointer text-[17px] text-fg-heading">{FIND_TEXT.pastSearches}</summary>
       {past === null ? (
-        <p className="py-2 text-[15px] text-fg-muted">…</p>
+        <p className="py-2 text-[16px] text-fg-muted">…</p>
       ) : past.length === 0 ? (
-        <p className="py-2 text-[15px] text-fg-muted">{FIND_TEXT.noPastSearches}</p>
+        <p className="py-2 text-[16px] text-fg-muted">{FIND_TEXT.noPastSearches}</p>
       ) : (
         <ul className="mt-1 divide-y divide-line/60">
           {past.map((s) => (
             <li key={s.id}>
               <button type="button" onClick={() => openPast(s)} className="flex w-full flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 py-2 text-left hover:bg-surface-2/60">
-                <span className="text-[15px] text-fg-heading">
+                <span className="text-[16px] text-fg-heading">
                   {s.areaLabel || s.queryArea} · {s.categoryLabel || s.categoryKey}
                 </span>
-                <span className="text-[14px] text-fg-muted">
+                <span className="text-[15px] text-fg-muted">
                   {formatInt(s.resultCount)} found · {formatInt(s.savedCount)} saved · {relativeOrLocal(s.createdAt)} · {s.cached ? SEARCH_STATUS_WORDS[s.status] ?? s.status : SEARCH_STATUS_WORDS.expired}
                 </span>
               </button>
@@ -672,7 +672,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     </div>
   ) : (
     <div className="h-full overflow-y-auto" data-testid="find-list">
-      {running ? <p className="px-4 py-6 text-[15px] text-fg-muted">{FIND_TEXT.searchingOsmOne}…</p> : null}
+      {running ? <p className="px-4 py-6 text-[16px] text-fg-muted">{FIND_TEXT.searchingOsmOne}…</p> : null}
       {pastList}
     </div>
   );
@@ -701,7 +701,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     ) : null;
 
   const undoBar = undo ? (
-    <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-[15px] shadow-xl">
+    <div className="pointer-events-auto flex items-center gap-3 rounded-lg border border-line bg-surface px-3 py-2 text-[16px] shadow-xl">
       <span className="text-fg">{fill(FIND_TEXT.dismissed, { name: undo.name })}</span>
       <Button size="sm" onClick={() => void undoDismiss(undo.key)}>
         {FIND_TEXT.undo}
@@ -742,7 +742,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       <div ref={topEl} className="space-y-2 pb-2">
         {barCollapsed ? (
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setBarOpen(true)} aria-expanded={false} className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-[15px] text-fg-heading">
+            <button type="button" onClick={() => setBarOpen(true)} aria-expanded={false} className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-[16px] text-fg-heading">
               <span className="truncate">
                 {form.area} · {trade}
               </span>
@@ -801,8 +801,8 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
           >
             <button type="button" aria-label={sheetOpen ? FIND_TEXT.mapControl : FIND_TEXT.listControl} onClick={() => setSheetOpen((o) => !o)} className="mx-auto mt-2 h-1.5 w-12 shrink-0 rounded-full bg-line-strong" />
             <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2">
-              <span className="truncate text-[16px] text-fg-heading">{result ? summaryText(result) : FIND_TEXT.title}</span>
-              <div className="flex overflow-hidden rounded-lg border border-line text-[14px]" role="group" aria-label="View">
+              <span className="truncate text-[17px] text-fg-heading">{result ? summaryText(result) : FIND_TEXT.title}</span>
+              <div className="flex overflow-hidden rounded-lg border border-line text-[15px]" role="group" aria-label="View">
                 <button type="button" onClick={() => setSheetOpen(true)} aria-pressed={sheetOpen} className={`px-3 py-1 ${sheetOpen ? "bg-surface-3 text-fg-heading" : "text-fg-muted"}`}>
                   {FIND_TEXT.listControl}
                 </button>

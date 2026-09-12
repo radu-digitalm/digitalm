@@ -169,7 +169,7 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
     return (
       <section className="card p-5">
         <h2 className="font-display text-lg text-fg-heading">Audit</h2>
-        <p className="mt-2 text-[15px] text-accent-soft">The audit could not be loaded. Try again.</p>
+        <p className="mt-2 text-[16px] text-accent-soft">The audit could not be loaded. Try again.</p>
         <Button size="sm" className="mt-3" onClick={() => void load()}>
           Retry
         </Button>
@@ -180,7 +180,7 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
     return (
       <section className="card p-5" aria-busy="true">
         <h2 className="font-display text-lg text-fg-heading">Audit</h2>
-        <p className="mt-2 text-[15px] text-fg-muted">Loading…</p>
+        <p className="mt-2 text-[16px] text-fg-muted">Loading…</p>
       </section>
     );
   }
@@ -195,11 +195,11 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
         <div className="flex flex-wrap items-center gap-2">
           <h2 className="font-display text-lg text-fg-heading">Audit</h2>
           {audit ? <Badge variant={AUDIT_BADGE[audit.status].variant}>{AUDIT_BADGE[audit.status].label}</Badge> : null}
-          {audit ? <span className="font-mono text-[13px] text-fg-muted">{audit.reference}</span> : null}
-          {audit?.finishedAt ? <span className="text-[14px] text-fg-muted">{when(audit.finishedAt)}</span> : null}
+          {audit ? <span className="font-mono text-[14px] text-fg-muted">{audit.reference}</span> : null}
+          {audit?.finishedAt ? <span className="text-[15px] text-fg-muted">{when(audit.finishedAt)}</span> : null}
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-[14px] text-fg-muted" title="Audits started today against the daily allowance">
+          <span className="text-[15px] text-fg-muted" title="Audits started today against the daily allowance">
             {usage.used} of {usage.cap} audits today
           </span>
           <Button size="sm" variant={audit ? "ghost" : "primary"} loading={busy} disabled={job !== null} onClick={() => void run()}>
@@ -209,15 +209,15 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
       </header>
 
       {job ? (
-        <p className="mt-3 text-[15px] text-sky-300">
+        <p className="mt-3 text-[16px] text-sky-300">
           {job.status === "running" ? "Running now…" : job.position !== null ? `Queued · ${job.position} job${job.position === 1 ? "" : "s"} ahead` : "Queued"}
           {job.lastError ? <span className="text-fg-muted"> — {job.lastError}</span> : null}
         </p>
       ) : capReached ? (
-        <p className="mt-3 text-[15px] text-amber-300">Daily allowance used — new audits run from 06:00 Europe/Paris tomorrow.</p>
+        <p className="mt-3 text-[16px] text-amber-300">Daily allowance used — new audits run from 06:00 Europe/Paris tomorrow.</p>
       ) : null}
 
-      {!prospect.website ? <p className="mt-3 text-[15px] text-fg-muted">No website on file — the audit records a &ldquo;no site&rdquo; result (score 0, fit Site + AI).</p> : null}
+      {!prospect.website ? <p className="mt-3 text-[16px] text-fg-muted">No website on file — the audit records a &ldquo;no site&rdquo; result (score 0, fit Site + AI).</p> : null}
 
       <div className="mt-3 flex flex-wrap gap-2">
         {prospect.forbidsExtraction ? <Badge variant="warn">Site forbids prospecting — email left empty</Badge> : null}
@@ -225,10 +225,10 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
       </div>
 
       {audit?.status === "failed" ? (
-        <p className="mt-3 break-words text-[15px] text-accent-soft">The audit failed{audit.error ? ` — ${audit.error}` : ""}.</p>
+        <p className="mt-3 break-words text-[16px] text-accent-soft">The audit failed{audit.error ? ` — ${audit.error}` : ""}.</p>
       ) : null}
 
-      {!audit && !job ? <p className="mt-3 text-[15px] text-fg-muted">No audit yet.</p> : null}
+      {!audit && !job ? <p className="mt-3 text-[16px] text-fg-muted">No audit yet.</p> : null}
 
       {done && audit ? (
         <>
@@ -243,25 +243,25 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
               ))}
             </div>
           ) : (
-            <p className="mt-4 text-[15px] text-emerald-300">No flags — nothing obvious to pitch.</p>
+            <p className="mt-4 text-[16px] text-emerald-300">No flags — nothing obvious to pitch.</p>
           )}
 
           {audit.fits.length ? (
-            <ul className="mt-3 space-y-1 text-[15px]">
+            <ul className="mt-3 space-y-1 text-[16px]">
               {audit.fits.map((fit) => (
                 <li key={fit.pkg} className="flex flex-wrap items-baseline gap-2">
                   <span className="text-fg-heading">{packageLabel(fit, "en")}</span>
-                  <span className="text-[14px] text-fg-muted">{fit.flags.map((f) => FLAG_COPY[f]?.en ?? f).join(", ")}</span>
+                  <span className="text-[15px] text-fg-muted">{fit.flags.map((f) => FLAG_COPY[f]?.en ?? f).join(", ")}</span>
                 </li>
               ))}
             </ul>
           ) : null}
 
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full min-w-[36rem] text-[15px]">
+            <table className="w-full min-w-[36rem] text-[16px]">
               <caption className="sr-only">The ten checks</caption>
               <thead>
-                <tr className="border-b border-line text-[13px] uppercase tracking-wide text-fg-muted">
+                <tr className="border-b border-line text-[14px] uppercase tracking-wide text-fg-muted">
                   <th scope="col" className="px-2 py-1.5 text-left font-medium">
                     Check
                   </th>
@@ -287,17 +287,17 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
                       <td className="px-2 py-2 align-top">
                         <div className="text-fg-heading">
                           {CHECK_COPY[key].label.en}
-                          {isTop ? <span className="ml-2 text-[13px] text-accent-soft">top</span> : null}
+                          {isTop ? <span className="ml-2 text-[14px] text-accent-soft">top</span> : null}
                         </div>
-                        <div className="text-[14px] text-fg-muted">{CHECK_COPY[key][c.status].en}</div>
+                        <div className="text-[15px] text-fg-muted">{CHECK_COPY[key][c.status].en}</div>
                       </td>
                       <td className="px-2 py-2 align-top">
                         <Badge variant={badge.variant}>{badge.label}</Badge>
                       </td>
-                      <td className="whitespace-nowrap px-2 py-2 text-right align-top font-mono text-[14px] text-fg-muted">
+                      <td className="whitespace-nowrap px-2 py-2 text-right align-top font-mono text-[15px] text-fg-muted">
                         {c.measured ? `${c.points} / ${CHECK_WEIGHTS[key]}` : `not measured / ${CHECK_WEIGHTS[key]}`}
                       </td>
-                      <td className="px-2 py-2 align-top text-[14px] text-fg-muted">{factLine(key, c)}</td>
+                      <td className="px-2 py-2 align-top text-[15px] text-fg-muted">{factLine(key, c)}</td>
                     </tr>
                   );
                 })}
@@ -305,7 +305,7 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
             </table>
           </div>
 
-          <dl className="mt-4 grid gap-2 text-[14px] text-fg-muted sm:grid-cols-2">
+          <dl className="mt-4 grid gap-2 text-[15px] text-fg-muted sm:grid-cols-2">
             <div>
               <dt className="text-fg-muted">PageSpeed (mobile)</dt>
               <dd>
@@ -333,26 +333,26 @@ export function AuditBlock({ prospectId }: { prospectId: number }) {
           </dl>
 
           {state.reportPath && OUTREACH_MODULE ? (
-            <p className="mt-4 text-[15px]">
+            <p className="mt-4 text-[16px]">
               <a href={state.reportPath} target="_blank" rel="noopener" className="link-accent">
                 Open the report ({audit.locale.toUpperCase()})
               </a>
-              {audit.reportViews > 0 ? <span className="ml-2 text-[14px] text-fg-muted">{audit.reportViews} view{audit.reportViews === 1 ? "" : "s"}</span> : null}
-              {audit.reportExpiresAt ? <span className="ml-2 text-[14px] text-fg-muted">expires {when(audit.reportExpiresAt)}</span> : null}
+              {audit.reportViews > 0 ? <span className="ml-2 text-[15px] text-fg-muted">{audit.reportViews} view{audit.reportViews === 1 ? "" : "s"}</span> : null}
+              {audit.reportExpiresAt ? <span className="ml-2 text-[15px] text-fg-muted">expires {when(audit.reportExpiresAt)}</span> : null}
             </p>
           ) : state.reportPath ? (
-            <p className="mt-4 text-[14px] text-fg-muted">Report link hidden until the outreach module ships — a report reaches a prospect only through a send with its legal block, never by hand.</p>
+            <p className="mt-4 text-[15px] text-fg-muted">Report link hidden until the outreach module ships — a report reaches a prospect only through a send with its legal block, never by hand.</p>
           ) : null}
         </>
       ) : null}
 
       {state.history.length > 1 ? (
-        <details className="mt-4 text-[14px] text-fg-muted">
+        <details className="mt-4 text-[15px] text-fg-muted">
           <summary className="cursor-pointer text-fg-muted">Previous audits</summary>
           <ul className="mt-2 space-y-1">
             {state.history.map((h) => (
               <li key={h.id}>
-                <span className="font-mono text-[13px]">{h.reference}</span> · {AUDIT_BADGE[h.status]?.label.toLowerCase() ?? h.status}
+                <span className="font-mono text-[14px]">{h.reference}</span> · {AUDIT_BADGE[h.status]?.label.toLowerCase() ?? h.status}
                 {typeof h.score === "number" ? ` · ${h.score} (${h.grade})` : ""} · {when(h.finishedAt ?? h.createdAt)}
               </li>
             ))}

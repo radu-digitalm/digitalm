@@ -146,10 +146,10 @@ export function TradePicker({
                   choose(o.key);
                 }}
                 onMouseEnter={() => setActive(i)}
-                className={`flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1.5 text-[15px] ${i === active ? "bg-surface-3 text-fg-heading" : "text-fg"} ${o.key === CUSTOM_KEY ? "border-t border-line text-fg-muted" : ""}`}
+                className={`flex cursor-pointer items-baseline justify-between gap-3 px-3 py-1.5 text-[16px] ${i === active ? "bg-surface-3 text-fg-heading" : "text-fg"} ${o.key === CUSTOM_KEY ? "border-t border-line text-fg-muted" : ""}`}
               >
                 <span>{o.label}</span>
-                {o.sub ? <span className="text-[14px] text-fg-muted">{o.sub}</span> : null}
+                {o.sub ? <span className="text-[15px] text-fg-muted">{o.sub}</span> : null}
               </li>
             ))}
           </ul>

@@ -90,7 +90,7 @@ export function Legend({ className = "", phone = false }: { className?: string; 
   );
   const words = (
     <>
-      <p className="mb-1 mt-3 text-[16px] text-fg-heading">{LEGEND_TEXT.statusTitle}</p>
+      <p className="mb-1 mt-3 text-[17px] text-fg-heading">{LEGEND_TEXT.statusTitle}</p>
       <ul className="space-y-1">
         {STATUS_ROWS.map((t, i) => (
           <li key={i}>{t}</li>
@@ -100,13 +100,13 @@ export function Legend({ className = "", phone = false }: { className?: string; 
   );
   const body = phone ? (
     <>
-      <p className="mb-2 text-[16px] text-fg-heading">{LEGEND_TEXT.title}</p>
+      <p className="mb-2 text-[17px] text-fg-heading">{LEGEND_TEXT.title}</p>
       {list(ROWS)}
       {words}
     </>
   ) : (
     <>
-      <p className="mb-2 text-[16px] text-fg-heading">{LEGEND_TEXT.title}</p>
+      <p className="mb-2 text-[17px] text-fg-heading">{LEGEND_TEXT.title}</p>
       <div className="grid grid-cols-2 gap-x-6">
         <div>{list(pinRows)}</div>
         <div>
@@ -124,21 +124,21 @@ export function Legend({ className = "", phone = false }: { className?: string; 
         aria-label={FIND_TEXT.legend}
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface/95 text-[16px] font-medium text-fg-heading shadow hover:bg-surface-2"
+        className="flex h-9 w-9 items-center justify-center rounded-full border border-line bg-surface/95 text-[17px] font-medium text-fg-heading shadow hover:bg-surface-2"
       >
         ?
       </button>
       {open && phone ? (
-        <div role="dialog" aria-label={LEGEND_TEXT.title} data-testid="legend-panel" className="fixed inset-x-0 bottom-0 z-[1002] max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface px-4 pb-6 pt-3 text-[15px] text-fg shadow-2xl">
+        <div role="dialog" aria-label={LEGEND_TEXT.title} data-testid="legend-panel" className="fixed inset-x-0 bottom-0 z-[1002] max-h-[70dvh] overflow-y-auto rounded-t-2xl border-t border-line bg-surface px-4 pb-6 pt-3 text-[16px] text-fg shadow-2xl">
           <div className="mb-2 flex items-center justify-end">
-            <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-line px-3 py-1 text-[15px] text-fg-heading hover:bg-surface-2">
+            <button type="button" onClick={() => setOpen(false)} className="rounded-md border border-line px-3 py-1 text-[16px] text-fg-heading hover:bg-surface-2">
               {FIND_TEXT.close}
             </button>
           </div>
           {body}
         </div>
       ) : open ? (
-        <div role="dialog" aria-label={LEGEND_TEXT.title} data-testid="legend-panel" className="absolute right-0 top-11 max-h-[min(80vh,40rem)] w-[44rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-line bg-surface/95 p-4 text-[15px] text-fg shadow-2xl backdrop-blur [scrollbar-width:thin]">
+        <div role="dialog" aria-label={LEGEND_TEXT.title} data-testid="legend-panel" className="absolute right-0 top-11 max-h-[min(80vh,40rem)] w-[44rem] max-w-[calc(100vw-2rem)] overflow-y-auto rounded-xl border border-line bg-surface/95 p-4 text-[16px] text-fg shadow-2xl backdrop-blur [scrollbar-width:thin]">
           {body}
         </div>
       ) : null}

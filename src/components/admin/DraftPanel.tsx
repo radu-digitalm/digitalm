@@ -66,7 +66,7 @@ function Count({ value, cap }: { value: string; cap: { min: number; max: number 
   const n = value.length;
   const off = n < cap.min || n > cap.max;
   return (
-    <span className={`font-mono text-[13px] ${off ? "text-amber-300" : "text-fg-muted"}`} title={`Between ${cap.min} and ${cap.max} characters`}>
+    <span className={`font-mono text-[14px] ${off ? "text-amber-300" : "text-fg-muted"}`} title={`Between ${cap.min} and ${cap.max} characters`}>
       {n} / {cap.max}
     </span>
   );
@@ -134,7 +134,7 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
   return (
     <section className="card p-5" aria-labelledby={`draft-panel-${prospectId}`}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 id={`draft-panel-${prospectId}`} className="text-[19px]">
+        <h2 id={`draft-panel-${prospectId}`} className="text-[20px]">
           Draft
         </h2>
         {draft ? (
@@ -143,18 +143,18 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
             {draft.reviewedAt ? <Badge variant="good">Reviewed {when(draft.reviewedAt)}</Badge> : <Badge variant="bad">Not reviewed</Badge>}
             {draft.editedAt ? <Badge variant="neutral">Edited {when(draft.editedAt)}</Badge> : null}
             {state?.draftStale ? <Badge variant="warn" title="A newer audit has finished since this draft was written">Older audit</Badge> : null}
-            <span className="text-[14px] text-fg-muted">{draft.locale === "fr" ? "French" : "English"}</span>
+            <span className="text-[15px] text-fg-muted">{draft.locale === "fr" ? "French" : "English"}</span>
           </div>
         ) : null}
       </div>
 
       {error ? (
-        <p role="alert" className="mt-3 text-[15px] text-accent-soft">
+        <p role="alert" className="mt-3 text-[16px] text-accent-soft">
           {error}
         </p>
       ) : null}
 
-      {!state && busy === "load" ? <p className="mt-3 text-[15px] text-fg-muted">Loading…</p> : null}
+      {!state && busy === "load" ? <p className="mt-3 text-[16px] text-fg-muted">Loading…</p> : null}
 
       {state && !state.audit ? (
         <EmptyState className="mt-4" title="No finished audit yet" hint="Run an audit first; the draft is written from its results." />
@@ -175,7 +175,7 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
 
       {state && state.audit && draft ? (
         <div className="mt-4 space-y-4">
-          <p className="text-[14px] text-fg-muted">
+          <p className="text-[15px] text-fg-muted">
             From audit {state.audit.reference}
             {state.audit.score !== null ? ` · score ${state.audit.score} of 100${state.audit.grade ? ` (${state.audit.grade})` : ""}` : ""} · To: {state.prospect.displayName}
             {OUTREACH_MODULE ? (
@@ -251,7 +251,7 @@ export function DraftPanel({ prospectId }: { prospectId: number }) {
                 Regenerate
               </Button>
             )}
-            {!draft.reviewedAt ? <span className="text-[14px] text-fg-muted">Sending stays refused until the draft is saved.</span> : null}
+            {!draft.reviewedAt ? <span className="text-[15px] text-fg-muted">Sending stays refused until the draft is saved.</span> : null}
           </div>
         </div>
       ) : null}

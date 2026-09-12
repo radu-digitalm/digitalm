@@ -48,12 +48,12 @@ export function GoogleBlock({ prospect: p, enabled }: { prospect: Prospect; enab
   return (
     <section className="card p-5" aria-label="Google listing">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <h2 className="text-[19px] text-fg-heading">Google listing</h2>
+        <h2 className="text-[20px] text-fg-heading">Google listing</h2>
         <Badge variant={variant}>{LISTING_WORD[p.googleListing]}</Badge>
       </div>
       <KeyValue
         items={[
-          { label: "Place id", value: p.googlePlaceId ? <span className="font-mono text-[13px]">{p.googlePlaceId}</span> : null },
+          { label: "Place id", value: p.googlePlaceId ? <span className="font-mono text-[14px]">{p.googlePlaceId}</span> : null },
           { label: "Confirmed", value: p.googleConfirmedAt ? localDateTime(p.googleConfirmedAt) : null, muted: true },
         ]}
       />
@@ -74,11 +74,11 @@ export function GoogleBlock({ prospect: p, enabled }: { prospect: Prospect; enab
         ) : null}
       </div>
       {candidates && candidates.length > 0 ? (
-        <ul className="mt-3 space-y-1 text-[15px]">
+        <ul className="mt-3 space-y-1 text-[16px]">
           {candidates.map((c) => (
             <li key={c.sourceId} className="flex items-center justify-between gap-3">
               <span>
-                {c.name} <span className="text-[14px] text-fg-muted">{c.addressLine}</span>
+                {c.name} <span className="text-[15px] text-fg-muted">{c.addressLine}</span>
               </span>
               <Button size="sm" onClick={() => void act("confirm", { listing: "found", placeId: c.sourceId })}>
                 Use

@@ -47,10 +47,10 @@ export function DataTable<T>({
   const pad = dense ? "px-3 py-2" : "px-3 py-2.5";
   const table = (
     <div className={`card ${cards ? "hidden md:block" : ""}`} style={{ overflowX: "auto" }}>
-      <table className="w-full text-[15px]" style={{ minWidth }}>
+      <table className="w-full text-[16px]" style={{ minWidth }}>
         {caption ? <caption className="sr-only">{caption}</caption> : null}
         <thead>
-          <tr className="border-b border-line text-[14px] font-medium uppercase tracking-wide text-fg-muted">
+          <tr className="border-b border-line text-[15px] font-medium uppercase tracking-wide text-fg-muted">
             {columns.map((c) => (
               <th key={c.key} scope="col" className={`${pad} font-medium ${ALIGN[c.align ?? "left"]} ${c.className ?? ""}`}>
                 {c.header}
@@ -100,7 +100,7 @@ export function DataTable<T>({
                 const label = c.cardLabel === false ? null : c.cardLabel ?? (typeof c.header === "string" ? c.header : null);
                 return (
                   <div key={c.key} className={label ? "grid grid-cols-[minmax(6rem,32%)_1fr] gap-3" : ""}>
-                    {label ? <div className="text-[14px] text-fg-muted">{label}</div> : null}
+                    {label ? <div className="text-[15px] text-fg-muted">{label}</div> : null}
                     <div className="min-w-0 break-words">{value}</div>
                   </div>
                 );

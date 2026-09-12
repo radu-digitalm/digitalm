@@ -80,37 +80,37 @@ function StatusWord({ r, area }: { r: ResultRow; area: string }) {
   const s = rowStatus(r);
   if (s === "saved" && r.alreadySaved)
     return (
-      <Link href={`/admin/prospects/${r.alreadySaved.prospectId}`} onClick={(e) => e.stopPropagation()} className="link-accent whitespace-nowrap text-[15px]" data-testid="row-status">
-        {STATUS_WORDS.saved} · <span className="font-mono text-[14px]">{r.alreadySaved.reference}</span>
+      <Link href={`/admin/prospects/${r.alreadySaved.prospectId}`} onClick={(e) => e.stopPropagation()} className="link-accent whitespace-nowrap text-[16px]" data-testid="row-status">
+        {STATUS_WORDS.saved} · <span className="font-mono text-[15px]">{r.alreadySaved.reference}</span>
       </Link>
     );
   if (s === "not_listed")
     return (
-      <span className="text-[15px] text-fg-muted" data-testid="row-status">
+      <span className="text-[16px] text-fg-muted" data-testid="row-status">
         {STATUS_WORDS.not_listed}
       </span>
     );
   if (s === "closed")
     return (
-      <span className="text-[15px] text-fg-muted" data-testid="row-status">
+      <span className="text-[16px] text-fg-muted" data-testid="row-status">
         {STATUS_WORDS.closed}
       </span>
     );
   if (s === "outside")
     return (
-      <span className="text-[15px] text-amber-300" data-testid="row-status" title={fill(FIND_TEXT.outsideArea, { area })}>
+      <span className="text-[16px] text-amber-300" data-testid="row-status" title={fill(FIND_TEXT.outsideArea, { area })}>
         {STATUS_WORDS.outside}
       </span>
     );
   if (s === "chain")
     return (
-      <span className="text-[15px] text-fg-muted" data-testid="row-status">
+      <span className="text-[16px] text-fg-muted" data-testid="row-status">
         {STATUS_WORDS.chain}
       </span>
     );
   if (s === "hidden")
     return (
-      <span className="text-[15px] text-fg-muted" data-testid="row-status">
+      <span className="text-[16px] text-fg-muted" data-testid="row-status">
         {STATUS_WORDS.hidden}
       </span>
     );
@@ -200,7 +200,7 @@ export function FindList(p: FindListProps) {
     const undoButton = r.hidden ? (
       <button
         type="button"
-        className="rounded-md border border-line px-2 py-0.5 text-[14px] text-fg-heading hover:bg-surface-2"
+        className="rounded-md border border-line px-2 py-0.5 text-[15px] text-fg-heading hover:bg-surface-2"
         onClick={(e) => {
           e.stopPropagation();
           p.onUndoDismiss(r.key);
@@ -253,7 +253,7 @@ export function FindList(p: FindListProps) {
         {narrow ? (
           <div className="min-w-0">
             <div className="flex items-baseline justify-between gap-3">
-              <span className="min-w-0 truncate text-[16px] text-fg-heading" data-testid="row-name">
+              <span className="min-w-0 truncate text-[17px] text-fg-heading" data-testid="row-name">
                 {r.name}
               </span>
               <span className="flex shrink-0 items-center gap-2">
@@ -261,7 +261,7 @@ export function FindList(p: FindListProps) {
                 {undoButton}
               </span>
             </div>
-            <div className="flex flex-wrap items-baseline gap-x-3 text-[15px] text-fg">
+            <div className="flex flex-wrap items-baseline gap-x-3 text-[16px] text-fg">
               {town || (showCountry && r.countryName) ? (
                 <span className="min-w-0 truncate">
                   {town}
@@ -275,21 +275,21 @@ export function FindList(p: FindListProps) {
                 </span>
               ) : null}
             </div>
-            {second ? <div className="truncate text-[14px] text-fg-muted">{second}</div> : null}
+            {second ? <div className="truncate text-[15px] text-fg-muted">{second}</div> : null}
           </div>
         ) : (
           <div className="grid min-w-0 grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1">
             <div className="min-w-0">
-              <div className="truncate text-[16px] text-fg-heading" data-testid="row-name">
+              <div className="truncate text-[17px] text-fg-heading" data-testid="row-name">
                 {r.name}
               </div>
-              {second ? <div className="truncate text-[14px] text-fg-muted">{second}</div> : null}
+              {second ? <div className="truncate text-[15px] text-fg-muted">{second}</div> : null}
             </div>
-            <div className="min-w-0 truncate text-[15px] text-fg">
+            <div className="min-w-0 truncate text-[16px] text-fg">
               {town}
               {showCountry && r.countryName ? <span className="text-fg-muted">{town ? ", " : ""}{r.countryName}</span> : null}
             </div>
-            <div className="min-w-0 text-[15px] text-fg">
+            <div className="min-w-0 text-[16px] text-fg">
               {r.phone ? <div className="whitespace-nowrap">{r.phone}</div> : null}
               {r.website ? (
                 <div className="truncate text-fg-muted" data-testid="row-site">
@@ -312,8 +312,8 @@ export function FindList(p: FindListProps) {
       <div className="shrink-0 space-y-2 border-b border-line px-3 pb-2 pt-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div data-testid="find-summary">
-            {p.compactHeader ? null : <div className="text-[18px] text-fg-heading">{summary}</div>}
-            <div className="text-[15px] text-fg-muted">
+            {p.compactHeader ? null : <div className="text-[19px] text-fg-heading">{summary}</div>}
+            <div className="text-[16px] text-fg-muted">
               <span className="text-fg">{savableLine}</span>
               {perSource ? ` · ${perSource}` : null}
             </div>
@@ -334,21 +334,21 @@ export function FindList(p: FindListProps) {
                 aria-pressed={on}
                 onClick={() => p.onToggleChip(c)}
                 title={reveal ? `${CHIP_LABEL[c]} — off by default; switch on to list them (at the bottom)` : undefined}
-                className={`whitespace-nowrap rounded-full border px-3 py-1 text-[15px] transition-colors ${on ? "border-accent-magenta bg-accent-magenta/15 text-fg-heading" : "border-line text-fg-muted hover:border-line-strong hover:text-fg-heading"}`}
+                className={`whitespace-nowrap rounded-full border px-3 py-1 text-[16px] transition-colors ${on ? "border-accent-magenta bg-accent-magenta/15 text-fg-heading" : "border-line text-fg-muted hover:border-line-strong hover:text-fg-heading"}`}
               >
                 {CHIP_LABEL[c]} <span className="text-fg-muted">({formatInt(p.counts[c])})</span>
               </button>
             );
           })}
           {secondaryChips.length > 0 ? (
-            <button type="button" aria-expanded={showAllChips} onClick={() => setMoreFilters(!showAllChips)} data-testid="more-filters" className="whitespace-nowrap rounded-full px-2 py-1 text-[15px] text-fg-muted underline-offset-2 hover:text-fg-heading hover:underline">
+            <button type="button" aria-expanded={showAllChips} onClick={() => setMoreFilters(!showAllChips)} data-testid="more-filters" className="whitespace-nowrap rounded-full px-2 py-1 text-[16px] text-fg-muted underline-offset-2 hover:text-fg-heading hover:underline">
               {showAllChips ? FIND_TEXT.fewerFilters : fill(FIND_TEXT.moreFilters, { n: secondaryChips.length })}
             </button>
           ) : null}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input type="search" value={p.text} onChange={(e) => p.onText(e.target.value)} placeholder={FIND_TEXT.filterPlaceholder} aria-label={FIND_TEXT.filterPlaceholder} className={`${inputClass} min-w-[10rem] flex-1`} />
-          <label className="flex items-center gap-2 text-[15px] text-fg-muted" title={FIND_TEXT.sortHint}>
+          <label className="flex items-center gap-2 text-[16px] text-fg-muted" title={FIND_TEXT.sortHint}>
             <span>{FIND_TEXT.sortLabel}</span>
             <select name="sort" value={p.sort} onChange={(e) => p.onSort(e.target.value as SortKey)} className={`${inputClass} w-auto`}>
               {SORT_OPTIONS.map((o) => (
@@ -358,7 +358,7 @@ export function FindList(p: FindListProps) {
               ))}
             </select>
           </label>
-          <label className="flex items-center gap-2 text-[15px] text-fg-muted">
+          <label className="flex items-center gap-2 text-[16px] text-fg-muted">
             <input type="checkbox" checked={p.followMap} onChange={(e) => p.onFollowMap(e.target.checked)} />
             {FIND_TEXT.followMap}
           </label>
@@ -367,11 +367,11 @@ export function FindList(p: FindListProps) {
 
       <div ref={listEl} className="min-h-0 flex-1 overflow-y-auto" onKeyDown={onKey}>
         {rows.length === 0 ? (
-          <p className="px-4 py-8 text-center text-[15px] text-fg-muted">{p.running ? FIND_TEXT.searchingOsmOne + "…" : "Nothing matches these filters."}</p>
+          <p className="px-4 py-8 text-center text-[16px] text-fg-muted">{p.running ? FIND_TEXT.searchingOsmOne + "…" : "Nothing matches these filters."}</p>
         ) : groups ? (
           groups.map((g) => (
             <div key={g.town}>
-              <div className="sticky top-0 z-10 border-b border-line bg-surface px-3 py-1.5 text-[14px] font-medium text-fg-heading">
+              <div className="sticky top-0 z-10 border-b border-line bg-surface px-3 py-1.5 text-[15px] font-medium text-fg-heading">
                 {g.town} ({countByTown.get(g.town) ?? g.rows.length})
               </div>
               {g.rows.map(renderRow)}
@@ -388,7 +388,7 @@ export function FindList(p: FindListProps) {
           </div>
         ) : null}
         {p.footer}
-        <p className="px-3 py-3 text-[14px] text-fg-muted">{ATTRIBUTION_TEXT}</p>
+        <p className="px-3 py-3 text-[15px] text-fg-muted">{ATTRIBUTION_TEXT}</p>
       </div>
     </div>
   );

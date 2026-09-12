@@ -76,11 +76,11 @@ export function TodayCards({ summary, nextCall }: { summary: TodaySummary; nextC
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5" data-testid="today-cards">
         {summary.actions.map((c) => (
           <Link key={c.key} href={c.href} className={`card card-hover flex flex-col gap-1.5 border p-5 ${TONE_CLASS[c.tone]}`} data-testid="today-card">
-            <span className="text-[16px] text-fg-heading">{c.title}</span>
+            <span className="text-[17px] text-fg-heading">{c.title}</span>
             <span className={`font-display text-[32px] leading-none ${VALUE_CLASS[c.tone]}`}>{c.value}</span>
-            {c.detail ? <span className="text-[15px] text-fg-muted">{c.detail}</span> : null}
+            {c.detail ? <span className="text-[16px] text-fg-muted">{c.detail}</span> : null}
             {c.lines && c.lines.length > 0 ? (
-              <ul className="mt-1 space-y-0.5 text-[14px] text-fg-muted">
+              <ul className="mt-1 space-y-0.5 text-[15px] text-fg-muted">
                 {c.lines.slice(0, 4).map((l, i) => (
                   <li key={i} className="truncate" title={l.text}>
                     {l.text}
@@ -92,13 +92,13 @@ export function TodayCards({ summary, nextCall }: { summary: TodaySummary; nextC
         ))}
       </div>
 
-      <p className="text-[15px] text-fg-muted">
+      <p className="text-[16px] text-fg-muted">
         <Link href="/admin/leads?stage=all&sort=created&dir=desc" className="hover:text-fg-heading">
           {fill(TODAY_TEXT.week, { n: summary.week.newLeads, by: weekBy || "none yet" })}
         </Link>
       </p>
 
-      <details className="text-[15px]" data-testid="housekeeping">
+      <details className="text-[16px]" data-testid="housekeeping">
         <summary className="cursor-pointer text-fg-muted">{TODAY_TEXT.housekeeping}</summary>
         <ul className="mt-2 space-y-1.5">
           {summary.housekeeping.map((h) => (

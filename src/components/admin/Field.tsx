@@ -4,10 +4,10 @@ import type { InputHTMLAttributes } from "react";
 // optional hint below, error in accent. `name` doubles as the id when no id is given.
 // Sizes per docs/finder-ux-spec.md §6.1: label 15 px, input 15–16 px, hint 14 px.
 export const inputClass =
-  "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2 text-[15px] xl:text-base text-fg-heading placeholder:text-fg-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-60";
-export const labelClass = "mb-1.5 block text-[15px] text-fg-muted";
-export const hintClass = "mt-1 text-[14px] text-fg-muted";
-export const errorClass = "mt-1 text-[14px] text-accent-soft";
+  "w-full rounded-lg border border-white/10 bg-surface-2 px-3 py-2 text-[16px] xl:text-base text-fg-heading placeholder:text-fg-faint focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/40 disabled:opacity-60";
+export const labelClass = "mb-1.5 block text-[16px] text-fg-muted";
+export const hintClass = "mt-1 text-[15px] text-fg-muted";
+export const errorClass = "mt-1 text-[15px] text-accent-soft";
 
 export function FieldFrame({
   label,

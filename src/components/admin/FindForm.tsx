@@ -60,10 +60,10 @@ function SourcesPopover({ value, onChange, companiesHouseOn, googleOn, disabled 
       </Button>
       {open ? (
         <div id={id} className="absolute left-0 top-full z-40 mt-1 w-[24rem] max-w-[calc(100vw-2rem)] rounded-lg border border-line bg-surface p-3 shadow-xl">
-          <p className="mb-2 text-[15px] text-fg-heading">{FIND_TEXT.sourcesTitle}</p>
+          <p className="mb-2 text-[16px] text-fg-heading">{FIND_TEXT.sourcesTitle}</p>
           <div className="flex flex-col gap-2">
             {rows.map((r) => (
-              <label key={r.id} className={`flex items-start gap-2 text-[15px] ${r.off ? "text-fg-muted" : "text-fg-heading"}`}>
+              <label key={r.id} className={`flex items-start gap-2 text-[16px] ${r.off ? "text-fg-muted" : "text-fg-heading"}`}>
                 <input type="checkbox" className="mt-0.5" checked={!r.off && value.includes(r.id)} disabled={!!r.off} onChange={() => toggle(r.id)} />
                 <span>
                   {r.label}
@@ -136,9 +136,9 @@ export function FindForm({
       </div>
       {compact && !error ? null : (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-          {compact ? null : <p className="text-[15px] text-fg-muted">{FIND_TEXT.helper}</p>}
+          {compact ? null : <p className="text-[16px] text-fg-muted">{FIND_TEXT.helper}</p>}
           {error ? (
-            <p role="alert" className="text-[15px] text-accent-soft">
+            <p role="alert" className="text-[16px] text-accent-soft">
               {error}
             </p>
           ) : null}

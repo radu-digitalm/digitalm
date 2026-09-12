@@ -12,8 +12,8 @@ export function EmptyState({
 }) {
   return (
     <div className={`card flex flex-col items-center gap-2 px-6 py-10 text-center ${className}`}>
-      <p className="text-[16px] text-fg-heading">{title}</p>
-      {hint ? <p className="max-w-md text-[15px] text-fg-muted">{hint}</p> : null}
+      <p className="text-[17px] text-fg-heading">{title}</p>
+      {hint ? <p className="max-w-md text-[16px] text-fg-muted">{hint}</p> : null}
       {action ? <div className="mt-3">{action}</div> : null}
     </div>
   );
