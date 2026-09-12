@@ -73,6 +73,25 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.goto(BASE + url, { waitUntil: "domcontentloaded" });
     await sleep(1200);
   }
+  /** Google mode: the finder map is Google Maps (data-map=google); otherwise Leaflet. */
+  async function googleMapOn() {
+    await page.locator("[data-testid=find-map][data-map=google], .leaflet-container").first().waitFor({ state: "attached", timeout: 30000 });
+    return (await page.locator("[data-testid=find-map][data-map=google]").count()) === 1;
+  }
+  /** The node __dmFindProject() pixels are relative to: the Map node in Google mode, the Leaflet container otherwise. */
+  async function mapBox() {
+    return page.locator((await googleMapOn()) ? "[data-testid=find-map] > div" : "[data-testid=find-map] .leaflet-container").first().boundingBox();
+  }
+  /** Type into the Area box: the plain field, or the Places UI Kit element that stands in for an empty box in Google mode. */
+  async function typeArea(text) {
+    const plain = page.locator("input[name=area]");
+    if (await plain.count()) return plain.fill(text);
+    const el = page.locator("gmp-basic-place-autocomplete");
+    await el.waitFor({ state: "attached", timeout: 20000 });
+    await el.click();
+    await page.keyboard.type(text, { delay: 40 });
+    await sleep(300);
+  }
   /** A finished Ariège · Restaurant search id: reuse a recent one, else run one (≤ 150 s). */
   let ariegeId = null;
   async function ensureAriege() {
@@ -171,10 +190,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await page.waitForFunction(() => window.__dmFindPins && window.__dmFindPins.total > 0, null, { timeout: 60000 });
     await sleep(1500);
     await shot("A12-ariege-map");
-    const containers = await page.locator(".leaflet-container").count();
-    assert(containers === 1, `leaflet containers: ${containers}`);
-    const outline = await page.locator(".leaflet-overlay-pane path, .leaflet-overlay-pane canvas").count();
-    assert(outline >= 1, "no outline path/canvas");
+    const google = await googleMapOn();
+    assert((await page.locator("[data-testid=find-map]").count()) === 1, "no find-map");
+    if (!google) {
+      const outline = await page.locator(".leaflet-overlay-pane path, .leaflet-overlay-pane canvas").count();
+      assert(outline >= 1, "no outline path/canvas");
+    }
     // Register entries that are not listed publicly stay out of the way by default (no row, no pin); their chip brings them back.
     const pins = await page.evaluate(() => window.__dmFindPins);
     assert(pins.total >= 200, `pins.total ${pins.total}`);
@@ -187,9 +208,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       await notListedChip.click();
       await sleep(400);
     }
-    const attr = await page.locator(".leaflet-control-attribution").textContent();
+    const attr = await page.locator("[data-testid=find-map]").innerText();
     assert(/OpenStreetMap contributors/.test(attr || ""), "attribution missing");
-    return { id, pins };
+    return { id, pins, google };
   });
 
   // ---- A13 interaction ----------------------------------------------------------------------
@@ -231,7 +252,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       return null;
     });
     assert(key, "no projectable pin");
-    const box = await page.locator("[data-testid=find-map] .leaflet-container").boundingBox();
+    const box = await mapBox();
     const pt = await page.evaluate((k) => window.__dmFindProject(k), key);
     await page.mouse.click(box.x + pt.x, box.y + pt.y);
     await dialog.waitFor({ timeout: 5000 });
@@ -312,7 +333,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- A15 progress ---------------------------------------------------------------------------
   await step("A15", "progress while searching", async () => {
     await goto("/admin/find");
-    await page.fill('input[name="area"]', "Foix");
+    await typeArea("Foix");
     await page.click("[data-testid=find-submit]");
     let sawBar = false;
     let sawStop = false;
@@ -348,7 +369,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     // The onboarding lines leave once a search exists; the map starts high on the page.
     assert((await page.getByText("Public sources only", { exact: false }).count()) === 0, "helper line still shown with results");
     const mapTop = (await page.locator("[data-testid=find-map]").boundingBox()).y;
-    assert(mapTop < 270, `map starts at y=${Math.round(mapTop)}`); // 211 without, 241 with the "Not this place?" line (was 296–356)
+    assert(mapTop < 300, `map starts at y=${Math.round(mapTop)}`); // 211 without, 241 with the "Not this place?" line, 272 in Google mode (Details line) — was 296–356
     assert(sawBar, "never saw the progress bar with its text");
     assert(sawStop, "Search button never read Stop");
     return { text, final };
@@ -402,7 +423,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert(!/\(0\)/.test(reg), `register chip reads "${reg}"`);
     await page.locator("[data-testid=more-filters]").click();
     // Dismiss one row, then show Hidden → Undo control.
-    const row = page.locator("[data-testid=find-row]").nth(1);
+    const row = page.locator("[data-testid=find-row]").filter({ hasNotText: /Saved ·/ }).nth(1);
     const key = await row.getAttribute("data-key");
     const rowName = (await row.locator("[data-testid=row-name]").first().textContent()).trim();
     await row.click();
@@ -435,7 +456,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   // ---- A18 over-cap gate --------------------------------------------------------------------------
   await step("A18", "over-cap gate for Occitanie", async () => {
     await goto("/admin/find");
-    await page.fill('input[name="area"]', "Occitanie");
+    await typeArea("Occitanie");
     await page.click("[data-testid=find-submit]");
     const gate = page.locator("[data-testid=cap-gate]");
     await gate.waitFor({ timeout: 30000 });
@@ -466,8 +487,16 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     const check = async (url) => {
       const res = await m.goto(BASE + url, { waitUntil: "domcontentloaded" });
       await sleep(1500);
-      const s = await m.evaluate(() => ({ sw: document.scrollingElement.scrollWidth, iw: window.innerWidth }));
-      assert(s.iw === MOBILE_W && s.sw === MOBILE_W, `${url}: wider than the phone — scrollWidth ${s.sw}, innerWidth ${s.iw} (device ${MOBILE_W})`);
+      const s = await m.evaluate(() => {
+        // On a miss, name the elements that poke past the phone edge (scroll containers excluded).
+        const wide = [];
+        for (const el of document.querySelectorAll("body *")) {
+          const b = el.getBoundingClientRect();
+          if (b.right > 391 && b.width > 0 && !el.closest(".overflow-x-auto, .overflow-hidden, .overflow-auto")) wide.push(`${el.tagName.toLowerCase()}${el.getAttribute("data-testid") ? "[" + el.getAttribute("data-testid") + "]" : ""}.${String(el.className).split(" ").slice(0, 3).join(".")}:${Math.round(b.left)}-${Math.round(b.right)}`);
+        }
+        return { sw: document.scrollingElement.scrollWidth, iw: window.innerWidth, wide: wide.slice(0, 6) };
+      });
+      assert(s.iw === MOBILE_W && s.sw === MOBILE_W, `${url}: wider than the phone — scrollWidth ${s.sw}, innerWidth ${s.iw} (device ${MOBILE_W}); wide: ${s.wide.join(" ")}`);
       return res ? res.status() : 0;
     };
     const id = await ensureAriege();
@@ -487,7 +516,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await check("/admin/find");
     await m.getByRole("button", { name: "Menu" }).click();
     await sleep(200);
-    for (const label of ["Today", "Leads", "Find", "Prospects", "Opt-outs"]) assert((await m.locator("nav a", { hasText: new RegExp(`^${label}$`) }).count()) >= 1, `menu lacks ${label}`);
+    for (const label of ["Today", "Leads", "Find", "Prospects", "Opt-outs"]) assert((await m.locator('[role=dialog][aria-label="Admin menu"] a, nav a', { hasText: new RegExp(`^${label}$`) }).count()) >= 1, `menu lacks ${label}`); // the drawer is portalled to <body>
     await m.keyboard.press("Escape");
     await m.goto(BASE + `/admin/find?search=${id}`, { waitUntil: "domcontentloaded" });
     // Peeking, the sheet shows only the title and the List / Map control — no rows until List is tapped (QA round 1).
@@ -495,7 +524,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     await m.waitForFunction(() => /\d+ \S+ in /.test(document.querySelector("[data-testid=find-sheet]")?.textContent || ""), null, { timeout: 60000 });
     await sleep(1000);
     await m.screenshot({ path: path.join(OUT, "A19-mobile-find.png") });
-    assert((await m.locator(".leaflet-container").count()) === 1, "no map on the phone");
+    assert((await m.locator("[data-testid=find-map][data-map=google], .leaflet-container").count()) === 1, "no map on the phone");
     const sheet = m.locator("[data-testid=find-sheet]");
     assert((await sheet.count()) === 1, "no find-sheet");
     assert((await sheet.getByRole("button", { name: "List", exact: true }).count()) >= 1, "no List control");
@@ -782,9 +811,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await gstep("G9", "prospect page Google section", async () => {
     const id = await ensureAriege();
     const r = await api("GET", `/api/admin/find?id=${id}`);
-    const row = (r.json.rows || []).find((x) => x.googlePlaceId && x.alreadySaved);
-    if (!row) return { note: "no saved row with a place id in this search" };
-    const pid = row.alreadySaved.prospectId;
+    let pid = null;
+    for (const x of (r.json.rows || []).filter((x) => x.alreadySaved)) {
+      if (x.googlePlaceId) { pid = x.alreadySaved.prospectId; break; }
+      const pr = await api("GET", `/api/admin/prospects/${x.alreadySaved.prospectId}`);
+      if (pr.json && pr.json.prospect && pr.json.prospect.googlePlaceId) { pid = x.alreadySaved.prospectId; break; }
+    }
+    if (!pid) return { note: "no saved row with a place id in this search" };
     await goto(`/admin/prospects/${pid}`);
     await sleep(2500);
     await shot("G9-prospect-google");
@@ -798,12 +831,13 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
       return { a, g };
     });
     assert(order.a >= 0 && order.g > order.a, `block order ${JSON.stringify(order)}`);
-    const before = await page.locator("main").textContent();
+    // What is on screen before opening (innerText): the closed <details> keeps its signals out of view.
+    const before = await page.locator("main").innerText();
     for (const w of ["website on the listing", "opening hours filled in", "no opening hours", "reviews", "photos"]) assert(!before.includes(w), `signal word before opening: ${w}`);
-    assert((await page.locator('main img[src*="google-maps-logo"]').count()) === 0, "a Google Maps logo before opening");
+    assert((await page.locator('main img[src*="google-maps-logo"]:visible').count()) === 0, "a Google Maps logo before opening");
     const mini = page.locator("[data-testid=mini-map]").first();
     const hadMini = (await mini.count()) === 1;
-    await block.locator("summary").click();
+    await block.locator("summary").first().click();
     await sleep(600);
     if (hadMini) assert(!(await mini.isVisible()), "the mini map is still visible while the Google section is open");
     const status = (await page.locator("[data-testid=google-status]").textContent()).trim();
@@ -813,7 +847,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
     assert((await page.locator("main a", { hasText: /^View on Google Maps$/ }).count()) >= 1, "no View on Google Maps link");
     const text = await page.locator("main").textContent();
     for (const w of GOOGLE_WORDS) assert(!new RegExp(`\\b${w}\\b`, w === "GMB" ? "" : "i").test(text), `forbidden word on the page: ${w}`);
-    await block.locator("summary").click();
+    await block.locator("summary").first().click();
     await sleep(400);
     if (hadMini) assert(await mini.isVisible(), "the mini map did not come back");
     return { pid, status };

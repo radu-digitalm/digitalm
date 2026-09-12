@@ -60,6 +60,12 @@ export function GoogleAreaInput({ value, onChange, onSuggestion, onEnter, disabl
   }, []);
 
   // The element shows while the box is being typed in; the Field whenever the value came from elsewhere.
+  // A search has started (the form is disabled): back to the plain field, which shows the text that
+  // was submitted — the element cannot be given a value, so it would come back empty afterwards.
+  useEffect(() => {
+    if (disabled) setEditing(false);
+  }, [disabled]);
+
   const canUseElement = ready && !broken && !disabled && !plain;
   const useElement = canUseElement && (editing || value === "");
   const editingAtMount = useRef(false);

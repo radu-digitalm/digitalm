@@ -541,3 +541,18 @@
   overflow: hidden;
 }
 /* @@admin:end */
+
+/* The Places UI Kit element has an intrinsic width wider than a phone (406 px seen at 390 px):
+   pin the host to its box so the find form never widens the page. */
+.dm-garea-box,
+.dm-garea-box gmp-basic-place-autocomplete {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.dm-garea-box gmp-basic-place-autocomplete {
+  /* its (closed) shadow content reports a 406 px min-content width — keep that out of the layout */
+  contain: inline-size;
+}

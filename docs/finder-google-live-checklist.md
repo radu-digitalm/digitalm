@@ -188,6 +188,42 @@ ADMIN_PASSWORD="$(cat $S/admin-password)" NODE_PATH=/home/hermes/.npm/_npx/fd3bc
 
 ---
 
+---
+
+## Part C — run of 2026-09-12 on staging (integrator)
+
+Staging (`d3v.digitalm.eu`) runs Google mode since 2026-09-12 19:45 UTC: `GOOGLE_PLACES=on`, `GOOGLE_PLACES_DISCOVERY=off`, both keys, Map ID (raster). Prod is untouched (`GOOGLE_PLACES=off`).
+
+**Console (Part A, done by the integrator in Radu's browser session — no billing changes):**
+- A3: browser key `digitalm Maps browser` restricted to *Maps JavaScript API + Places UI Kit*; referrers `https://digitalm.eu/*`, `https://d3v.digitalm.eu/*`. Server key unchanged (Places API (New), IP `92.222.91.167`).
+- A5 quotas set: Places API (New) `SearchTextRequest per day` 75,000 → **400** and `GetPlaceRequest per day` 125,000 → **400** (the console has per-method quotas, not one "requests per day"); Maps JavaScript API `Map loads per day` unlimited → **500**; Places UI Kit `Session Requests per day` unlimited → **1,000** and `Advanced Query Requests per day` 8,000 → **1,000**.
+- A5 budget alert (€5/month): **not created** — it is a billing-account setting, Radu's to make (*Billing → Budgets & alerts*, e-mail at 50/90/100 %).
+- Still open from the key round: the project's unrestricted default "Maps Platform API Key" — Radu decides whether to delete it.
+
+**Acceptance:**
+
+| Item | Result |
+| --- | --- |
+| L1 keys | Server key Text Search from the box → 200. Browser key: Google map on `d3v.digitalm.eu`; from `http://127.0.0.1:3001` Google refuses the referrer and the page shows Leaflet under "The Google map could not be loaded — showing OpenStreetMap instead." Quotas as above. |
+| L3 suggestions | *arie* → Google suggestions; Enter on *Ariège, France* → `gmp-select` with `place.id`, the box reads *Ariège, France*, the search starts with `suggestion.placeId`, no chooser; `area.kind = department`, `osmRelationId = 7439`; `api_usage.google_details_other` +1 per pick. `"area":""` + id → 202; malformed id → 400 `bad_suggestion`. (e2e step **G2** now covers this.) |
+| L4 map | Ariège / restaurant: 559 pins, 35 cluster discs at zoom 9, one Map instance across a second search (`__dmGmapLoads === 1`), © OpenStreetMap contributors on the phone layout. |
+| L5 nothing stored | `api_cache` Google rows 0; `api_usage` only `google_search` / `google_details_enterprise` / `google_details_other`; no malformed place id; no key or Google place name in `staging.log`. |
+| L6 discovery | not run (discovery off — D1). |
+| L7 audit | Saved Foix row → `googlePlaceId`, `googleListing = found`, `googleMatch = auto`, `googleCheckedAt`; audit `google_listing` pass 10/10, `measured = true`, details keys ⊆ the allowed set; one `google_search` + one `google_details_enterprise` per audited prospect. `reject` → `not_found` / `manual`, next audit carries `no-gbp` and leaves the columns alone. Report (FR): *Votre fiche Google est en place et complète.* / *Nous n'avons pas trouvé de fiche Google pour votre établissement.* Prospect page: collapsed section "Google listing · Listing found · looks maintained", signals and the Google Maps logo only after opening. |
+| L8 caps | `GOOGLE_PLACES_MONTHLY_CAP=0` → **Check again** answers 429 `google_monthly_cap`, pool `google_details_enterprise`, no `api_usage` increment (after the fix below); restored → the check runs again. Search-pool caps (`GOOGLE_SEARCH_MONTHLY_CAP`) not exercised — discovery off. |
+| L9 words / e2e | `npm test` green (fail 0). e2e in Google mode: A0, A12–A21, G0, G2, G8, G9 green (G1 is the off-mode step). Full run log in the session scratchpad. |
+| L10 billing | to read on 2026-09-13 (*Billing → Reports*, expect €0.00). |
+| G10 | `tsc` clean, one build per change, no `.env*` in git. |
+
+**Defects found by the run and fixed (all in `main`):**
+1. Find page crashed in Google mode ("This page couldn't load"): `MarkerClusterer.render()` before the overlay's `onAdd` (`fromLatLngToDivPixel` of undefined) and the viewport algorithm with zero markers before its first `load()` (`'range'` of undefined). Guarded draw + seeded index in `GoogleFindMap.tsx`.
+2. Area box: the UI Kit element was unmounted after the first keystroke (value non-empty while `editing` was false); typing *arie* left *a* in a plain field. Fixed in `GoogleAreaInput.tsx`; after a plain-text search the box now shows the submitted text.
+3. Listing check spent a Pro search before finding the Enterprise pool capped — now probed first (`googleAllowance`).
+4. Phone layout: long audit-flag badges overflowed 390 px (`Badge` wraps now); the UI Kit element's 406 px intrinsic width widened the find form (`contain: inline-size` + `min-w-0` grid cells).
+5. e2e: G0 waits for the dynamic map; A12/A13/A15/A17/A18/A19/G9 made map-mode aware (Google or Leaflet), the portalled admin drawer, saved rows, visible text only.
+
+**Before prod (Part D) — Radu:** L0 records (privacy notice FR/EN, Art. 30 rows, LIA line, signed and dated); the EEA permitted-use decision for discovery (recommendation: keep `GOOGLE_PLACES_DISCOVERY=off`; Google is used for suggestions, the map and the listing check on saved prospects); the €5 budget alert; the five env lines in `digitalm-prod/.env.local`; then the promote + restart of Part D.
+
 ## Part D — Going live on prod (after L0–L10 are green)
 
 1. L0 committed and deployed (records first).

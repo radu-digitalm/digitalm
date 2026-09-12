@@ -155,6 +155,18 @@ function toGoogleError(e: unknown, pool: GooglePool): GoogleError {
 }
 
 /**
+ * True while `pool` still has room this month (the same test googleFetch applies before a
+ * socket). Lets a caller that needs two pools in a row — the listing check searches (Pro),
+ * then reads the hit (Enterprise) — stop before the first request when the second pool is
+ * already spent, instead of paying for a search it cannot use.
+ */
+export function googleAllowance(pool: GooglePool, reserve = 0): boolean {
+  const cap = googleCaps()[pool];
+  const used = apiUsageMonth(pool, googleDay().slice(0, 7));
+  return withinCap(used, cap, reserve);
+}
+
+/**
  * One Places API (New) request. Throws GoogleError: `off`, `no_key`,
  * `mask_tier` (a mask that is not one of the three constants), `allowance`
  * (the pool is at its cap — decided BEFORE any socket), `refused` (403 — key

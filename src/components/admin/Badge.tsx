@@ -22,7 +22,7 @@ export function Badge({
   className?: string;
 }) {
   return (
-    <span title={title} className={`inline-flex items-center whitespace-nowrap rounded-full border px-2.5 py-1 text-[15px] font-medium leading-tight ${VARIANT[variant]} ${className}`}>
+    <span title={title} className={`inline-flex max-w-full items-center rounded-full border px-2.5 py-1 text-left text-[15px] font-medium leading-tight ${VARIANT[variant]} ${className}`}>
       {children}
     </span>
   );

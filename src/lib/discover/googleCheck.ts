@@ -13,7 +13,7 @@ import { enquiriesDb } from "@/lib/enquiries";
 import { googleListing } from "@/lib/audit/checks";
 import { auditScore } from "@/lib/audit/score";
 import { tradeLabel } from "./categories";
-import { GoogleError, googleFetch, googlePlacesOn, type GoogleErrorCode, type GooglePool } from "./google";
+import { GoogleError, googleFetch, googlePlacesOn, type GoogleErrorCode, type GooglePool, googleAllowance } from "./google";
 import { applyMatch, checkInputFor, decide, type CheckDecision, type ColumnWrites, type GoogleCheckInput, type Listing } from "./googleCheckRules";
 import { PROSPECT_MATCH_MAX_M, matchPlace } from "./googleMatch";
 import { MASK_DETAILS_ENTERPRISE, MASK_SEARCH_PRO, candidatesOf, matchSearchBody, parseSearch, signalsOf } from "./googleRequests";
@@ -132,6 +132,9 @@ export async function googleCheck(p: CheckProspect, opts: CheckOptions = {}): Pr
   } else if (decision === "match") {
     requested = true;
     try {
+      // The match needs a Pro search and then an Enterprise read of the hit: with the details
+      // pool spent, fail on that pool now rather than after a search whose hit cannot be read.
+      if (!googleAllowance("google_details_enterprise")) throw new GoogleError("allowance", "google_details_enterprise");
       ({ hit } = await matchProspect(p, request));
       columns = applyMatch({ hit, now }).columns;
       if (hit) {

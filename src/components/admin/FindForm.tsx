@@ -123,7 +123,7 @@ export function FindForm({
       className="space-y-2"
       aria-label={FIND_TEXT.title}
     >
-      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto_auto] lg:items-start">
+      <div className="grid gap-3 [&>*]:min-w-0 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto_auto] lg:items-start">
         <AreaInput
           value={value.area}
           onChange={(area) => onChange({ ...value, area })}
