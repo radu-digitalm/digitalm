@@ -6,7 +6,7 @@
 // card, Space ticks). Every foreign value renders as text; websites go through
 // ExtLink.
 import Link from "next/link";
-import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import { rowStatus, savable, type ResultRow, type SearchResultV2 } from "./finderApi";
 import { Button } from "./Button";
 import { ExtLink } from "./ExtLink";
@@ -63,6 +63,8 @@ export type FindListProps = {
   running: boolean;
   /** Rendered under the rows (past searches). */
   footer?: React.ReactNode;
+  /** Phone: the sheet header already shows the count — keep only the per-source line. */
+  compactHeader?: boolean;
   className?: string;
 };
 
@@ -111,7 +113,18 @@ export function FindList(p: FindListProps) {
   const { result, rows } = p;
   const area = result.area;
   const listEl = useRef<HTMLDivElement>(null);
+  const rootEl = useRef<HTMLDivElement>(null);
+  const [narrow, setNarrow] = useState(true);
   const visible = rows.slice(0, p.shown);
+
+  // Under ~620 px the row is two lines (name · status / town · phone · website); wider panes get four columns.
+  useEffect(() => {
+    const el = rootEl.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setNarrow(el.getBoundingClientRect().width < 620));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const isCountry = area.kind === "country";
   const savableKeys = useMemo(() => rows.filter(savable).map((r) => r.key), [rows]);
   const pickedCount = useMemo(() => [...p.picked].filter((k) => savableKeys.includes(k)).length, [p.picked, savableKeys]);
@@ -170,6 +183,18 @@ export function FindList(p: FindListProps) {
     const second = r.addressLine?.trim() ? r.addressLine : r.cityApprox && r.city ? fill(FIND_TEXT.nearTown, { town: r.city }) : "";
     const town = townLine(r.postcode, r.city);
     const showCountry = isCountry || (r.countryCode && r.countryCode !== area.countryCode);
+    const undoButton = r.hidden ? (
+      <button
+        type="button"
+        className="rounded-md border border-line px-2 py-0.5 text-[14px] text-fg-heading hover:bg-surface-2"
+        onClick={(e) => {
+          e.stopPropagation();
+          p.onUndoDismiss(r.key);
+        }}
+      >
+        {FIND_TEXT.undo}
+      </button>
+    ) : null;
     return (
       <div
         key={r.key}
@@ -211,51 +236,69 @@ export function FindList(p: FindListProps) {
             />
           ) : null}
         </div>
-        <div className="grid min-w-0 gap-x-4 gap-y-1 md:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] md:items-start">
+        {narrow ? (
           <div className="min-w-0">
-            <div className="truncate text-[16px] text-fg-heading">{r.name}</div>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="min-w-0 truncate text-[16px] text-fg-heading">{r.name}</span>
+              <span className="flex shrink-0 items-center gap-2">
+                <StatusWord r={r} area={area.label} />
+                {undoButton}
+              </span>
+            </div>
+            <div className="flex flex-wrap items-baseline gap-x-3 text-[15px] text-fg">
+              {town || (showCountry && r.countryName) ? (
+                <span className="min-w-0 truncate">
+                  {town}
+                  {showCountry && r.countryName ? <span className="text-fg-muted">{town ? ", " : ""}{r.countryName}</span> : null}
+                </span>
+              ) : null}
+              {r.phone ? <span className="whitespace-nowrap">{r.phone}</span> : null}
+              {r.website ? (
+                <span className="min-w-0 truncate" onClick={(e) => e.stopPropagation()}>
+                  <ExtLink href={r.website} className="link-accent">
+                    {domainOf(r.website)}
+                  </ExtLink>
+                </span>
+              ) : null}
+            </div>
             {second ? <div className="truncate text-[14px] text-fg-muted">{second}</div> : null}
           </div>
-          <div className="min-w-0 truncate text-[15px] text-fg">
-            {town}
-            {showCountry && r.countryName ? <span className="text-fg-muted">{town ? ", " : ""}{r.countryName}</span> : null}
+        ) : (
+          <div className="grid min-w-0 grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] items-start gap-x-4 gap-y-1">
+            <div className="min-w-0">
+              <div className="truncate text-[16px] text-fg-heading">{r.name}</div>
+              {second ? <div className="truncate text-[14px] text-fg-muted">{second}</div> : null}
+            </div>
+            <div className="min-w-0 truncate text-[15px] text-fg">
+              {town}
+              {showCountry && r.countryName ? <span className="text-fg-muted">{town ? ", " : ""}{r.countryName}</span> : null}
+            </div>
+            <div className="min-w-0 text-[15px] text-fg">
+              {r.phone ? <div className="whitespace-nowrap">{r.phone}</div> : null}
+              {r.website ? (
+                <div className="truncate" onClick={(e) => e.stopPropagation()}>
+                  <ExtLink href={r.website} className="link-accent">
+                    {domainOf(r.website)}
+                  </ExtLink>
+                </div>
+              ) : null}
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <StatusWord r={r} area={area.label} />
+              {undoButton}
+            </div>
           </div>
-          <div className="min-w-0 text-[15px] text-fg">
-            {r.phone ? <div className="whitespace-nowrap">{r.phone}</div> : null}
-            {r.website ? (
-              <div className="truncate" onClick={(e) => e.stopPropagation()}>
-                <ExtLink href={r.website} className="link-accent">
-                  {domainOf(r.website)}
-                </ExtLink>
-              </div>
-            ) : null}
-          </div>
-          <div className="flex items-center gap-2 md:justify-end">
-            <StatusWord r={r} area={area.label} />
-            {r.hidden ? (
-              <button
-                type="button"
-                className="rounded-md border border-line px-2 py-0.5 text-[14px] text-fg-heading hover:bg-surface-2"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  p.onUndoDismiss(r.key);
-                }}
-              >
-                {FIND_TEXT.undo}
-              </button>
-            ) : null}
-          </div>
-        </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className={`flex min-h-0 flex-col ${p.className ?? ""}`} data-testid="find-list">
+    <div ref={rootEl} className={`flex min-h-0 flex-col ${p.className ?? ""}`} data-testid="find-list">
       <div className="shrink-0 space-y-2 border-b border-line px-3 pb-2 pt-3">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div data-testid="find-summary">
-            <div className="text-[18px] text-fg-heading">{summary}</div>
+            {p.compactHeader ? null : <div className="text-[18px] text-fg-heading">{summary}</div>}
             <div className="text-[15px] text-fg-muted">{perSource}</div>
           </div>
           <Button variant="primary" size="sm" onClick={p.onSaveTicked} disabled={pickedCount === 0} loading={p.saving}>

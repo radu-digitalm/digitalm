@@ -208,7 +208,9 @@ export default function FindMap({ area, rows, units = [], running = false, progr
       const p = m.latLngToContainerPoint(ll);
       visible.push({ key, x: p.x, y: p.y, ll });
     }
-    const result = clusterPoints(visible);
+    // The selected pin always stays a pin (it is what the card is about), so it is never bucketed.
+    const selected = lastSelected.current;
+    const result = clusterPoints(visible.filter((v) => v.key !== selected));
     cl.clearLayers();
     const nowClustered = new Set<string>();
     if (result.clustered) {
@@ -305,14 +307,12 @@ export default function FindMap({ area, rows, units = [], running = false, progr
       pin.setStyle(pinStyle(r, { selected: key === selectedKey, hovered: key === hoverKey, touch: touch.current }));
       if (key === selectedKey || key === hoverKey) pin.bringToFront();
     }
+    // Pop the selected pin out of its cluster, then pan (never zoom) so it is in view.
+    recluster();
     if (selectedKey) {
       const pin = pins.current.get(selectedKey);
-      if (pin) {
-        if (clusteredKeys.current.has(selectedKey)) m.setView(pin.getLatLng(), Math.max(m.getZoom(), 15));
-        else if (!m.getBounds().pad(-0.1).contains(pin.getLatLng())) m.panInside(pin.getLatLng(), { padding: [40, 40] });
-      }
+      if (pin && !m.getBounds().pad(-0.1).contains(pin.getLatLng())) m.panInside(pin.getLatLng(), { padding: [40, 40] });
     }
-    publishDebug(window.__dmFindPins?.visible ?? 0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey, hoverKey]);
 
@@ -332,7 +332,7 @@ export default function FindMap({ area, rows, units = [], running = false, progr
 
   const pct = progress === null || progress === undefined ? null : Math.max(0, Math.min(1, progress));
   return (
-    <div className={`relative overflow-hidden rounded-xl border border-line bg-surface-2 ${className}`} data-testid={mini ? "mini-map" : "find-map"}>
+    <div className={`relative isolate overflow-hidden rounded-xl border border-line bg-surface-2 ${className}`} data-testid={mini ? "mini-map" : "find-map"} data-pins={rows.filter(hasPin).length}>
       <div ref={el} className="h-full w-full" style={{ minHeight: mini ? 220 : 320 }} role="region" aria-label={mini ? "Map" : "Map of the businesses found"} />
       {running && !mini ? (
         <div className="pointer-events-none absolute inset-x-0 top-0 z-[1000] h-[3px] overflow-hidden bg-white/10" aria-hidden="true">

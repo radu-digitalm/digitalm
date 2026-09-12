@@ -142,6 +142,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   const [saving, setSaving] = useState(false);
   const [undo, setUndo] = useState<{ key: string; name: string } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [barOpen, setBarOpen] = useState(false);
   const [fitSignal, setFitSignal] = useState(0);
   const rowRefs = useRef<Map<string, HTMLElement>>(new Map());
   const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -631,6 +632,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
       rowRefs={rowRefs}
       running={running}
       footer={pastList}
+      compactHeader={phone}
       className="h-full"
     />
   ) : phase === "gate" && gate ? (
@@ -687,7 +689,7 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
   ) : null;
 
   const mapPane = (
-    <div className="relative h-full">
+    <div className="relative isolate h-full">
       <FindMap
         area={area}
         rows={pinRows}
@@ -707,10 +709,49 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
     </div>
   );
 
+  // On the phone the bar folds into one line once a search exists, so the map gets the screen.
+  const barCollapsed = phone && !barOpen && (result !== null || phase === "running" || phase === "gate") && !candidates;
+
+  useEffect(() => {
+    if (!phone) setBarOpen(false);
+  }, [phone]);
+
   return (
     <div className="find-wide">
       <div ref={topEl} className="space-y-2 pb-2">
-        <FindForm trades={trades} value={form} onChange={setForm} onSubmit={submit} onStop={() => void stop()} running={running} resolving={phase === "resolving"} candidates={candidates} onPick={pickCandidate} companiesHouseOn={companiesHouseOn} googleOn={googleOn} error={formError} />
+        {barCollapsed ? (
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => setBarOpen(true)} aria-expanded={false} className="flex min-w-0 flex-1 items-center justify-between gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-[15px] text-fg-heading">
+              <span className="truncate">
+                {form.area} · {trade}
+              </span>
+              <span className="shrink-0 text-fg-muted">{FIND_TEXT.gateChange}</span>
+            </button>
+            {running ? (
+              <Button variant="danger" onClick={() => void stop()} data-testid="find-submit">
+                {FIND_TEXT.stop}
+              </Button>
+            ) : null}
+          </div>
+        ) : (
+          <FindForm
+            trades={trades}
+            value={form}
+            onChange={setForm}
+            onSubmit={() => {
+              setBarOpen(false);
+              submit();
+            }}
+            onStop={() => void stop()}
+            running={running}
+            resolving={phase === "resolving"}
+            candidates={candidates}
+            onPick={pickCandidate}
+            companiesHouseOn={companiesHouseOn}
+            googleOn={googleOn}
+            error={formError}
+          />
+        )}
         <FindProgress phase={phase} query={query} start={start} result={result} error={error} expired={expired} onContinue={() => void continueSearch()} onRunAgain={runAgain} onOpenRunning={openRunning} onStopRunning={(id) => void stopRunning(id)} onPickAlternative={pickAlternative} onPickChild={pickChild} capChildren={capChildren} />
       </div>
 
@@ -723,9 +764,9 @@ export function FindWorkspace({ trades, initialSearchId, companiesHouseOn, googl
           </div>
         </div>
       ) : tablet ? (
-        <div ref={gridEl} className="flex flex-col gap-3" style={{ height }}>
-          <div className="h-[45dvh] shrink-0">{mapPane}</div>
-          <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-line bg-surface">{listPane}</div>
+        <div ref={gridEl} className="flex flex-col gap-3">
+          <div className="h-[45dvh] min-h-[320px] shrink-0">{mapPane}</div>
+          <div className="relative h-[70dvh] min-h-[420px] overflow-hidden rounded-xl border border-line bg-surface">{listPane}</div>
           {card}
         </div>
       ) : (

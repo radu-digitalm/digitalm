@@ -67,11 +67,13 @@ export function Nav({ subject }: { subject: string | null }) {
       >
         Menu
       </button>
-      <div id={menuId} hidden={!open} className="absolute right-0 top-full z-50 mt-2 flex w-56 flex-col gap-1 rounded-lg border border-line bg-surface p-2 shadow-xl sm:hidden">
-        {entries}
-        <div className="my-1 border-t border-line" />
-        {logoutButton}
-      </div>
+      {open ? (
+        <div id={menuId} className="absolute right-0 top-full z-50 mt-2 flex w-56 flex-col gap-1 rounded-lg border border-line bg-surface p-2 shadow-xl sm:hidden">
+          {entries}
+          <div className="my-1 border-t border-line" />
+          {logoutButton}
+        </div>
+      ) : null}
     </nav>
   );
 }

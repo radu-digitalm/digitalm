@@ -117,16 +117,18 @@ export function FindForm({
       className="space-y-2"
       aria-label={FIND_TEXT.title}
     >
-      <div className="grid gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto_auto] lg:items-start">
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-[minmax(0,2fr)_minmax(0,1.3fr)_auto_auto] lg:items-start">
         <AreaInput value={value.area} onChange={(area) => onChange({ ...value, area })} candidates={candidates} onPick={onPick} disabled={busy} />
         <TradePicker trades={trades} value={value.categoryKey} onChange={(categoryKey) => onChange({ ...value, categoryKey })} custom={value.custom} onCustomChange={(custom) => onChange({ ...value, custom })} disabled={busy} />
-        <div className="lg:pt-[29px]">
-          <SourcesPopover value={value.sources} onChange={(sources) => onChange({ ...value, sources })} companiesHouseOn={companiesHouseOn} googleOn={googleOn} disabled={busy} />
-        </div>
-        <div className="lg:pt-[29px]">
-          <Button type="submit" variant={running ? "danger" : "primary"} loading={resolving} data-testid="find-submit" className="w-full lg:w-auto">
-            {running ? FIND_TEXT.stop : FIND_TEXT.search}
-          </Button>
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 md:col-span-2 lg:contents">
+          <div className="min-w-0 lg:pt-[29px]">
+            <SourcesPopover value={value.sources} onChange={(sources) => onChange({ ...value, sources })} companiesHouseOn={companiesHouseOn} googleOn={googleOn} disabled={busy} />
+          </div>
+          <div className="lg:pt-[29px]">
+            <Button type="submit" variant={running ? "danger" : "primary"} loading={resolving} data-testid="find-submit" className="min-w-[7rem]">
+              {running ? FIND_TEXT.stop : FIND_TEXT.search}
+            </Button>
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
