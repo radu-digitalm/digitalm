@@ -45,4 +45,4 @@ Digital Management Ltd is a UK company. The prospecting activity is run from its
 
 Re-assess when: a new country is opened (a new SendRule, footer and local-law check); the daily cap is raised; a complaint or opt-out rate above ~2% of sends is observed; or twelve months have passed. Signed: __________________ (Radu, Digital Management Ltd), date: __________.
 
-Google Places switched on (date: __________): re-assessed, no change to the basis; derived result kept per audit (30-day refresh), discovery per decision D1 of docs/finder-google-spec.md. Signed: __________________ (Radu, Digital Management Ltd).
+Google Places switched on (date: 13 September 2026): re-assessed, no change to the basis; derived result kept per audit (30-day refresh), discovery per decision D1 of docs/finder-google-spec.md (off). Signed: Radu, director (Radu, Digital Management Ltd) — approval given in the working session of 13 September 2026.
