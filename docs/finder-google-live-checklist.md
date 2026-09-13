@@ -233,6 +233,14 @@ Staging (`d3v.digitalm.eu`) runs Google mode since 2026-09-12 19:45 UTC: `GOOGLE
 5. Smoke: `/fr`, `/en` 200 with the unchanged public CSP; `/admin/find` shows the Google map; one audit on a prod prospect measures `google_listing`; Today shows the Google usage card.
 6. A week later: *Metrics* still shows only the SKUs of L2 and the billing report reads €0.00.
 
+### Part D — done 2026-09-13
+
+Decisions by Radu (working session, 13 Sep 2026): LIA line signed; discovery **off** (D1); the project's default unrestricted key deleted; the Maps budget alert lowered to £5/month (alerts at 50/90/100 %, e-mail to billing admins); billing report 1–12 Sep: £0.
+
+Promotion: `main` @ ea6e9f5 → `digitalm-prod/` (src, public, scripts, next.config.mjs, package*.json), `npm ci`, one build, prod `.env.local` `GOOGLE_PLACES=on` + `GOOGLE_PLACES_DISCOVERY=off` (keys and Map ID were already there), restart by MainPID (back in ~6 s, `Restart=always`). DB backed up first: `/home/hermes/data/backups/enquiries-2026-09-13-pre-google.db`.
+
+Smoke: `/fr`, `/en` 200 with the public CSP unchanged (no Google hosts); `/admin/*` CSP carries `maps.googleapis.com`; `/admin/find` redirects to login when signed out; `/fr/legal/confidentialite` publishes the Google Maps Platform sentence. Not checked from here (needs Radu's admin session): the Google map on `/admin/find`, one audit measuring `google_listing`, the Google usage card on Today. L10: re-read *Billing → Reports* after a week (expect £0).
+
 ## Part E — What is deliberately not there
 
 - No *claimed* / *verified* status — Google's API has no such field; the audit says *listing found · looks maintained* from business status, website on the listing, hours, review count and photo count.
