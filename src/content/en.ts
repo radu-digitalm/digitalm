@@ -665,7 +665,12 @@ export const en = {
     step1: "1. Pick your time",
     step2: "2. Your details",
     pickFirst: "Pick a time above first",
-    pickHint: "Times shown in your local timezone.",
+    // {city} / {local} / {site}: zones filled in by the widget (see src/lib/tz.ts).
+    pickHintLocal: "Times shown in your time zone ({city}).",
+    pickHintBoth: "Times shown in your time zone: {local}. Digital M is in {site}.",
+    atSite: "{time} in {city}",
+    bookedWhen: "Time booked: {local} your time, {site} in {city}.",
+    bookedWhenSame: "Time booked: {local}.",
     noSlots:
       "No free slots in the next two weeks — email contact@digitalm.eu and we'll find a time.",
     name: "Name",

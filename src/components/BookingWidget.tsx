@@ -5,6 +5,14 @@ import type { Locale } from "@/lib/i18n";
 import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
 import { currentAttribution } from "@/lib/attributionClient";
+import {
+  SITE_TZ,
+  bothTimes,
+  formatInZone,
+  sameInstantClock,
+  zoneCity,
+  zoneLabel,
+} from "@/lib/tz";
 
 type Copy = {
   eyebrow: string;
@@ -15,7 +23,11 @@ type Copy = {
   step1: string;
   step2: string;
   pickFirst: string;
-  pickHint: string;
+  pickHintLocal: string;
+  pickHintBoth: string;
+  atSite: string;
+  bookedWhen: string;
+  bookedWhenSame: string;
   noSlots: string;
   name: string;
   email: string;
@@ -37,6 +49,14 @@ type Availability = { configured: boolean; tz: string; slotMin: number; slots: s
 const INPUT =
   "w-full rounded-lg border border-white/10 bg-surface-2 px-4 py-3 text-base text-fg-heading placeholder:text-fg-faint focus:border-accent focus:outline-none";
 
+const DAY: Intl.DateTimeFormatOptions = { weekday: "long", day: "numeric", month: "long" };
+const DAY_TIME: Intl.DateTimeFormatOptions = { ...DAY, hour: "2-digit", minute: "2-digit" };
+
+/** Fill {placeholders} in a copy string. */
+function fill(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{(\w+)\}/g, (m: string, k: string) => vars[k] ?? m);
+}
+
 export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) {
   const tag = locale === "fr" ? "fr-FR" : "en-GB";
   const [data, setData] = useState<Availability | null>(null);
@@ -44,6 +64,17 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<"booked" | "requested" | "error" | null>(null);
   const { token, container } = useTurnstile(true);
+
+  // The browser already knows where the visitor is: no IP lookup, no third
+  // party, nothing extra stored. Read once on mount (never during SSR).
+  const [visitorTz, setVisitorTz] = useState("");
+  useEffect(() => {
+    try {
+      setVisitorTz(Intl.DateTimeFormat().resolvedOptions().timeZone || "");
+    } catch {
+      /* stay on the site zone */
+    }
+  }, []);
 
   // Pre-fill from the diagnostic hand-off (?name=&email=&phone=&ref=) so the
   // lead doesn't retype what they just gave us. Read once on mount.
@@ -89,6 +120,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
           website: fd.get("website"),
           start: selected ?? "",
           locale,
+          tz: visitorTz,
           ref: prefill.ref,
           attribution: currentAttribution(),
           turnstile: token.current,
@@ -129,6 +161,22 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
     </div>
   );
 
+  // Where the visitor is vs where Digital M is. Falls back to the site zone,
+  // so nothing below can read as "your time" when we do not know it.
+  const siteTz = data?.tz || SITE_TZ;
+  const localTz = visitorTz || siteTz;
+  const siteCity = zoneCity(siteTz);
+
+  /** "10:00 chez vous, soit 16:00 à Paris" for one instant. */
+  function whenLine(iso: string): string {
+    const at = new Date(iso);
+    const t = bothTimes(at, localTz, siteTz, tag);
+    const local = formatInZone(at, localTz, tag, DAY_TIME);
+    return t.differ
+      ? fill(copy.bookedWhen, { local, site: t.site, city: siteCity })
+      : fill(copy.bookedWhenSame, { local });
+  }
+
   if (result === "booked" || result === "requested") {
     return (
       <div id="book" className="card p-6 md:p-8">
@@ -136,6 +184,9 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
         <p className="mt-5 rounded-lg border border-accent/30 bg-surface-2 px-4 py-3 text-sm text-fg-heading">
           {result === "booked" ? copy.successBooked : copy.successRequested}
         </p>
+        {result === "booked" && selected ? (
+          <p className="mt-2 text-sm text-fg-muted">{whenLine(selected)}</p>
+        ) : null}
       </div>
     );
   }
@@ -144,16 +195,30 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
   const slots = data?.slots ?? [];
   const liveNoSlots = configured && slots.length === 0;
 
-  // Group live slots by local day.
-  const groups: { label: string; items: { iso: string; time: string }[] }[] = [];
+  // Group live slots by the visitor's own day, each slot carrying the Paris
+  // time too when the two clocks disagree (DST is per-slot, not per-page).
+  const groups: { label: string; items: { iso: string; time: string; site: string }[] }[] = [];
   for (const iso of slots) {
     const dt = new Date(iso);
-    const label = dt.toLocaleDateString(tag, { weekday: "long", day: "numeric", month: "long" });
-    const time = dt.toLocaleTimeString(tag, { hour: "2-digit", minute: "2-digit" });
+    const label = formatInZone(dt, localTz, tag, DAY);
+    const t = bothTimes(dt, localTz, siteTz, tag);
     let g = groups.find((x) => x.label === label);
     if (!g) groups.push((g = { label, items: [] }));
-    g.items.push({ iso, time });
+    g.items.push({ iso, time: t.local, site: t.differ ? t.site : "" });
   }
+
+  // Paris time for the slot the visitor picked, when it differs from theirs.
+  const selectedTimes = selected ? bothTimes(new Date(selected), localTz, siteTz, tag) : null;
+  const selectedSite = selectedTimes?.differ ? selectedTimes.site : "";
+
+  // The hint above the list names both zones whenever they differ.
+  const hintAt = slots[0] ? new Date(slots[0]) : new Date();
+  const hint = sameInstantClock(localTz, siteTz, hintAt)
+    ? fill(copy.pickHintLocal, { city: zoneCity(localTz) })
+    : fill(copy.pickHintBoth, {
+        local: zoneLabel(localTz, hintAt, tag),
+        site: zoneLabel(siteTz, hintAt, tag),
+      });
 
   const fields = (
     <>
@@ -192,7 +257,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
       ) : configured ? (
         <form onSubmit={submit} className="mt-6">
           <p className="text-sm font-semibold text-fg-heading">{copy.step1}</p>
-          <p className="mt-1 font-mono text-xs text-fg-faint">{copy.pickHint}</p>
+          <p className="mt-1 text-xs leading-relaxed text-fg-faint">{hint}</p>
           <div className="mt-3 max-h-64 space-y-4 overflow-y-auto pr-1">
             {groups.map((g) => (
               <div key={g.label}>
@@ -204,13 +269,18 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
                       type="button"
                       onClick={() => setSelected(s.iso)}
                       aria-pressed={selected === s.iso}
-                      className={`inline-flex min-h-[2.75rem] min-w-[4rem] items-center justify-center rounded-lg border px-3 font-mono text-sm transition-colors ${
+                      className={`inline-flex min-h-[2.75rem] min-w-[4rem] flex-col items-center justify-center rounded-lg border px-3 py-1.5 font-mono text-sm leading-tight transition-colors ${
                         selected === s.iso
                           ? "border-accent bg-accent/15 text-fg-heading"
                           : "border-white/10 bg-surface-2 text-fg-muted hover:border-accent/40 hover:text-fg-heading"
                       }`}
                     >
-                      {s.time}
+                      <span>{s.time}</span>
+                      {s.site ? (
+                        <span className="text-[0.65rem] text-fg-faint">
+                          {fill(copy.atSite, { time: s.site, city: siteCity })}
+                        </span>
+                      ) : null}
                     </button>
                   ))}
                 </div>
@@ -222,14 +292,11 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
           <div className="mt-3">{fields}</div>
 
           {selected ? (
-            <p className="mt-4 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm capitalize text-fg-heading">
-              {new Date(selected).toLocaleString(tag, {
-                weekday: "long",
-                day: "numeric",
-                month: "long",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+            <p className="mt-4 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2.5 text-sm text-fg-heading">
+              <span className="capitalize">{formatInZone(new Date(selected), localTz, tag, DAY_TIME)}</span>
+              {selectedSite ? (
+                <span className="text-fg-muted"> · {fill(copy.atSite, { time: selectedSite, city: siteCity })}</span>
+              ) : null}
               <button
                 type="button"
                 onClick={() => setSelected(null)}

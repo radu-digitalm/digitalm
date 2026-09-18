@@ -668,7 +668,12 @@ export const fr = {
     step1: "1. Choisissez votre créneau",
     step2: "2. Vos coordonnées",
     pickFirst: "Choisissez d'abord un créneau ci-dessus",
-    pickHint: "Horaires affichés dans votre fuseau.",
+    // {city} / {local} / {site} : fuseaux remplis par le widget (voir src/lib/tz.ts).
+    pickHintLocal: "Horaires affichés à votre heure ({city}).",
+    pickHintBoth: "Horaires affichés à votre heure : {local}. Digital M est à {site}.",
+    atSite: "{time} à {city}",
+    bookedWhen: "Créneau retenu : {local} chez vous, soit {site} à {city}.",
+    bookedWhenSame: "Créneau retenu : {local}.",
     noSlots:
       "Aucun créneau libre sous deux semaines — écrivez à contact@digitalm.eu et nous trouverons un moment.",
     name: "Nom",
