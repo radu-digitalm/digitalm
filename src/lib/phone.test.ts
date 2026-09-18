@@ -287,3 +287,103 @@ test("a bare dial code that is part of the number is left alone", () => {
   // A number that only fits once the dial code goes is still unwrapped.
   assert.equal(normalisePhone("33630912844", FR), "630912844");
 });
+
+test("a French number typed while the picker sits on Canada is refused", () => {
+  // A French expat in Quebec gets CA from the time zone. Ten digits is the
+  // right count for Canada, so only the shape catches it.
+  const res = validatePhone("0630912844", CA);
+  assert.equal(res.ok, false);
+  assert.equal(res.ok === false && res.reason, "shape");
+  // Neither the area code nor the exchange may start with 0 or 1.
+  assert.equal(validatePhone("1187172114", CA).ok, false);
+  assert.equal(validatePhone("4180172114", CA).ok, false);
+  // Real North American numbers are untouched.
+  assert.equal(validatePhone("2125551234", US).ok, true);
+  assert.equal(validatePhone("418 717 2114", CA).ok, true);
+});
+
+test("a number from a country the picker does not carry is taken as typed", () => {
+  // Brazil, India, Japan… are not in the list. On main these leads arrived
+  // with a wrong dial code; refusing them outright would lose them instead.
+  const br = validatePhone("+55 11 98765 4321", FR);
+  assert.equal(br.ok, true);
+  assert.equal(br.ok === true && br.foreign, true);
+  assert.equal(br.ok === true && br.e164, "+5511987654321");
+
+  const jp = validatePhone("0081 3 1234 5678", FR);
+  assert.equal(jp.ok === true && jp.e164, "+81312345678");
+
+  // Another country that IS in the list, typed in full: same treatment.
+  const ca = validatePhone("+1 418 717 2114", FR);
+  assert.equal(ca.ok === true && ca.e164, "+14187172114");
+  assert.equal(ca.ok === true && ca.foreign, true);
+});
+
+test("a number under the picked country is never marked foreign", () => {
+  for (const raw of ["0630912844", "+33 6 30 91 28 44", "0033630912844"]) {
+    const res = validatePhone(raw, FR);
+    assert.equal(res.ok === true && res.foreign, false, raw);
+    assert.equal(res.ok === true && res.e164, "+33630912844", raw);
+  }
+});
+
+test("a stray + in front of a domestic number still follows the country rules", () => {
+  // E.164 never has a 0 after the +, so "+0630912844" is a French number with
+  // a typo, not an international one.
+  const res = validatePhone("+0630912844", FR);
+  assert.equal(res.ok === true && res.e164, "+33630912844");
+  assert.equal(res.ok === true && res.foreign, false);
+  // Too few digits to be anyone's international number: judged as French.
+  assert.equal(validatePhone("+12345", FR).ok === false, true);
+  const short = validatePhone("+12345", FR);
+  assert.equal(short.ok === false && short.reason, "short");
+});
+
+test("Hungary dials a two-digit trunk prefix", () => {
+  const hu = countryFor("HU")!;
+  const local = validatePhone("06 30 123 4567", hu);
+  assert.equal(local.ok, true);
+  assert.equal(local.ok === true && local.e164, "+36301234567");
+  const intl = validatePhone("+36 30 123 4567", hu);
+  assert.equal(intl.ok === true && intl.e164, "+36301234567");
+  // The single trunk 0 of every other country is untouched.
+  assert.equal(normalisePhone("0630912844", FR), "630912844");
+});
+
+test("PHONE_TEXT carries the new lines in both languages", () => {
+  for (const lang of ["fr", "en"] as const) {
+    const copy = PHONE_TEXT[lang];
+    for (const key of ["shape", "intl", "foreignOk", "country", "search", "searchLabel"] as const) {
+      assert.equal(typeof copy[key], "string", `${lang}.${key}`);
+      assert.ok(copy[key].length > 0, `${lang}.${key} is empty`);
+      assert.ok(!copy[key].includes("—"), `no em dash allowed: ${lang}.${key}`);
+    }
+  }
+  // French is the primary language of the site: it must not read as English.
+  assert.notEqual(PHONE_TEXT.fr.country, PHONE_TEXT.en.country);
+  assert.notEqual(PHONE_TEXT.fr.searchLabel, PHONE_TEXT.en.searchLabel);
+});
+
+// Mirror of what PhoneField puts in the two hidden fields and in the number
+// input at submit time. The call sites post `dialcode` + " " + `phoneNumber`
+// and were not changed, so those two fields have to be right on their own:
+// this is the trunk-0 half of the 17 Sep 2026 incident.
+function posted(raw: string, country: Country): string | null {
+  const res = validatePhone(raw, country);
+  if (!res.ok) return null; // the field blocks the submit
+  const dial = res.foreign ? "" : country.dial; // hidden "dialcode"
+  const num = res.foreign ? res.e164 : res.national; // "phoneNumber" at submit
+  return `${dial} ${num}`.trim();
+}
+
+test("the phone the form posts is callable", () => {
+  assert.equal(posted("06 30 91 28 44", FR), "+33 630912844");
+  assert.equal(posted("0630912844", FR), "+33 630912844");
+  assert.equal(posted("+33 6 30 91 28 44", FR), "+33 630912844");
+  assert.equal(posted("418 717 2114", CA), "+1 4187172114");
+  assert.equal(posted("07911 123456", GB), "+44 7911123456");
+  assert.equal(posted("+55 11 98765 4321", FR), "+5511987654321");
+  // The incident itself: never posted at all.
+  assert.equal(posted("+33 4187172114", FR), null);
+  assert.equal(posted("0630912844", CA), null);
+});

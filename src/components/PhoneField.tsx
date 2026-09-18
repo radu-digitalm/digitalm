@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { COUNTRIES, PHONE_TEXT, guessCountry, validatePhone } from "@/lib/phone";
-import type { Country, PhoneLang } from "@/lib/phone";
+import type { Country, PhoneCheck, PhoneCopy, PhoneLang } from "@/lib/phone";
 
 // Shared phone input: a searchable country picker (flag + dial code) plus the
 // number. The parent form reads `dialcode` + `phoneNumber` from FormData, and
@@ -12,6 +12,24 @@ import type { Country, PhoneLang } from "@/lib/phone";
 // languages — so a Quebec visitor on the French page does not silently file a
 // 10-digit number under +33 (that happened, 17 Sep 2026). No IP lookup: the
 // browser already knows, which keeps the privacy notice unchanged.
+//
+// What the form ends up posting: both call sites assemble the phone as
+// `dialcode` + " " + `phoneNumber`, so those two fields have to be right on
+// their own. On submit the number is rewritten to its national digits (the
+// trunk 0 gone: "06 30 91 28 44" becomes "630912844", posted as
+// "+33 630912844"), and a number typed in full for a country the picker does
+// not carry blanks `dialcode` so nothing is prefixed to it.
+
+function messageFor(check: PhoneCheck, country: Country, copy: PhoneCopy): string {
+  if (check.ok) return "";
+  if (check.reason === "empty") return `${copy.empty} ${copy.hint(country)}`;
+  return `${copy[check.reason]} ${copy.hint(country)} ${copy.intl}`;
+}
+
+/** What `phoneNumber` should carry once the number is known to be valid. */
+function fieldValue(check: Extract<PhoneCheck, { ok: true }>): string {
+  return check.foreign ? check.e164 : check.national;
+}
 
 export function PhoneField({
   label,
@@ -43,6 +61,10 @@ export function PhoneField({
   // Mount only: server render and first client render must agree, so the guess
   // happens after hydration.
   useEffect(() => {
+    // Text typed before hydration is in the DOM but not in React state, and
+    // the re-render below would wipe it. Take it over first.
+    const typed = inputRef.current?.value;
+    if (typed) setValue(typed);
     try {
       setSel(
         guessCountry({
@@ -95,30 +117,46 @@ export function PhoneField({
   // `setCustomValidity` alone only stops a form the browser validates itself.
   // The contact form carries `noValidate`, so an impossible number would still
   // be posted and stored (that is exactly the 17 Sep 2026 lead). Guard the
-  // submit here, in the capture phase, before the form's own React handler.
-  // A valid number falls straight through, so nothing changes where the
-  // browser already blocks.
+  // submit here, in the capture phase, before the form's own React handler:
+  // a bad number never reaches the network, and a good one is normalised in
+  // place so the `dialcode` + `phoneNumber` the handler reads are already the
+  // international form. Reading `input.value` rather than the state also
+  // covers text typed before hydration.
   useEffect(() => {
     const input = inputRef.current;
     const form = input?.form;
     if (!input || !form) return;
     const onSubmit = (e: Event) => {
-      if (input.validity.valid) return;
+      const check = validatePhone(input.value, sel);
+      if (check.ok) {
+        const next = fieldValue(check);
+        if (next !== input.value) {
+          input.value = next;
+          setValue(next);
+        }
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
+      setValue(input.value);
       setBlurred(true);
+      input.setCustomValidity(messageFor(check, sel, PHONE_TEXT[lang]));
+      // reportValidity focuses the field itself; focusing again here would
+      // dismiss the bubble it just opened on some browsers.
       input.reportValidity();
-      input.focus();
     };
     form.addEventListener("submit", onSubmit, true);
     return () => form.removeEventListener("submit", onSubmit, true);
-  }, []);
+  }, [sel, lang]);
 
   const copy = PHONE_TEXT[lang];
   const check = validatePhone(value, sel);
-  const message = check.ok ? "" : `${copy[check.reason]} ${copy.hint(sel)}`;
+  const message = messageFor(check, sel, copy);
   const errorShown = blurred && message !== "";
-  const hintShown = !errorShown && (focused || value.trim() === "");
+  // A number typed in full for a country the picker does not carry: say so,
+  // otherwise the flag sitting beside it reads as a contradiction.
+  const foreignShown = !errorShown && check.ok && check.foreign;
+  const hintShown = !errorShown && !foreignShown && (focused || value.trim() === "");
 
   // Block submission with the browser's own validation, in whichever language
   // the page is in.
@@ -148,14 +186,19 @@ export function PhoneField({
         {label} <span className="text-accent">*</span>
       </label>
       <div ref={ref} className="relative flex gap-2">
-        <input type="hidden" name="dialcode" value={sel.dial} />
+        {/* A number carrying its own country code must not get a second one. */}
+        <input
+          type="hidden"
+          name="dialcode"
+          value={check.ok && check.foreign ? "" : sel.dial}
+        />
         <input type="hidden" name="phoneE164" value={check.ok ? check.e164 : ""} />
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-haspopup="listbox"
           aria-expanded={open}
-          aria-label="Country code"
+          aria-label={copy.country}
           className={`${fieldClass} !w-28 flex shrink-0 items-center justify-between gap-1`}
         >
           <span>
@@ -180,7 +223,11 @@ export function PhoneField({
           }}
           aria-invalid={errorShown || undefined}
           aria-describedby={
-            errorShown ? "phoneNumber-error" : hintShown ? "phoneNumber-hint" : undefined
+            errorShown
+              ? "phoneNumber-error"
+              : hintShown || foreignShown
+                ? "phoneNumber-hint"
+                : undefined
           }
           className={`${fieldClass} !w-auto min-w-0 flex-1`}
         />
@@ -198,8 +245,8 @@ export function PhoneField({
                   if (filtered[0]) choose(filtered[0]);
                 }
               }}
-              placeholder="Search…"
-              aria-label="Search countries"
+              placeholder={copy.search}
+              aria-label={copy.searchLabel}
               className="w-full border-b border-white/10 bg-surface-2 px-3 py-2 text-base text-fg-heading placeholder:text-fg-faint focus:outline-none"
             />
             <ul role="listbox" className="max-h-56 overflow-y-auto py-1">
@@ -226,6 +273,10 @@ export function PhoneField({
       {errorShown ? (
         <p id="phoneNumber-error" role="alert" className="mt-1.5 text-sm text-accent-soft">
           {message}
+        </p>
+      ) : foreignShown ? (
+        <p id="phoneNumber-hint" className="mt-1.5 text-sm text-fg-faint">
+          {copy.foreignOk}
         </p>
       ) : hintShown ? (
         <p id="phoneNumber-hint" className="mt-1.5 text-sm text-fg-faint">

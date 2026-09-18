@@ -81,10 +81,15 @@ function fitsNational(digits: string, country: Country): boolean {
   return n >= country.min && n <= country.max;
 }
 
+// A couple of countries dial a trunk prefix longer than a single 0. Hungary
+// dials "06 30 123 4567" at home for "+36 30 123 4567"; dropping only the
+// first 0 would leave ten digits and reject a perfectly good number.
+const LONG_TRUNK: Record<string, string> = { HU: "06" };
+
 /**
  * Digits of a national number for `country`: drops a leading "+dial",
  * "00dial" or bare "dial" (the bare form only when what is left still fits
- * the country), then one trunk 0 where the country uses one.
+ * the country), then the trunk prefix where the country uses one.
  */
 export function normalisePhone(raw: string, country: Country): string {
   if (!raw) return "";
@@ -106,21 +111,70 @@ export function normalisePhone(raw: string, country: Country): string {
     if (fitsNational(rest, country)) digits = rest;
   }
 
-  if (country.trunk && digits.startsWith("0")) digits = digits.slice(1);
+  if (country.trunk) {
+    const long = LONG_TRUNK[country.c];
+    if (long && digits.startsWith(long)) {
+      const rest = digits.slice(long.length);
+      digits = rest.length >= country.min && rest.length <= country.max ? rest : digits.slice(1);
+    } else if (digits.startsWith("0")) {
+      digits = digits.slice(1);
+    }
+  }
   return digits;
 }
 
 export type PhoneCheck =
-  | { ok: true; national: string; e164: string }
-  | { ok: false; reason: "empty" | "short" | "long" };
+  /**
+   * `foreign` marks a number typed in full international form for a country
+   * the picker does not carry: `national` then holds every digit after the
+   * "+", and the picked dial code does not belong in front of it.
+   */
+  | { ok: true; national: string; e164: string; foreign: boolean }
+  | { ok: false; reason: "empty" | "short" | "long" | "shape" };
+
+// North American numbering plan: neither the area code nor the exchange ever
+// starts with 0 or 1. Without this, a French 10-digit number typed while the
+// picker sits on Canada (a French expat in Quebec gets CA from the time zone)
+// would pass the digit count and be filed as "+10630912844".
+const NANP = new Set(["US", "CA"]);
+const NANP_SHAPE = /^[2-9]\d{2}[2-9]\d{6}$/;
+
+/**
+ * A number typed in full international form for some other country. The
+ * picker carries 32 countries; the rest of the world has to be able to reach
+ * us too, so a "+…" (or "00…") number that is not this country's is taken as
+ * typed rather than rejected. Anything else returns null and falls through to
+ * the picked country's rules.
+ */
+function foreignNumber(typed: string, digits: string, country: Country): PhoneCheck | null {
+  if (!/^\s*(\+|00)/.test(typed)) return null;
+  const body = /^\s*\+/.test(typed) ? digits : digits.replace(/^00/, "");
+  // A leading 0 after the "+" is never an E.164 country code: that is someone
+  // typing "+" in front of their own domestic number, so let the country rules
+  // (and their trunk 0) handle it.
+  if (!body || body.startsWith("0")) return null;
+  if (body.startsWith(digitsOf(country.dial))) return null;
+  if (body.length < 7 || body.length > 15) return null;
+  return { ok: true, national: body, e164: `+${body}`, foreign: true };
+}
 
 /** Validate a typed number against the picked country. */
 export function validatePhone(raw: string, country: Country): PhoneCheck {
-  const national = normalisePhone(raw ?? "", country);
+  const typed = String(raw ?? "");
+  const digits = digitsOf(typed);
+  if (!digits) return { ok: false, reason: "empty" };
+
+  const foreign = foreignNumber(typed, digits, country);
+  if (foreign) return foreign;
+
+  const national = normalisePhone(typed, country);
   if (!national) return { ok: false, reason: "empty" };
   if (national.length < country.min) return { ok: false, reason: "short" };
   if (national.length > country.max) return { ok: false, reason: "long" };
-  return { ok: true, national, e164: `${country.dial}${national}` };
+  if (NANP.has(country.c) && !NANP_SHAPE.test(national)) {
+    return { ok: false, reason: "shape" };
+  }
+  return { ok: true, national, e164: `${country.dial}${national}`, foreign: false };
 }
 
 // ---------------------------------------------------------------------------
@@ -329,6 +383,15 @@ export type PhoneCopy = {
   empty: string;
   short: string;
   long: string;
+  shape: string;
+  /** Shown with any rejection: how to send a number from anywhere else. */
+  intl: string;
+  /** Shown once such a number is accepted, so the flag beside it makes sense. */
+  foreignOk: string;
+  /** Picker chrome, kept here so both languages stay together. */
+  country: string;
+  search: string;
+  searchLabel: string;
   hint: (country: Country) => string;
 };
 
@@ -337,6 +400,12 @@ export const PHONE_TEXT: Record<PhoneLang, PhoneCopy> = {
     empty: "Indiquez votre numéro de téléphone.",
     short: "Ce numéro est trop court.",
     long: "Ce numéro est trop long.",
+    shape: "Ce numéro ne correspond pas à un numéro nord-américain.",
+    intl: "Pour un autre pays, saisissez le numéro complet avec son indicatif international.",
+    foreignOk: "Numéro international pris tel quel.",
+    country: "Indicatif du pays",
+    search: "Rechercher…",
+    searchLabel: "Rechercher un pays",
     hint: (country) => {
       const count =
         country.min === country.max
@@ -352,6 +421,12 @@ export const PHONE_TEXT: Record<PhoneLang, PhoneCopy> = {
     empty: "Enter your phone number.",
     short: "This number is too short.",
     long: "This number is too long.",
+    shape: "This does not look like a North American number.",
+    intl: "For another country, type the full number with its international dialling code.",
+    foreignOk: "International number, taken as typed.",
+    country: "Country code",
+    search: "Search…",
+    searchLabel: "Search countries",
     hint: (country) => {
       const count =
         country.min === country.max
