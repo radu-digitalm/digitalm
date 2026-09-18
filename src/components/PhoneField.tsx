@@ -92,6 +92,28 @@ export function PhoneField({
     return () => form.removeEventListener("reset", onReset);
   }, []);
 
+  // `setCustomValidity` alone only stops a form the browser validates itself.
+  // The contact form carries `noValidate`, so an impossible number would still
+  // be posted and stored (that is exactly the 17 Sep 2026 lead). Guard the
+  // submit here, in the capture phase, before the form's own React handler.
+  // A valid number falls straight through, so nothing changes where the
+  // browser already blocks.
+  useEffect(() => {
+    const input = inputRef.current;
+    const form = input?.form;
+    if (!input || !form) return;
+    const onSubmit = (e: Event) => {
+      if (input.validity.valid) return;
+      e.preventDefault();
+      e.stopPropagation();
+      setBlurred(true);
+      input.reportValidity();
+      input.focus();
+    };
+    form.addEventListener("submit", onSubmit, true);
+    return () => form.removeEventListener("submit", onSubmit, true);
+  }, []);
+
   const copy = PHONE_TEXT[lang];
   const check = validatePhone(value, sel);
   const message = check.ok ? "" : `${copy[check.reason]} ${copy.hint(sel)}`;

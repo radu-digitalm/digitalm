@@ -232,3 +232,58 @@ test("the hint names the country and the expected length", () => {
     }
   }
 });
+
+// The English hint opens with an article, and it has to agree with the
+// adjective that follows it: "An American number", never "A American number".
+const EN_AN = new Set(["US", "IE", "IT", "AT", "AU", "AE", "DZ"]);
+
+test("the English hint uses the right article for every country", () => {
+  assert.equal(PHONE_TEXT.en.hint(US), "An American number has 10 digits after +1.");
+  assert.equal(
+    PHONE_TEXT.en.hint(countryFor("IE")!),
+    "An Irish number has between 7 and 9 digits after +353.",
+  );
+  assert.equal(
+    PHONE_TEXT.en.hint(countryFor("IT")!),
+    "An Italian number has between 6 and 11 digits after +39.",
+  );
+  assert.equal(
+    PHONE_TEXT.en.hint(countryFor("AT")!),
+    "An Austrian number has between 4 and 13 digits after +43.",
+  );
+  assert.equal(PHONE_TEXT.en.hint(countryFor("AU")!), "An Australian number has 9 digits after +61.");
+  assert.equal(PHONE_TEXT.en.hint(countryFor("AE")!), "An Emirati number has 9 digits after +971.");
+  assert.equal(PHONE_TEXT.en.hint(countryFor("DZ")!), "An Algerian number has 9 digits after +213.");
+
+  for (const country of COUNTRIES) {
+    const hint = PHONE_TEXT.en.hint(country);
+    const expected = EN_AN.has(country.c) ? "An " : "A ";
+    assert.ok(hint.startsWith(expected), `${country.c} should start with "${expected}": ${hint}`);
+  }
+});
+
+test("the Gulf countries accept the local form with its trunk 0", () => {
+  // "050 123 4567" in Dubai is +971 50 123 4567: rejecting it loses the lead.
+  const ae = countryFor("AE")!;
+  const ae0 = validatePhone("050 123 4567", ae);
+  assert.equal(ae0.ok, true);
+  assert.equal(ae0.ok === true && ae0.e164, "+971501234567");
+  const aeIntl = validatePhone("+971 50 123 4567", ae);
+  assert.equal(aeIntl.ok === true && aeIntl.e164, "+971501234567");
+
+  const sa = countryFor("SA")!;
+  const sa0 = validatePhone("0512345678", sa);
+  assert.equal(sa0.ok, true);
+  assert.equal(sa0.ok === true && sa0.e164, "+966512345678");
+});
+
+test("a bare dial code that is part of the number is left alone", () => {
+  // German 04921 12345 typed without its trunk 0: the "49" is the area code,
+  // not the country code, and the whole thing already fits Germany.
+  const de = countryFor("DE")!;
+  assert.equal(normalisePhone("492112345", de), "492112345");
+  const res = validatePhone("492112345", de);
+  assert.equal(res.ok === true && res.e164, "+49492112345");
+  // A number that only fits once the dial code goes is still unwrapped.
+  assert.equal(normalisePhone("33630912844", FR), "630912844");
+});

@@ -45,8 +45,10 @@ export const COUNTRIES: Country[] = [
   { c: "HU", dial: "+36", flag: "🇭🇺", name: "Hungary", min: 8, max: 9, trunk: true },
   { c: "AU", dial: "+61", flag: "🇦🇺", name: "Australia", min: 9, max: 9, trunk: true },
   { c: "NZ", dial: "+64", flag: "🇳🇿", name: "New Zealand", min: 8, max: 10, trunk: true },
-  { c: "AE", dial: "+971", flag: "🇦🇪", name: "UAE", min: 9, max: 9, trunk: false },
-  { c: "SA", dial: "+966", flag: "🇸🇦", name: "Saudi Arabia", min: 9, max: 9, trunk: false },
+  // AE and SA do carry a national trunk 0 (Dubai "050 123 4567" is
+  // +971 50 123 4567), so a visitor typing the local form is not rejected.
+  { c: "AE", dial: "+971", flag: "🇦🇪", name: "UAE", min: 9, max: 9, trunk: true },
+  { c: "SA", dial: "+966", flag: "🇸🇦", name: "Saudi Arabia", min: 9, max: 9, trunk: true },
   { c: "MA", dial: "+212", flag: "🇲🇦", name: "Morocco", min: 9, max: 9, trunk: true },
   { c: "TN", dial: "+216", flag: "🇹🇳", name: "Tunisia", min: 8, max: 8, trunk: true },
   { c: "DZ", dial: "+213", flag: "🇩🇿", name: "Algeria", min: 9, max: 9, trunk: true },
@@ -95,7 +97,11 @@ export function normalisePhone(raw: string, country: Country): string {
     digits = digits.slice(dial.length);
   } else if (digits.startsWith("00" + dial)) {
     digits = digits.slice(2 + dial.length);
-  } else if (digits.startsWith(dial)) {
+  } else if (digits.startsWith(dial) && !fitsNational(digits, country)) {
+    // No "+" and no "00": these digits only *look* like a dial code. Strip it
+    // when what is left fits, and only when the whole string does not already
+    // fit on its own — otherwise a German "04921 12345" typed without its
+    // trunk 0 ("492112345") would lose the "49" that belongs to the number.
     const rest = digits.slice(dial.length);
     if (fitsNational(rest, country)) digits = rest;
   }
@@ -309,6 +315,14 @@ const ADJ_EN: Record<string, string> = {
   TN: "Tunisian", DZ: "Algerian", ZA: "South African", SG: "Singaporean",
 };
 
+// English needs "An American number", not "A American number". The article
+// follows the opening sound, not the letter: "u-" and "eu-" adjectives open on
+// a "y" sound ("a Ukrainian number", "a European number"), so they keep "a".
+function enArticle(adj: string): "A" | "An" {
+  if (/^(u|eu)/i.test(adj)) return "A";
+  return /^[aeio]/i.test(adj) ? "An" : "A";
+}
+
 export type PhoneLang = "fr" | "en";
 
 export type PhoneCopy = {
@@ -345,7 +359,7 @@ export const PHONE_TEXT: Record<PhoneLang, PhoneCopy> = {
           : `between ${country.min} and ${country.max} digits`;
       const adj = ADJ_EN[country.c];
       return adj
-        ? `A ${adj} number has ${count} after ${country.dial}.`
+        ? `${enArticle(adj)} ${adj} number has ${count} after ${country.dial}.`
         : `A number for ${country.name} has ${count} after ${country.dial}.`;
     },
   },
