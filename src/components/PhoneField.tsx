@@ -1,44 +1,17 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { COUNTRIES, PHONE_TEXT, guessCountry, validatePhone } from "@/lib/phone";
+import type { Country, PhoneLang } from "@/lib/phone";
 
 // Shared phone input: a searchable country picker (flag + dial code) plus the
-// number. The parent form reads `dialcode` + `phoneNumber` from FormData.
-
-const COUNTRIES: { c: string; dial: string; flag: string; name: string }[] = [
-  { c: "FR", dial: "+33", flag: "🇫🇷", name: "France" },
-  { c: "GB", dial: "+44", flag: "🇬🇧", name: "United Kingdom" },
-  { c: "US", dial: "+1", flag: "🇺🇸", name: "United States" },
-  { c: "CA", dial: "+1", flag: "🇨🇦", name: "Canada" },
-  { c: "IE", dial: "+353", flag: "🇮🇪", name: "Ireland" },
-  { c: "BE", dial: "+32", flag: "🇧🇪", name: "Belgium" },
-  { c: "CH", dial: "+41", flag: "🇨🇭", name: "Switzerland" },
-  { c: "LU", dial: "+352", flag: "🇱🇺", name: "Luxembourg" },
-  { c: "DE", dial: "+49", flag: "🇩🇪", name: "Germany" },
-  { c: "ES", dial: "+34", flag: "🇪🇸", name: "Spain" },
-  { c: "IT", dial: "+39", flag: "🇮🇹", name: "Italy" },
-  { c: "NL", dial: "+31", flag: "🇳🇱", name: "Netherlands" },
-  { c: "PT", dial: "+351", flag: "🇵🇹", name: "Portugal" },
-  { c: "AT", dial: "+43", flag: "🇦🇹", name: "Austria" },
-  { c: "DK", dial: "+45", flag: "🇩🇰", name: "Denmark" },
-  { c: "SE", dial: "+46", flag: "🇸🇪", name: "Sweden" },
-  { c: "NO", dial: "+47", flag: "🇳🇴", name: "Norway" },
-  { c: "FI", dial: "+358", flag: "🇫🇮", name: "Finland" },
-  { c: "PL", dial: "+48", flag: "🇵🇱", name: "Poland" },
-  { c: "CZ", dial: "+420", flag: "🇨🇿", name: "Czechia" },
-  { c: "RO", dial: "+40", flag: "🇷🇴", name: "Romania" },
-  { c: "GR", dial: "+30", flag: "🇬🇷", name: "Greece" },
-  { c: "HU", dial: "+36", flag: "🇭🇺", name: "Hungary" },
-  { c: "AU", dial: "+61", flag: "🇦🇺", name: "Australia" },
-  { c: "NZ", dial: "+64", flag: "🇳🇿", name: "New Zealand" },
-  { c: "AE", dial: "+971", flag: "🇦🇪", name: "UAE" },
-  { c: "SA", dial: "+966", flag: "🇸🇦", name: "Saudi Arabia" },
-  { c: "MA", dial: "+212", flag: "🇲🇦", name: "Morocco" },
-  { c: "TN", dial: "+216", flag: "🇹🇳", name: "Tunisia" },
-  { c: "DZ", dial: "+213", flag: "🇩🇿", name: "Algeria" },
-  { c: "ZA", dial: "+27", flag: "🇿🇦", name: "South Africa" },
-  { c: "SG", dial: "+65", flag: "🇸🇬", name: "Singapore" },
-];
+// number. The parent form reads `dialcode` + `phoneNumber` from FormData, and
+// can also read `phoneE164` (the normalised international form).
+//
+// The starting country comes from the browser itself — its time zone, then its
+// languages — so a Quebec visitor on the French page does not silently file a
+// 10-digit number under +33 (that happened, 17 Sep 2026). No IP lookup: the
+// browser already knows, which keeps the privacy notice unchanged.
 
 export function PhoneField({
   label,
@@ -51,13 +24,42 @@ export function PhoneField({
   fieldClass: string;
   labelClass: string;
 }) {
-  const [sel, setSel] = useState(
+  const [sel, setSel] = useState<Country>(
     () => COUNTRIES.find((c) => c.dial === defaultDial) ?? COUNTRIES[0]!,
   );
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
+  const [value, setValue] = useState("");
+  const [focused, setFocused] = useState(false);
+  const [blurred, setBlurred] = useState(false);
+  // Pre-hydration guess from the dial the page was rendered with; the effect
+  // below replaces it with what <html lang> actually says.
+  const [lang, setLang] = useState<PhoneLang>(defaultDial === "+33" ? "fr" : "en");
   const ref = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dialRef = useRef(defaultDial);
+
+  // Mount only: server render and first client render must agree, so the guess
+  // happens after hydration.
+  useEffect(() => {
+    try {
+      setSel(
+        guessCountry({
+          timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          languages: navigator.languages,
+          fallbackDial: dialRef.current,
+        }),
+      );
+    } catch {
+      /* exotic browser: keep the country the page was rendered with */
+    }
+    try {
+      setLang(document.documentElement.lang.startsWith("fr") ? "fr" : "en");
+    } catch {
+      /* keep the pre-hydration guess */
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -78,6 +80,30 @@ export function PhoneField({
     };
   }, [open]);
 
+  // The contact form calls form.reset() after a successful send.
+  useEffect(() => {
+    const form = inputRef.current?.form;
+    if (!form) return;
+    const onReset = () => {
+      setValue("");
+      setBlurred(false);
+    };
+    form.addEventListener("reset", onReset);
+    return () => form.removeEventListener("reset", onReset);
+  }, []);
+
+  const copy = PHONE_TEXT[lang];
+  const check = validatePhone(value, sel);
+  const message = check.ok ? "" : `${copy[check.reason]} ${copy.hint(sel)}`;
+  const errorShown = blurred && message !== "";
+  const hintShown = !errorShown && (focused || value.trim() === "");
+
+  // Block submission with the browser's own validation, in whichever language
+  // the page is in.
+  useEffect(() => {
+    inputRef.current?.setCustomValidity(message);
+  }, [message]);
+
   const ql = q.trim().toLowerCase();
   const filtered = ql
     ? COUNTRIES.filter(
@@ -88,7 +114,7 @@ export function PhoneField({
       )
     : COUNTRIES;
 
-  function choose(country: (typeof COUNTRIES)[number]) {
+  function choose(country: Country) {
     setSel(country);
     setOpen(false);
     setQ("");
@@ -101,6 +127,7 @@ export function PhoneField({
       </label>
       <div ref={ref} className="relative flex gap-2">
         <input type="hidden" name="dialcode" value={sel.dial} />
+        <input type="hidden" name="phoneE164" value={check.ok ? check.e164 : ""} />
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
@@ -122,6 +149,17 @@ export function PhoneField({
           type="tel"
           required
           autoComplete="tel-national"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            setBlurred(true);
+          }}
+          aria-invalid={errorShown || undefined}
+          aria-describedby={
+            errorShown ? "phoneNumber-error" : hintShown ? "phoneNumber-hint" : undefined
+          }
           className={`${fieldClass} !w-auto min-w-0 flex-1`}
         />
 
@@ -163,6 +201,15 @@ export function PhoneField({
           </div>
         ) : null}
       </div>
+      {errorShown ? (
+        <p id="phoneNumber-error" role="alert" className="mt-1.5 text-sm text-accent-soft">
+          {message}
+        </p>
+      ) : hintShown ? (
+        <p id="phoneNumber-hint" className="mt-1.5 text-sm text-fg-faint">
+          {copy.hint(sel)}
+        </p>
+      ) : null}
     </div>
   );
 }
