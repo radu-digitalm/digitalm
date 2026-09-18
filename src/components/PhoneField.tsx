@@ -34,11 +34,18 @@ function fieldValue(check: Extract<PhoneCheck, { ok: true }>): string {
 export function PhoneField({
   label,
   defaultDial = "+33",
+  initialValue = "",
   fieldClass,
   labelClass,
 }: {
   label: string;
   defaultDial?: string;
+  /**
+   * Starting number, e.g. the `?phone=` the check-up hands to /book so the
+   * lead does not retype what they just gave us. Read once, when the field
+   * mounts: the parent remounts it (a `key`) if the value arrives later.
+   */
+  initialValue?: string;
   fieldClass: string;
   labelClass: string;
 }) {
@@ -47,7 +54,7 @@ export function PhoneField({
   );
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
-  const [value, setValue] = useState("");
+  const [value, setValue] = useState(initialValue);
   const [focused, setFocused] = useState(false);
   const [blurred, setBlurred] = useState(false);
   // Pre-hydration guess from the dial the page was rendered with; the effect

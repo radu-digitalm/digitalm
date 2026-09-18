@@ -177,6 +177,43 @@ export function validatePhone(raw: string, country: Country): PhoneCheck {
   return { ok: true, national, e164: `${country.dial}${national}`, foreign: false };
 }
 
+// Dial codes longest first, so "+352" is matched before "+35…" or "+3…".
+const BY_DIAL_LENGTH = [...COUNTRIES].sort((a, b) => b.dial.length - a.dial.length);
+
+/** The country whose dial code opens these digits: "33630912844" → France. */
+function countryForDigits(digits: string): Country | null {
+  return BY_DIAL_LENGTH.find((c) => digits.startsWith(digitsOf(c.dial))) ?? null;
+}
+
+/**
+ * Guard for a number as *posted* to a route handler: "+33 630912844", or
+ * "+9725012345" for a country the picker does not carry. `PhoneField` already
+ * normalises and blocks in the browser; this is the same check on the server,
+ * for anything that arrives another way — a script, a page cached before this
+ * fix, the diagnostic hand-off.
+ *
+ * Returns the E.164 form (so a page still posting "+33 0630912844" is
+ * repaired, trunk 0 and all), or null when these digits cannot be a number for
+ * the country their dial code claims: "+33 4187172114", the 17 Sep 2026 lead,
+ * comes back null.
+ */
+export function checkPostedPhone(raw: unknown): string | null {
+  const typed = String(raw ?? "").trim();
+  // Everything the forms post carries its dial code. Without one there is no
+  // country to check against, and no way to know what the digits mean.
+  if (!/^\+/.test(typed)) return null;
+  const digits = digitsOf(typed);
+  if (digits.length < 7 || digits.length > 15) return null; // E.164 bounds
+  const country = countryForDigits(digits);
+  if (country) {
+    const res = validatePhone(typed, country);
+    return res.ok ? res.e164 : null;
+  }
+  // A country the picker does not carry: taken as typed, the way the field
+  // does it, rather than turning away a lead from the rest of the world.
+  return digits.startsWith("0") ? null : `+${digits}`;
+}
+
 // ---------------------------------------------------------------------------
 // Where is this visitor? The browser already knows its time zone and its
 // languages: no IP lookup, no third-party processor, nothing extra stored.

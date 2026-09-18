@@ -33,9 +33,11 @@ export function ContactForm({
       string,
       string
     >;
-    data.phone = data.phoneNumber
-      ? `${data.dialcode || ""} ${data.phoneNumber}`.trim()
-      : "";
+    // PhoneField publishes the checked international form; the two visible
+    // fields are the fallback for a render where it is not there yet.
+    data.phone =
+      data.phoneE164 ||
+      (data.phoneNumber ? `${data.dialcode || ""} ${data.phoneNumber}`.trim() : "");
 
     // Build a prefilled mailto as a fallback in case server delivery is down.
     const subject = `Digital M — ${data.name || ""}`.trim();

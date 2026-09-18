@@ -11,6 +11,7 @@ import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
 import { bothTimes, formatInZone, isValidZone, zoneCity } from "@/lib/tz";
+import { checkPostedPhone } from "@/lib/phone";
 import { SITE_URL } from "@/lib/seo";
 // @@crm:inbox
 import { leadFromBooking } from "@/lib/inbox/hooks";
@@ -81,7 +82,12 @@ export async function POST(req: Request) {
   const str = (v: unknown) => String(v ?? "").trim().slice(0, 2000);
   const name = str(body.name);
   const email = str(body.email);
-  const phone = str(body.phone);
+  // Checked against the country its dial code claims, and returned in E.164.
+  // PhoneField does this in the browser; a post that skipped the field (a
+  // script, a page cached before this fix) is checked here, so an impossible
+  // number like the 17 Sep 2026 "+33 4187172114" is never filed again. An
+  // empty result falls into the "invalid" guard below.
+  const phone = checkPostedPhone(body.phone) ?? "";
   const company = str(body.company);
   const needs = str(body.needs);
   const start = str(body.start);

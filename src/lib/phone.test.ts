@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   COUNTRIES,
   PHONE_TEXT,
+  checkPostedPhone,
   countryFor,
   countryFromLanguages,
   countryFromTimeZone,
@@ -386,4 +387,64 @@ test("the phone the form posts is callable", () => {
   // The incident itself: never posted at all.
   assert.equal(posted("+33 4187172114", FR), null);
   assert.equal(posted("0630912844", CA), null);
+});
+
+// ---------------------------------------------------------------------------
+// The server-side guard. The field blocks a bad number in the browser; this is
+// the same check on /api/book and /api/contact, for anything that arrives
+// another way (a script, a page cached before the fix, the check-up hand-off).
+// ---------------------------------------------------------------------------
+
+test("the server guard repairs what an older page posted", () => {
+  // Before the fix the forms posted the dial code plus the raw typed number,
+  // trunk 0 and all. Those numbers are callable once the 0 is gone.
+  assert.equal(checkPostedPhone("+33 0630912844"), "+33630912844");
+  assert.equal(checkPostedPhone("+33 06 30 91 28 44"), "+33630912844");
+  assert.equal(checkPostedPhone("+33 630912844"), "+33630912844");
+  assert.equal(checkPostedPhone("+1 418 717 2114"), "+14187172114");
+  assert.equal(checkPostedPhone("+44 07911 123456"), "+447911123456");
+});
+
+test("the server guard turns away a number the country cannot have", () => {
+  assert.equal(checkPostedPhone("+33 4187172114"), null); // the 17 Sep 2026 lead
+  assert.equal(checkPostedPhone("+33 12345"), null);
+  assert.equal(checkPostedPhone("+1 0630912844"), null); // no NANP code starts with 0
+  assert.equal(checkPostedPhone("+33"), null);
+});
+
+test("the server guard needs a dial code to check against", () => {
+  for (const raw of ["0630912844", "630912844", "", "   ", "not a phone"]) {
+    assert.equal(checkPostedPhone(raw), null, `expected ${JSON.stringify(raw)} to be refused`);
+  }
+  assert.equal(checkPostedPhone(null), null);
+  assert.equal(checkPostedPhone(undefined), null);
+  assert.equal(checkPostedPhone(42), null);
+});
+
+test("the server guard keeps a number from the rest of the world", () => {
+  // The picker carries 32 countries; everyone else types the full number.
+  assert.equal(checkPostedPhone("+5511987654321"), "+5511987654321");
+  assert.equal(checkPostedPhone("+972 50 123 4567"), "+972501234567");
+  assert.equal(checkPostedPhone("+81 3 1234 5678"), "+81312345678");
+});
+
+test("the server guard agrees with what the field posts", () => {
+  // Whatever `posted()` above lets through must survive the route untouched,
+  // otherwise a lead the form accepted would be refused on arrival.
+  const cases: [string, Country][] = [
+    ["06 30 91 28 44", FR],
+    ["0630912844", FR],
+    ["+33 6 30 91 28 44", FR],
+    ["418 717 2114", CA],
+    ["+1 418 717 2114", US],
+    ["07911 123456", GB],
+    ["+55 11 98765 4321", FR],
+  ];
+  for (const [raw, country] of cases) {
+    const sent = posted(raw, country);
+    assert.ok(sent, `expected ${raw} to be posted at all`);
+    const back = checkPostedPhone(sent);
+    assert.ok(back, `the route refused ${sent}, which the form accepted`);
+    assert.equal(back.replace(/\s+/g, ""), sent.replace(/\s+/g, ""), `mismatch for ${raw}`);
+  }
 });

@@ -78,12 +78,18 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
 
   // Pre-fill from the diagnostic hand-off (?name=&email=&phone=&ref=) so the
   // lead doesn't retype what they just gave us. Read once on mount.
-  const [prefill, setPrefill] = useState<{ name?: string; email?: string; ref?: string }>({});
+  const [prefill, setPrefill] = useState<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    ref?: string;
+  }>({});
   useEffect(() => {
     const p = new URLSearchParams(window.location.search);
     setPrefill({
       name: p.get("name") ?? undefined,
       email: p.get("email") ?? undefined,
+      phone: p.get("phone") ?? undefined,
       ref: p.get("ref") ?? undefined,
     });
   }, []);
@@ -104,6 +110,9 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
     const fd = new FormData(e.currentTarget);
     const dial = String(fd.get("dialcode") || "");
     const num = String(fd.get("phoneNumber") || "");
+    // PhoneField publishes the checked international form; the two visible
+    // fields are the fallback for a render where it is not there yet.
+    const phone = String(fd.get("phoneE164") || "") || (num ? `${dial} ${num}`.trim() : "");
     setBusy(true);
     setResult(null);
     try {
@@ -113,7 +122,7 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
         body: JSON.stringify({
           name: fd.get("name"),
           email: fd.get("email"),
-          phone: num ? `${dial} ${num}`.trim() : "",
+          phone,
           company: fd.get("company"),
           needs: fd.get("needs"),
           preferred: fd.get("preferred"),
@@ -232,8 +241,10 @@ export function BookingWidget({ locale, copy }: { locale: Locale; copy: Copy }) 
       </div>
       <div className="mt-3">
         <PhoneField
+          key={`p-${prefill.phone ?? ""}`}
           label={copy.phone}
           defaultDial={locale === "fr" ? "+33" : "+44"}
+          initialValue={prefill.phone}
           fieldClass={INPUT}
           labelClass="mb-1.5 block text-sm text-fg-muted"
         />
