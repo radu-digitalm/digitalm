@@ -5,6 +5,7 @@ import { verifyTurnstile } from "@/lib/turnstile";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
+import { checkPostedPhone } from "@/lib/phone";
 // @@crm:inbox
 import { leadFromContact } from "@/lib/inbox/hooks";
 
@@ -33,7 +34,10 @@ export async function POST(req: NextRequest) {
 
   const name = oneLine(body.name);
   const email = oneLine(body.email);
-  const phone = oneLine(body.phone);
+  // Same guard as /api/book: the posted number is checked against the country
+  // its dial code claims and stored in E.164. Unusable digits come back empty
+  // and fall into the "missing" guard below.
+  const phone = checkPostedPhone(body.phone) ?? "";
   const company = oneLine(body.company);
   const locale = oneLine(body.locale) || "en";
   const message = String(body.message ?? "").trim();

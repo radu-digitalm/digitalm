@@ -10,18 +10,28 @@ export type Option = {
   fr: string;
   /** Shows a free-text input when selected (e.g. "Other"). */
   other?: boolean;
+  /** With `other`: the free-text box has to be filled in before moving on. */
+  otherRequired?: true;
 };
 
 export type Question = {
   id: string;
   kind: "chips" | "chips-multi" | "cards" | "text" | "textarea" | "email" | "tel" | "url";
   required?: boolean;
+  /**
+   * Required only for some earlier answers (e.g. the website address once they
+   * told us they sell on their own site). Honoured wherever `required` is.
+   */
+  requiredIf?: (answers: Record<string, unknown>) => boolean;
   /** Max selections for chips-multi / cards. */
   max?: number;
   en: string;
   fr: string;
   hintEn?: string;
   hintFr?: string;
+  /** Replaces hintEn / hintFr while `requiredIf` makes the answer mandatory. */
+  hintRequiredEn?: string;
+  hintRequiredFr?: string;
   placeholderEn?: string;
   placeholderFr?: string;
   options?: Option[];
@@ -45,7 +55,7 @@ export const STEP1: Question[] = [
       { id: "services", en: "Services", fr: "Services" },
       { id: "artisan", en: "Artisan / craft / trades", fr: "Artisan / métiers" },
       { id: "hospitality", en: "Restaurant / hospitality", fr: "Restauration / hôtellerie" },
-      { id: "other", en: "Other", fr: "Autre", other: true },
+      { id: "other", en: "Other", fr: "Autre", other: true, otherRequired: true },
     ],
   },
   {
@@ -321,10 +331,11 @@ export const TOOLS: Question = {
 export const MAGIC: Question = {
   id: "magic",
   kind: "textarea",
+  required: true,
   en: "If you could wave a magic wand and make one part of your work disappear tomorrow — what would it be?",
   fr: "Si vous pouviez agiter une baguette magique et faire disparaître une corvée dès demain — ce serait quoi ?",
-  hintEn: "Optional — but it's the question that helps us most.",
-  hintFr: "Facultatif — mais c'est la question qui nous aide le plus.",
+  hintEn: "A line or two is enough. It's the question that helps us most.",
+  hintFr: "Une ligne ou deux suffisent. C'est la question qui nous aide le plus.",
   starters: [
     { en: "Chasing unpaid invoices…", fr: "Courir après les factures impayées…" },
     { en: "Answering the same WhatsApp questions…", fr: "Répondre aux mêmes questions WhatsApp…" },
@@ -390,6 +401,20 @@ export const CONTACT: Question[] = [
     hintFr: "Seulement si vous préférez un rapide coup de fil.",
   },
   {
+    id: "site",
+    kind: "url",
+    // Required once they have told us they sell on their own site.
+    requiredIf: (a) => a.sellsOnline === "own-site",
+    en: "Your website (if you have one)",
+    fr: "Votre site web (si vous en avez un)",
+    hintEn: "It lets us take a look before the call.",
+    hintFr: "Cela nous permet d'y jeter un œil avant l'appel.",
+    hintRequiredEn: "You sell on your own site, so the address lets us take a look before the call.",
+    hintRequiredFr: "Vous vendez sur votre propre site : l'adresse nous permet d'y jeter un œil avant l'appel.",
+    placeholderEn: "yourbusiness.com",
+    placeholderFr: "votreentreprise.fr",
+  },
+  {
     id: "source",
     kind: "chips",
     en: "Where did you hear about us?",
@@ -435,6 +460,7 @@ export const UI = {
     privacyLink: "privacy notice",
     error: "Something went wrong. Please email contact@digitalm.eu.",
     otherPlaceholder: "Tell us…",
+    urlInvalid: "Enter a full address, for example yourbusiness.com",
     selfServeTitle: "Where to start on your own",
   },
   fr: {
@@ -464,6 +490,7 @@ export const UI = {
     privacyLink: "politique de confidentialité",
     error: "Une erreur est survenue. Écrivez à contact@digitalm.eu.",
     otherPlaceholder: "Précisez…",
+    urlInvalid: "Indiquez une adresse complète, par exemple votreentreprise.fr",
     selfServeTitle: "Par où commencer par vous-même",
   },
 } as const;

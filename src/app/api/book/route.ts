@@ -10,6 +10,8 @@ import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
+import { bothTimes, formatInZone, isValidZone, zoneCity } from "@/lib/tz";
+import { checkPostedPhone } from "@/lib/phone";
 import { SITE_URL } from "@/lib/seo";
 // @@crm:inbox
 import { leadFromBooking } from "@/lib/inbox/hooks";
@@ -18,7 +20,19 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const TZ_RE = /^[A-Za-z0-9_+\-\/]+$/;
 const MODEL = process.env.OPENAI_MODEL_CHAT || "gpt-4.1-mini";
+
+/**
+ * The visitor's own IANA zone, as reported by their browser. Used only to write
+ * the times below (invite, e-mail, Telegram) — never stored, never logged.
+ * Anything we cannot format is ignored and the site zone stands alone.
+ */
+function visitorZone(v: unknown): string {
+  const s = typeof v === "string" ? v.trim() : "";
+  if (!s || s.length > 64 || !TZ_RE.test(s) || !isValidZone(s)) return "";
+  return s;
+}
 
 /** Short internal brief for the meeting, written by the AI from the visitor's note. */
 async function buildBrief(
@@ -68,7 +82,12 @@ export async function POST(req: Request) {
   const str = (v: unknown) => String(v ?? "").trim().slice(0, 2000);
   const name = str(body.name);
   const email = str(body.email);
-  const phone = str(body.phone);
+  // Checked against the country its dial code claims, and returned in E.164.
+  // PhoneField does this in the browser; a post that skipped the field (a
+  // script, a page cached before this fix) is checked here, so an impossible
+  // number like the 17 Sep 2026 "+33 4187172114" is never filed again. An
+  // empty result falls into the "invalid" guard below.
+  const phone = checkPostedPhone(body.phone) ?? "";
   const company = str(body.company);
   const needs = str(body.needs);
   const start = str(body.start);
@@ -76,6 +95,8 @@ export async function POST(req: Request) {
   const proposed = str(body.proposed ?? body.preferred);
   const ref = str(body.ref).slice(0, 20); // diagnostic hand-off reference (DM-XXXXX)
   const locale = body.locale === "fr" ? "fr" : "en";
+  const tag = locale === "fr" ? "fr-FR" : "en-GB";
+  const tz = visitorZone(body.tz);
   // Campaign attribution (utm_* / ChatGPT oppref) read from the page URL by the widget.
   const attr = readAttribution(body.attribution);
   if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
@@ -112,8 +133,23 @@ export async function POST(req: Request) {
     const brief = await buildBrief(name, company, needs, locale);
     const endISO = new Date(startMs + BOOKING.slotMin * 60000).toISOString();
     const summary = `Digital M call — ${name}${company ? ` (${company})` : ""}`;
+
+    // Both clocks, in the visitor's language: an invite that only says "10:00"
+    // is how a Quebec lead ends up booked at 4 a.m.
+    const clocks = bothTimes(new Date(startMs), tz || BOOKING.tz, BOOKING.tz, tag);
+    const siteCity = zoneCity(BOOKING.tz);
+    const visitorCity = tz ? zoneCity(tz) : "";
+    const timeLine = clocks.differ
+      ? locale === "fr"
+        ? `Horaire : ${clocks.site} à ${siteCity} = ${clocks.local} chez vous (${visitorCity}).`
+        : `Time: ${clocks.site} in ${siteCity} = ${clocks.local} your time (${visitorCity}).`
+      : locale === "fr"
+        ? `Horaire : ${clocks.site} à ${siteCity}.`
+        : `Time: ${clocks.site} in ${siteCity}.`;
+
     const description = [
       brief,
+      timeLine,
       "",
       `Name: ${name}`,
       `Email: ${email}`,
@@ -136,17 +172,21 @@ export async function POST(req: Request) {
     if (!ok) return NextResponse.json({ ok: false }, { status: 502 });
 
     const when =
-      new Date(startMs).toLocaleString(locale === "fr" ? "fr-FR" : "en-GB", {
+      new Date(startMs).toLocaleString(tag, {
         timeZone: BOOKING.tz,
         dateStyle: "full",
         timeStyle: "short",
       }) + ` (${BOOKING.tz})`;
+    // What the lead has on their own wall, so nobody calls them at 4 a.m.
+    const whenVisitor = clocks.differ
+      ? `${formatInZone(new Date(startMs), tz, tag, { dateStyle: "full", timeStyle: "short" })} (${tz})`
+      : "";
 
     // Conversion event (server-side, adblock-proof) + instant phone ping.
     serverTrack("booking_confirmed", { locale, ref: ref || "-", source });
     adsConversion("appointment_scheduled", { id: ref || `slot_${startMs}`, sourceUrl: `${SITE_URL}/${locale}/book`, oppref: attr.oppref });
     notifyTelegram(
-      `📅 BOOKING confirmed — ${when}\n${name}${company ? ` · ${company}` : ""}${via ? `\n📣 via ${via}` : ""}\n📞 ${phone}\n✉️ ${email}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
+      `📅 BOOKING confirmed — ${when}${whenVisitor ? `\n🌍 visitor's time: ${whenVisitor}` : ""}\n${name}${company ? ` · ${company}` : ""}${via ? `\n📣 via ${via}` : ""}\n📞 ${phone}\n✉️ ${email}${ref ? `\nDiagnostic ref: ${ref}` : ""}`,
     );
 
     // Notify contact@ that a new appointment was booked (in addition to the calendar event).
@@ -158,6 +198,7 @@ export async function POST(req: Request) {
       ];
       if (company) rows.push(["Company", company]);
       rows.push(["When", when]);
+      if (whenVisitor) rows.push(["Visitor's time", whenVisitor]);
       if (ref) rows.push(["Diagnostic ref", ref]);
       rows.push(["Language", locale]);
       if (flagged) rows.push(["Flagged", "Turnstile outage — unverified"]);

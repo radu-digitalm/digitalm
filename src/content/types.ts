@@ -197,7 +197,12 @@ export type SiteContent = {
     step1: string;
     step2: string;
     pickFirst: string;
-    pickHint: string;
+    /** Slot-list hints and both-clock lines; {city}/{local}/{site}/{time} placeholders. */
+    pickHintLocal: string;
+    pickHintBoth: string;
+    atSite: string;
+    bookedWhen: string;
+    bookedWhenSame: string;
     noSlots: string;
     name: string;
     email: string;
