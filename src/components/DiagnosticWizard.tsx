@@ -25,12 +25,31 @@ function track(name: string, data?: Record<string, unknown>) {
   try { window.umami?.track(name, data); } catch { /* analytics is best-effort */ }
 }
 
+/**
+ * "monsite.fr" -> "https://monsite.fr". Returns null when the value cannot be a
+ * web address (a space, or a host without a dot), so we never store "mon site".
+ */
+function normalizeUrl(raw: string): string | null {
+  const v = raw.trim();
+  if (!v || /\s/.test(v)) return null;
+  const full = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+  const host = full.replace(/^https?:\/\//i, "").split(/[/?#]/)[0] ?? "";
+  if (!host.includes(".") || host.startsWith(".") || host.endsWith(".")) return null;
+  return full;
+}
+
+/** url-kind answers, normalised on submit so a bare domain arrives usable. */
+const URL_QUESTION_IDS: string[] = [
+  ...STEP1, ROUTER, ...Object.values(BRANCHES).flat(), TOOLS, MAGIC, ...STEP5, ...CONTACT,
+].filter((q) => q.kind === "url").map((q) => q.id);
+
 export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const t = UI[locale];
   const L = locale;
   const [step, setStep] = useState(0); // 0 intro, 1..6, 7 results
   const [answers, setAnswers] = useState<Answers>({});
   const [other, setOther] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [showResume, setShowResume] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -84,6 +103,14 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   function next() {
     let n = step + 1;
     if (n === 3 && branchQuestions.length === 0) n = 4; // "unsure" skips deep-dive
+    // Deep-dive already asked for an address: carry it over instead of asking twice.
+    if (n === 6) {
+      setAnswers((a) => {
+        if (typeof a.site === "string" && a.site.trim()) return a;
+        const seed = [a.C_url, a.E_url].find((v) => typeof v === "string" && normalizeUrl(v) !== null);
+        return typeof seed === "string" ? { ...a, site: seed } : a;
+      });
+    }
     setStep(n);
     track(`dm_step_${n}`, picked?.length ? { branch: picked.join("+") } : undefined);
     topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -94,13 +121,33 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     setStep(Math.max(0, n));
   }
 
-  const currentValid = (stepQuestions[step] ?? []).every((q) => {
-    if (!q.required) return true;
+  /** `required`, or `requiredIf` satisfied by what they answered earlier. */
+  function isRequired(q: Question): boolean {
+    return q.required === true || (q.requiredIf ? q.requiredIf(answers) : false);
+  }
+
+  function answered(q: Question): boolean {
     const v = answers[q.id];
     if (q.kind === "chips-multi" || q.kind === "cards") return Array.isArray(v) && v.length > 0;
     if (q.kind === "email") return typeof v === "string" && /.+@.+\..+/.test(v);
+    if (q.kind === "url") return typeof v === "string" && normalizeUrl(v) !== null;
     return typeof v === "string" && v.trim().length > 0;
-  });
+  }
+
+  /** A selected "other" option that has to say what — e.g. activity -> Other. */
+  function otherDetailRequired(q: Question): boolean {
+    const v = answers[q.id];
+    const chosen = (id: string) => (Array.isArray(v) ? v.includes(id) : v === id);
+    return (q.options ?? []).some((o) => o.other && o.otherRequired && chosen(o.id));
+  }
+
+  function otherDetailMissing(q: Question): boolean {
+    return otherDetailRequired(q) && !(other[q.id] ?? "").trim();
+  }
+
+  const currentValid = (stepQuestions[step] ?? []).every(
+    (q) => (!isRequired(q) || answered(q)) && !otherDetailMissing(q),
+  );
 
   // Turnstile is handled by the shared useTurnstile(step === 6) hook above.
 
@@ -108,6 +155,12 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   async function submit() {
     setBusy(true); setError(false);
     const merged: Answers = { ...answers };
+    for (const id of URL_QUESTION_IDS) {
+      const v = merged[id];
+      if (typeof v !== "string") continue;
+      const normalised = normalizeUrl(v);
+      if (normalised) merged[id] = normalised;
+    }
     for (const [qid, txt] of Object.entries(other)) {
       if (txt.trim()) merged[`${qid}_other`] = txt.trim();
     }
@@ -167,7 +220,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       return (
         <div key={q.id} className="mt-6 first:mt-0">
           <p className="text-base font-medium text-fg-heading">
-            {label} {q.required ? null : <span className="text-fg-faint">·</span>}
+            {label} {isRequired(q) ? null : <span className="text-fg-faint">·</span>}
           </p>
           {hint ? <p className="mt-1 text-sm text-fg-faint">{hint}</p> : null}
           <div className={isCards ? "mt-3 grid gap-2" : "mt-3 flex flex-wrap gap-2"}>
@@ -195,6 +248,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
               value={other[q.id] ?? ""}
               onChange={(e) => setOther((s) => ({ ...s, [q.id]: e.target.value }))}
               placeholder={t.otherPlaceholder}
+              aria-label={label}
+              aria-required={otherDetailRequired(q) || undefined}
               className={`${INPUT} mt-3`}
             />
           ) : null}
@@ -235,6 +290,11 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     }
 
     // text / email / tel / url
+    const required = isRequired(q);
+    const hintText = (required ? (L === "fr" ? q.hintRequiredFr : q.hintRequiredEn) : undefined) ?? hint;
+    const typed = typeof val === "string" ? val.trim() : "";
+    // Same inline treatment as the booking form: only once they have left the field.
+    const badUrl = q.kind === "url" && typed.length > 0 && normalizeUrl(typed) === null && touched[q.id] === true;
     return (
       <div key={q.id} className="mt-4 first:mt-0">
         <label className="mb-1.5 block text-sm text-fg-muted" htmlFor={`dm-${q.id}`}>{label}</label>
@@ -243,11 +303,19 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
           type={q.kind === "text" ? "text" : q.kind}
           value={(val as string) ?? ""}
           onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
+          onBlur={() => setTouched((s) => (s[q.id] ? s : { ...s, [q.id]: true }))}
           placeholder={ph}
           className={INPUT}
-          autoComplete={q.id === "email" ? "email" : q.id === "firstName" ? "given-name" : q.id === "phone" ? "tel" : q.id === "company" ? "organization" : "off"}
+          aria-required={required || undefined}
+          aria-invalid={badUrl || undefined}
+          aria-describedby={badUrl ? `dm-${q.id}-error` : hintText ? `dm-${q.id}-hint` : undefined}
+          autoComplete={q.id === "email" ? "email" : q.id === "firstName" ? "given-name" : q.id === "phone" ? "tel" : q.id === "company" ? "organization" : q.kind === "url" ? "url" : "off"}
         />
-        {hint ? <p className="mt-1 text-xs text-fg-faint">{hint}</p> : null}
+        {badUrl ? (
+          <p id={`dm-${q.id}-error`} role="alert" className="mt-1 text-xs text-accent-soft">{t.urlInvalid}</p>
+        ) : hintText ? (
+          <p id={`dm-${q.id}-hint`} className="mt-1 text-xs text-fg-faint">{hintText}</p>
+        ) : null}
       </div>
     );
   }
