@@ -101,6 +101,11 @@ export function leadFromContact(p: {
         company: p.company,
         phone: p.phone,
         locale: p.locale,
+        // Same reason as the check-up: the locale is the language of the
+        // page, not where the visitor is. The number is already E.164 here
+        // (the route ran checkPostedPhone), so its dial code is the better
+        // evidence; insertLead still falls back to the locale without one.
+        country: countryFromE164(p.phone),
         sourceLabel: attributionLabel(p.attr),
         sourceUtm: attributionSource(p.attr) || null,
         attribution: p.attr,
@@ -143,6 +148,11 @@ export function leadFromBooking(p: {
         company: p.company,
         phone: p.phone,
         locale: p.locale,
+        // Same reason as the check-up: the locale is the language of the
+        // page, not where the visitor is. The number is already E.164 here
+        // (the route ran checkPostedPhone), so its dial code is the better
+        // evidence; insertLead still falls back to the locale without one.
+        country: countryFromE164(p.phone),
         sourceLabel: attributionLabel(p.attr),
         sourceUtm: attributionSource(p.attr) || null,
         attribution: p.attr,
