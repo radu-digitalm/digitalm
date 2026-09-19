@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { COUNTRIES, PHONE_TEXT, guessCountry, validatePhone } from "@/lib/phone";
-import type { Country, PhoneCheck, PhoneCopy, PhoneLang } from "@/lib/phone";
+import type { Country, PhoneCheck, PhoneCopy, PhoneLang, PhoneValue } from "@/lib/phone";
 
 // Shared phone input: a searchable country picker (flag + dial code) plus the
 // number. The parent form reads `dialcode` + `phoneNumber` from FormData, and
@@ -19,6 +19,11 @@ import type { Country, PhoneCheck, PhoneCopy, PhoneLang } from "@/lib/phone";
 // trunk 0 gone: "06 30 91 28 44" becomes "630912844", posted as
 // "+33 630912844"), and a number typed in full for a country the picker does
 // not carry blanks `dialcode` so nothing is prefixed to it.
+//
+// A parent that does not read FormData (the check-up wizard keeps its answers
+// in React state) passes `onValueChange` instead and gets the same result the
+// hidden fields carry. Everything below is unchanged for the two form call
+// sites: the extra props are optional and default to what they already do.
 
 function messageFor(check: PhoneCheck, country: Country, copy: PhoneCopy): string {
   if (check.ok) return "";
@@ -37,6 +42,10 @@ export function PhoneField({
   initialValue = "",
   fieldClass,
   labelClass,
+  id = "phoneNumber",
+  required = true,
+  note,
+  onValueChange,
 }: {
   label: string;
   defaultDial?: string;
@@ -48,6 +57,18 @@ export function PhoneField({
   initialValue?: string;
   fieldClass: string;
   labelClass: string;
+  /** DOM id of the number input; the field names never change. */
+  id?: string;
+  /**
+   * The two forms ask for a phone they need. The check-up only offers one, so
+   * it passes `false`: an empty field is then simply empty — no star, no
+   * error, and nothing published but an empty string.
+   */
+  required?: boolean;
+  /** One line of the parent's own copy, under the label (already translated). */
+  note?: string;
+  /** Called on every change with what the hidden fields would carry. */
+  onValueChange?: (value: PhoneValue) => void;
 }) {
   const [sel, setSel] = useState<Country>(
     () => COUNTRIES.find((c) => c.dial === defaultDial) ?? COUNTRIES[0]!,
@@ -134,6 +155,8 @@ export function PhoneField({
     const form = input?.form;
     if (!input || !form) return;
     const onSubmit = (e: Event) => {
+      // Optional and left empty: nothing to check, nothing to block.
+      if (!required && input.value.trim() === "") return;
       const check = validatePhone(input.value, sel);
       if (check.ok) {
         const next = fieldValue(check);
@@ -154,11 +177,15 @@ export function PhoneField({
     };
     form.addEventListener("submit", onSubmit, true);
     return () => form.removeEventListener("submit", onSubmit, true);
-  }, [sel, lang]);
+  }, [sel, lang, required]);
 
   const copy = PHONE_TEXT[lang];
   const check = validatePhone(value, sel);
-  const message = messageFor(check, sel, copy);
+  // An optional field left empty is not a mistake: no message, so no error, no
+  // browser block, and the country hint stays visible. A number that IS typed
+  // is checked exactly as it is in the two forms.
+  const optionalEmpty = !required && value.trim() === "";
+  const message = optionalEmpty ? "" : messageFor(check, sel, copy);
   const errorShown = blurred && message !== "";
   // A number typed in full for a country the picker does not carry: say so,
   // otherwise the flag sitting beside it reads as a contradiction.
@@ -170,6 +197,20 @@ export function PhoneField({
   useEffect(() => {
     inputRef.current?.setCustomValidity(message);
   }, [message]);
+
+  // Same three values as the hidden fields, for a parent that keeps its own
+  // state. The callback lives in a ref and the effect depends on strings only,
+  // so an inline arrow in the parent cannot turn this into a render loop.
+  const national = check.ok && !check.foreign ? check.national : "";
+  const dial = check.ok && check.foreign ? "" : sel.dial;
+  const e164 = check.ok ? check.e164 : "";
+  const publish = useRef(onValueChange);
+  useEffect(() => {
+    publish.current = onValueChange;
+  });
+  useEffect(() => {
+    publish.current?.({ raw: value, national, dial, e164, valid: e164 !== "" });
+  }, [value, national, dial, e164]);
 
   const ql = q.trim().toLowerCase();
   const filtered = ql
@@ -189,9 +230,15 @@ export function PhoneField({
 
   return (
     <div>
-      <label htmlFor="phoneNumber" className={labelClass}>
-        {label} <span className="text-accent">*</span>
+      <label htmlFor={id} className={labelClass}>
+        {label}
+        {required ? <span className="text-accent"> *</span> : null}
       </label>
+      {note ? (
+        <p id={`${id}-note`} className="mb-1.5 text-sm text-fg-faint">
+          {note}
+        </p>
+      ) : null}
       <div ref={ref} className="relative flex gap-2">
         {/* A number carrying its own country code must not get a second one. */}
         <input
@@ -216,10 +263,10 @@ export function PhoneField({
           </svg>
         </button>
         <input
-          id="phoneNumber"
+          id={id}
           name="phoneNumber"
           type="tel"
-          required
+          required={required}
           autoComplete="tel-national"
           value={value}
           onChange={(e) => setValue(e.target.value)}
@@ -230,11 +277,16 @@ export function PhoneField({
           }}
           aria-invalid={errorShown || undefined}
           aria-describedby={
-            errorShown
-              ? "phoneNumber-error"
-              : hintShown || foreignShown
-                ? "phoneNumber-hint"
-                : undefined
+            [
+              note ? `${id}-note` : null,
+              errorShown
+                ? `${id}-error`
+                : hintShown || foreignShown
+                  ? `${id}-hint`
+                  : null,
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined
           }
           className={`${fieldClass} !w-auto min-w-0 flex-1`}
         />
@@ -278,15 +330,15 @@ export function PhoneField({
         ) : null}
       </div>
       {errorShown ? (
-        <p id="phoneNumber-error" role="alert" className="mt-1.5 text-sm text-accent-soft">
+        <p id={`${id}-error`} role="alert" className="mt-1.5 text-sm text-accent-soft">
           {message}
         </p>
       ) : foreignShown ? (
-        <p id="phoneNumber-hint" className="mt-1.5 text-sm text-fg-faint">
+        <p id={`${id}-hint`} className="mt-1.5 text-sm text-fg-faint">
           {copy.foreignOk}
         </p>
       ) : hintShown ? (
-        <p id="phoneNumber-hint" className="mt-1.5 text-sm text-fg-faint">
+        <p id={`${id}-hint`} className="mt-1.5 text-sm text-fg-faint">
           {copy.hint(sel)}
         </p>
       ) : null}

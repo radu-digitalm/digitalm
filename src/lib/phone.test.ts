@@ -5,10 +5,12 @@ import {
   PHONE_TEXT,
   checkPostedPhone,
   countryFor,
+  countryFromE164,
   countryFromLanguages,
   countryFromTimeZone,
   guessCountry,
   normalisePhone,
+  repairPostedPhone,
   validatePhone,
 } from "./phone.ts";
 import type { Country } from "./phone.ts";
@@ -447,4 +449,99 @@ test("the server guard agrees with what the field posts", () => {
     assert.ok(back, `the route refused ${sent}, which the form accepted`);
     assert.equal(back.replace(/\s+/g, ""), sent.replace(/\s+/g, ""), `mismatch for ${raw}`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// The tolerant repair. The check-up's phone question was a plain text input
+// until 18 Sep 2026: it stored whatever was typed, and a page cached before
+// the fix still posts that way. `repairPostedPhone` never throws and never
+// refuses — the enquiry must survive whatever arrives.
+// ---------------------------------------------------------------------------
+
+test("the 18 Sep 2026 lead: a North American number typed with its trunk 1", () => {
+  // Stored as "15817015976" — +1 581 701 5976, Quebec (581 overlays 418).
+  assert.equal(repairPostedPhone("15817015976"), "+15817015976");
+  assert.equal(repairPostedPhone("1 581 701 5976"), "+15817015976");
+  assert.equal(repairPostedPhone("1-581-701-5976"), "+15817015976");
+  assert.equal(repairPostedPhone("(581) 701-5976", { country: "CA" }), "+15817015976");
+});
+
+test("the repair keeps a number it cannot place exactly as typed", () => {
+  // Ten digits and no country: Quebec reads them as 418 717 2114, France as a
+  // number starting 41. Guessing is what filed the last three leads wrong.
+  assert.equal(repairPostedPhone("4187172114"), "4187172114");
+  assert.equal(repairPostedPhone("0630912844"), "0630912844");
+  assert.equal(repairPostedPhone("630912844"), "630912844");
+  // The 17 Sep 2026 lead is still refused: no country can have it, so it is
+  // never turned into something that looks callable.
+  assert.equal(checkPostedPhone("+33 4187172114"), null);
+  assert.equal(repairPostedPhone("+33 4187172114"), "+33 4187172114");
+});
+
+test("the repair uses a country hint when the client gives one", () => {
+  assert.equal(repairPostedPhone("0630912844", { country: "FR" }), "+33630912844");
+  assert.equal(repairPostedPhone("06 30 91 28 44", { country: "fr" }), "+33630912844");
+  assert.equal(repairPostedPhone("0630912844", { dial: "+33" }), "+33630912844");
+  assert.equal(repairPostedPhone("07911 123456", { country: "GB" }), "+447911123456");
+  // A hint the number contradicts decides nothing; the value stays as typed.
+  assert.equal(repairPostedPhone("4187172114", { country: "FR" }), "4187172114");
+  // An unknown hint is simply no hint.
+  assert.equal(repairPostedPhone("0630912844", { country: "ZZ" }), "0630912844");
+});
+
+test("the repair passes an international number through the existing guard", () => {
+  assert.equal(repairPostedPhone("+33 0630912844"), "+33630912844");
+  assert.equal(repairPostedPhone("+1 418 717 2114"), "+14187172114");
+  assert.equal(repairPostedPhone("0033 6 30 91 28 44"), "+33630912844");
+  assert.equal(repairPostedPhone("+5511987654321"), "+5511987654321");
+});
+
+test("the repair never throws and never invents a number", () => {
+  const junk = "x".repeat(50);
+  assert.equal(repairPostedPhone(junk), junk);
+  assert.equal(repairPostedPhone("!@#$%^&*()".repeat(5)).length, 50);
+  assert.equal(repairPostedPhone("call me at the shop please ok"), "call me at the shop please ok");
+  assert.equal(repairPostedPhone("1".repeat(50)), "1".repeat(50));
+  assert.equal(repairPostedPhone(""), "");
+  assert.equal(repairPostedPhone("   "), "");
+  assert.equal(repairPostedPhone(null), "");
+  assert.equal(repairPostedPhone(undefined), "");
+  assert.equal(repairPostedPhone(42), "42");
+  assert.equal(repairPostedPhone({}), "[object Object]");
+});
+
+test("what the check-up posts now survives the repair untouched", () => {
+  // The wizard publishes E.164; the route must not rewrite it.
+  for (const e164 of ["+15817015976", "+33630912844", "+447911123456", "+5511987654321"]) {
+    assert.equal(repairPostedPhone(e164), e164);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Which country the lead row gets. "FR" was the default for every check-up,
+// because the check-up is served in French to the whole world.
+// ---------------------------------------------------------------------------
+
+test("the country comes from the dial code when the number carries one", () => {
+  assert.equal(countryFromE164("+33630912844"), "FR");
+  assert.equal(countryFromE164("+447911123456"), "GB");
+  assert.equal(countryFromE164("+32 470 12 34 56"), "BE");
+  assert.equal(countryFromE164("+352 621 123 456"), "LU"); // +352 before +35…
+});
+
+test("+1 is split between Canada and the United States by its area code", () => {
+  assert.equal(countryFromE164("+15817015976"), "CA"); // 581 — Quebec
+  assert.equal(countryFromE164("+14187172114"), "CA"); // 418 — Quebec
+  assert.equal(countryFromE164("+15145551234"), "CA"); // 514 — Montreal
+  assert.equal(countryFromE164("+12125551234"), "US"); // 212 — New York
+});
+
+test("the country is null when the number does not say, and the caller keeps its default", () => {
+  for (const raw of ["0630912844", "4187172114", "15817015976", "", "   ", "not a phone"]) {
+    assert.equal(countryFromE164(raw), null, `expected no country for ${JSON.stringify(raw)}`);
+  }
+  assert.equal(countryFromE164(null), null);
+  assert.equal(countryFromE164(undefined), null);
+  assert.equal(countryFromE164("+5511987654321"), null); // Brazil is not in the picker
+  assert.equal(countryFromE164("+1581701"), null); // not a whole NANP number
 });

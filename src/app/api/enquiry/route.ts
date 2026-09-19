@@ -8,6 +8,7 @@ import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
 import { readAttribution, attributionLabel, attributionSource } from "@/lib/attribution";
+import { repairPostedPhone } from "@/lib/phone";
 import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
 // @@crm:inbox
@@ -72,6 +73,11 @@ export async function POST(req: NextRequest) {
     website?: string;
     oppref?: string; // legacy field — now inside `attribution`
     attribution?: unknown; // utm_* + oppref read from the page URL by the wizard
+    // Optional country hints for the phone. The wizard posts an E.164 number
+    // and needs neither; they are here for a caller that knows where the
+    // visitor is but cannot format the number itself.
+    phoneCountry?: unknown; // ISO2, e.g. "CA"
+    phoneDial?: unknown; // dial code, e.g. "+1"
   };
   try {
     body = await req.json();
@@ -121,7 +127,15 @@ export async function POST(req: NextRequest) {
   if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
   const via = attributionLabel(attr);
   const company = String(answers.company ?? "").trim().slice(0, 200);
-  const phone = String(answers.phone ?? "").trim().slice(0, 50);
+  // The check-up now posts an E.164 number, but a page cached before that
+  // deploy still posts whatever was typed ("15817015976", the 18 Sep 2026
+  // lead). Repair what can be repaired and keep the rest exactly as typed:
+  // this never throws and never refuses, so a badly written number cannot
+  // cost us the lead, and `answers` keeps the original either way.
+  const phone = repairPostedPhone(answers.phone, {
+    country: typeof body.phoneCountry === "string" ? body.phoneCountry : null,
+    dial: typeof body.phoneDial === "string" ? body.phoneDial : null,
+  }).slice(0, 50);
   const source = String(answers.source ?? "").trim().slice(0, 100);
 
   try {
