@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMail, mailConfigured, renderNotification, renderClientEmail } from "@/lib/mail";
+import { sendMail, mailConfigured, renderClientEmail, renderLeadNotification, splitReplyDraft, leadPlace, dialable } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
-import { score } from "@/lib/diagnosticScoring";
+import { score, type ServiceLine } from "@/lib/diagnosticScoring";
 import { triageEnquiry } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
@@ -23,6 +23,28 @@ const ALL_QUESTIONS: Question[] = [
   TOOLS, MAGIC, ...STEP5, ...CONTACT,
 ];
 const BY_ID = new Map(ALL_QUESTIONS.map((q) => [q.id, q]));
+
+// Plain names for the service lines: Radu reads the email on a phone, and
+// "AUTO+CRM" is not what he wants to see at 7am.
+const LINE_LABEL: Record<ServiceLine, string> = {
+  AGENT: "AI assistant",
+  AUTO: "Process automation",
+  WEB: "Website / e-commerce",
+  CRM: "Customer follow-up (CRM)",
+  SEC: "E-commerce security audit",
+};
+
+// What to quote against the band they chose. The model gets the same rule in
+// its prompt; this line is what Radu reads when the model did not answer at
+// all, and it is why nobody gets offered the floor price of the grid again.
+const PRICE_FIT: Record<string, string> = {
+  "<1500": "under €1,500 — quote €800-1,500, never the €500 entry price",
+  "1500-3500": "€1,500-3,500 — quote €2,000-3,500",
+  "3500-7000": "€3,500-7,000 — quote €4,000-6,000",
+  "7000+": "€7,000+ — quote from €7,000 up",
+  unsure: "not decided — quote the standard €1,500-3,500 range",
+};
+const STANDARD_PRICE = "not stated — quote the standard €1,500-3,500 range";
 
 function labelFor(q: Question, v: string): string {
   return q.options?.find((o) => o.id === v)?.en ?? v;
@@ -105,28 +127,54 @@ export async function POST(req: NextRequest) {
 
   const scoring = score(answers as Parameters<typeof score>[0]);
 
-  // Labeled answers (EN labels) — for the LLM triage and the email body.
+  // Labelled answers (EN labels), kept as data rather than one string: the
+  // email picks out the facts that decide the sale and leaves the rest for the
+  // bottom of the message, and the model gets the same thing as prose.
   const magic = String(answers.magic ?? "").trim();
-  const detail: string[] = [];
-  if (magic) detail.push(`MAGIC WAND (their own words):\n"${magic}"\n`);
+  const entries: { id: string; label: string; value: string; freeText: boolean }[] = [];
   for (const [id, v] of Object.entries(answers)) {
-    if (["firstName", "email", "company", "phone", "source", "magic"].includes(id)) continue;
+    if (["firstName", "email", "company", "phone", "magic"].includes(id)) continue;
     const q = BY_ID.get(id.replace(/_other$/, ""));
     if (!q) continue;
-    if (id.endsWith("_other")) { detail.push(`${q.en} (other): ${String(v)}`); continue; }
+    if (id.endsWith("_other")) {
+      entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true });
+      continue;
+    }
     const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
-    detail.push(`${q.en}: ${vals}`);
+    entries.push({ id, label: q.en, value: vals, freeText: false });
   }
+  const answerOf = (id: string): string => entries.find((e) => e.id === id)?.value ?? "";
+
+  const company = String(answers.company ?? "").trim().slice(0, 200);
+  const website = String(answers.site ?? "").trim().slice(0, 300);
+  const budgetId = String(answers.budget ?? "").trim();
+  const budgetLabel = answerOf("budget");
+  const priceFit = PRICE_FIT[budgetId] ?? STANDARD_PRICE;
+
+  // The model is shown who this is: without the first name every "ready-to-send"
+  // draft opened with a bare "Bonjour,", and without the budget it quoted the
+  // floor price of the grid to a prospect who had declared several thousand.
+  // "How did you hear about us" is left out: it changes nothing and the one
+  // real lead's answer contradicted the ad tag we already had.
+  const modelAnswers = [
+    magic ? `MAGIC WAND (their own words):\n"${magic}"\n` : null,
+    ...entries.filter((e) => e.id !== "source").map((e) => `${e.label}: ${e.value}`),
+  ]
+    .filter((l): l is string => !!l)
+    .join("\n");
 
   // LLM triage — reads the free text the rules can't. Rule scoring is the fallback.
-  const triage = await triageEnquiry(detail.join("\n"), scoring, locale);
+  const triage = await triageEnquiry(
+    { firstName, company, website, budget: budgetLabel, answers: modelAnswers },
+    scoring,
+    locale,
+  );
   const proposed = triage?.proposed ?? scoring.proposed;
 
   const reference = newReference();
   const attr = readAttribution(body.attribution);
   if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
   const via = attributionLabel(attr);
-  const company = String(answers.company ?? "").trim().slice(0, 200);
   // The check-up now posts an E.164 number, but a page cached before that
   // deploy still posts whatever was typed ("15817015976", the 18 Sep 2026
   // lead). Repair what can be repaired and keep the rest exactly as typed:
@@ -157,57 +205,92 @@ export async function POST(req: NextRequest) {
   }
 
   // @@crm:inbox
-  leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
+  const lead = leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
+
+  // Where they are, as far as the evidence goes: the number's dial code first,
+  // then the country the CRM row settled on. Never the page language.
+  const place = leadPlace({ phone, country: lead?.country ?? null });
+  const e164 = dialable(phone);
+  const crmUrl = lead ? `${SITE_URL}/admin/leads/${lead.reference}` : undefined;
 
   serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale, source: attributionSource(attr) || "direct" });
   // ChatGPT Ads conversion — only fires when the visitor landed from an ad (?oppref=).
   adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, oppref: attr.oppref });
 
   // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
+  // Same order as the email: who, where, how to reach them, their own words,
+  // then the draft. A number that cannot be dialled says so instead of being
+  // printed as if it could.
   const tgLines = [
     `🔔 ${scoring.grade}${scoring.urgent ? " · URGENT" : ""} lead — ${reference}`,
-    `${firstName}${company ? ` · ${company}` : ""} · ${proposed.join("+") || "?"}`,
-    via ? `📣 via ${via}` : null,
-    phone ? `📞 ${phone}` : null,
+    `${firstName}${company ? ` · ${company}` : ""}${place ? ` · ${place}` : ""}`,
+    `→ ${proposed.map((p) => LINE_LABEL[p]).join(" + ") || "?"} · ${budgetLabel || "budget not stated"}`,
+    e164 ? `📞 ${e164}` : phone ? `📞 ${phone} (not dialable as stored)` : null,
     `✉️ ${email}`,
+    via ? `📣 via ${via}` : null,
+    magic ? `\n— their own words —\n"${magic}"` : null,
     triage?.replyDraft ? `\n— ready reply —\n${triage.replyDraft}` : null,
+    crmUrl ? `\n${crmUrl}` : null,
   ].filter(Boolean);
   notifyTelegram(tgLines.join("\n"));
 
   // ---- Triage email to Radu (best-effort; the enquiry is already stored) ----
   if (mailConfigured()) {
-    const rows: [string, string][] = [
-      ["Reference", reference],
-      ["Grade", `${scoring.grade}${scoring.urgent ? " · URGENT" : ""}${flagged ? " · FLAGGED (turnstile outage)" : ""}`],
-      ["Proposed", proposed.join(" + ") || "(none scored)"],
-      ["Urgency", `${scoring.urgency}/5`],
-      ["Name", firstName],
-      ["Email", email],
-    ];
-    if (company) rows.push(["Company", company]);
-    if (phone) rows.push(["Phone", phone]);
-    if (source) rows.push(["Heard about us", labelFor(BY_ID.get("source")!, source)]);
-    if (via) rows.push(["Source", via]);
-    rows.push(["Language", locale], ["IP", ip]);
-
-    const body =
-      (triage
-        ? `READY-TO-SEND REPLY (review, tweak, send):\n\n${triage.replyDraft}\n\n———\nSTRATEGY NOTE:\n${triage.noteForRadu}\n\n———\n`
-        : "") +
-      detail.join("\n") +
-      `\n\nRule scores: ${Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-"}${triage ? "" : "  (LLM triage unavailable — rules only)"}`;
-
-    const grade = `[${scoring.grade}]${scoring.urgent ? "[URGENT]" : ""}`;
-    const summary =
-      triage?.subjectSummary ??
-      `${firstName}${company ? `, ${company}` : ""} — ${proposed.join("+") || "?"} — ${String(answers.start ?? "?")}${answers.budget ? `, ${answers.budget}` : ""}`;
-    const { text, html } = renderNotification({
-      source: "Digital check-up",
-      rows,
-      body,
+    const replySubject =
+      locale === "fr"
+        ? `Votre check-up numérique — ${reference}`
+        : `Your digital check-up — ${reference}`;
+    const { subject, text, html } = renderLeadNotification({
+      reference,
+      grade: scoring.grade,
+      urgent: scoring.urgent,
+      flagged,
+      locale,
+      firstName,
+      company: company || undefined,
+      email,
+      phone: phone || undefined,
+      place: place || undefined,
+      summary: triage?.subjectSummary,
+      crmUrl,
+      ownWords: [
+        ...(magic ? [{ label: "Magic wand — the chore they want gone", text: magic }] : []),
+        ...entries.filter((e) => e.freeText).map((e) => ({ label: e.label, text: e.value })),
+      ],
+      facts: [
+        { label: "What they do", value: [answerOf("activity"), answerOf("activity_other")].filter(Boolean).join(" — ") || "not stated" },
+        { label: "Size", value: answerOf("team") || "not stated" },
+        { label: "Sells online", value: answerOf("sellsOnline") || "not stated" },
+        { label: "Budget", value: budgetLabel || "not stated" },
+        { label: "Wants to start", value: answerOf("start") || "not stated" },
+        { label: "Who decides", value: answerOf("decision") || "not stated" },
+        { label: "Tools today", value: answerOf("tools") || "none picked" },
+        { label: "Website", value: website || "not given" },
+      ],
+      propose: {
+        lines: proposed.map((p) => LINE_LABEL[p]).join(" + ") || "(none scored)",
+        why: triage?.noteForRadu,
+        price: priceFit,
+        noFit: triage?.noFit?.trim() || undefined,
+      },
+      callQuestions: triage?.callQuestions,
+      unknowns: triage?.unknowns,
+      reply: triage?.replyDraft ? splitReplyDraft(triage.replyDraft, replySubject) : undefined,
+      detail: entries.map((e) => ({ label: e.label, value: e.value })),
+      diagnostics: [
+        { label: "Rule scores", value: Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-" },
+        { label: "Urgency", value: `${scoring.urgency}/5` },
+        { label: "Flags", value: scoring.flags.join(", ") || "-" },
+        { label: "Heard about us", value: source ? labelFor(BY_ID.get("source")!, source) : "not answered" },
+        { label: "Attribution", value: via || "direct" },
+        { label: "Language", value: locale },
+        { label: "IP", value: ip },
+        { label: "Turnstile", value: flagged ? "outage — accepted unverified" : "verified" },
+        { label: "AI triage", value: triage ? "ok" : "unavailable — rules only" },
+      ],
     });
     sendMail({
-      subject: `[${reference}] ${grade} ${summary}`,
+      subject,
       text,
       html,
       replyTo: email,
