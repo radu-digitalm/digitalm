@@ -10,6 +10,8 @@ import {
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
+import { clearance } from "@/components/consentClearance";
+import type { ConsentBox } from "@/components/consentClearance";
 
 const COPY: Record<
   Locale,
@@ -61,6 +63,11 @@ const CONTROLS =
 // What tells us the visitor has taken the page over.
 const TAKEOVER = ["pointerdown", "wheel", "touchmove", "keydown"] as const;
 
+// How long a page is allowed to keep arranging itself — the router's own
+// scroll, the phone fields, the booking slots — before the bar leaves the
+// scroll position alone for good.
+const SETTLING = 4000;
+
 // The bar is drawn after hydration. Measuring it and reserving its space in the
 // same frame, before the browser paints, means the page is never left with a
 // button stranded behind it.
@@ -74,8 +81,6 @@ export function CookieConsent({ locale }: { locale: Locale }) {
   // The bar outlives a move from one page to the next, so the room it needs is
   // worked out again on every page the visitor opens while it is up.
   const pathname = usePathname();
-  // True once the page the visitor landed on has had its room made.
-  const arrived = useRef(false);
   const copy = COPY[locale];
 
   useEffect(() => {
@@ -109,9 +114,12 @@ export function CookieConsent({ locale }: { locale: Locale }) {
   //      the document can always be scrolled out from under it;
   //   2. page furniture that is fixed too (the chat launcher) rides above it,
   //      since scrolling can never free that;
-  //   3. as each page arrives, the page is lifted by the smallest amount that
-  //      frees every control the bar came down on, so the first screen the
-  //      visitor sees is the one they would have seen without it;
+  //   3. while a page is still arranging itself, the right scroll position is
+  //      worked out again from the layout as it stands at that moment, and
+  //      the page is only ever moved to a place where the bar covers nothing
+  //      at all. Where no such place exists within a bar's height, the page is
+  //      handed straight back to where it was, so the bar can never leave a
+  //      control worse off than if it were not there;
   //   4. the browser's own scroll-into-view is told to keep clear of it.
   // The bar stops moving the page the moment the visitor scrolls or taps for
   // themselves, and everything is handed back when a choice is made.
@@ -121,14 +129,16 @@ export function CookieConsent({ locale }: { locale: Locale }) {
     if (!el) return;
     const root = document.documentElement;
     const lifted: { node: HTMLElement; previous: string }[] = [];
-    let reserved = 0;
-    // The page is never moved by more than the height of the bar in total, and
-    // never once the visitor has started scrolling for themselves.
-    let spent = 0;
+    // How much of the page's current scroll position is ours rather than the
+    // visitor's. It stays ours to give back: every pass recomputes the whole
+    // move from scratch, so a page that was still growing when the first pass
+    // ran is put right by the next one instead of being stuck with it.
+    let applied = 0;
     let taken = false;
     let pending = 0;
     let frame = 0;
-    let settling = Date.now() + 2500;
+    let settling = Date.now() + SETTLING;
+    let known = root.scrollHeight;
 
     const drop = () => {
       for (const entry of lifted.splice(0)) {
@@ -137,11 +147,19 @@ export function CookieConsent({ locale }: { locale: Locale }) {
     };
 
     // Fixed furniture cannot be scrolled clear, so move it above the bar.
-    const lift = (height: number, barTop: number) => {
-      drop();
+    // Once a piece has been claimed it stays claimed and is only re-aimed: the
+    // chat launcher animates its transform, so dropping it and looking again
+    // catches it mid-flight with a transform of its own and abandons it there,
+    // under the bar. New furniture — the chat's own consent card — is picked
+    // up whenever it appears.
+    const liftFixed = (height: number, barTop: number) => {
       const vh = window.innerHeight;
+      for (const entry of lifted) {
+        entry.node.style.transform = `translateY(-${height}px)`;
+      }
       for (const node of Array.from(document.body.children)) {
         if (!(node instanceof HTMLElement) || node === el) continue;
+        if (lifted.some((entry) => entry.node === node)) continue;
         const style = window.getComputedStyle(node);
         if (style.position !== "fixed" || style.transform !== "none") continue;
         const box = node.getBoundingClientRect();
@@ -152,79 +170,96 @@ export function CookieConsent({ locale }: { locale: Locale }) {
       }
     };
 
-    // How far the page has to move for every control the bar came down on to
-    // come out from under it. If that lift would only land the bar on the next
-    // control down, it looks a little further for a gap to land in. Never more
-    // than the page can scroll, and never more than half a bar past the bar's
-    // own height in total.
-    const clear = (height: number, barTop: number) => {
+    // Anything pinned to the screen goes with the screen, so scrolling can
+    // never free it and it must not be allowed to veto a move. The fixed
+    // furniture above is lifted instead.
+    const pinnedIn = (node: HTMLElement, seen: Map<Element, boolean>) => {
+      const chain: Element[] = [];
+      let current: HTMLElement | null = node;
+      let answer = false;
+      while (current && current !== document.body) {
+        const cached = seen.get(current);
+        if (cached !== undefined) {
+          answer = cached;
+          break;
+        }
+        chain.push(current);
+        const position = window.getComputedStyle(current).position;
+        if (position === "fixed" || position === "sticky") {
+          answer = true;
+          break;
+        }
+        current = current.parentElement;
+      }
+      for (const entry of chain) seen.set(entry, answer);
+      return answer;
+    };
+
+    // Where the page has to sit for the bar to be covering nothing. It starts
+    // from where the visitor would be if the bar were not here, takes the
+    // smallest move that frees every control the bar's strip of screen would
+    // otherwise hold, and takes none at all if no move within reach does that.
+    // A control counts as free when a thumb's worth of it is above the bar, or
+    // when it is still below the fold and a scroll away.
+    const settle = () => {
+      if (taken) return;
+      const box = el.getBoundingClientRect();
+      const height = Math.ceil(box.height);
+      liftFixed(height, box.top);
       const vh = window.innerHeight;
-      const budget = height - spent;
-      const room = Math.max(
-        0,
-        root.scrollHeight - vh - (window.scrollY || window.pageYOffset || 0),
+      const here = window.scrollY || window.pageYOffset || 0;
+      const base = Math.max(0, here - applied);
+      // Far enough to step over the block the bar came down on, and no
+      // further: the page the visitor paid to land on stays in view.
+      const cap = Math.min(
+        height * 2,
+        Math.max(0, root.scrollHeight - vh - base),
       );
-      if (budget < 1 || room < 1) return;
-      const reach = Math.min(budget * 1.5, room);
-      const boxes: { top: number; bottom: number }[] = [];
-      let needed = 0;
+      const boxes: ConsentBox[] = [];
+      const seen = new Map<Element, boolean>();
       for (const node of Array.from(
         document.querySelectorAll<HTMLElement>(CONTROLS),
       )) {
         if (el.contains(node)) continue;
-        if (lifted.some((entry) => entry.node.contains(node))) continue;
-        const box = node.getBoundingClientRect();
-        if (box.width < 8 || box.height < 8) continue;
-        if (box.bottom <= barTop || box.top >= vh + reach) continue;
-        const style = window.getComputedStyle(node);
-        if (style.visibility === "hidden" || style.position === "fixed") continue;
-        boxes.push({ top: box.top, bottom: box.bottom });
-        if (box.top < vh) needed = Math.max(needed, box.bottom - barTop);
+        const rect = node.getBoundingClientRect();
+        if (rect.width < 8 || rect.height < 8) continue;
+        // Nowhere near the bar's strip of screen, whatever we do: not worth
+        // the cost of asking the browser about it.
+        if (rect.bottom <= box.top - 8 || rect.top >= vh + cap) continue;
+        if (window.getComputedStyle(node).visibility === "hidden") continue;
+        if (pinnedIn(node, seen)) continue;
+        boxes.push({ top: rect.top + here, height: rect.height });
       }
-      const clears = (value: number) =>
-        boxes.every(
-          (box) => box.bottom - value <= barTop || box.top - value >= vh,
-        );
-      let shift = Math.min(needed, budget, room);
-      if (shift > 0.5 && !clears(shift)) {
-        const gaps: number[] = [];
-        for (const box of boxes) {
-          for (const value of [box.bottom - barTop, box.top - vh]) {
-            if (value > shift && value <= reach) gaps.push(value);
-          }
-        }
-        gaps.sort((a, b) => a - b);
-        for (const value of gaps) {
-          if (clears(value)) {
-            shift = value;
-            break;
-          }
-        }
+      const best = clearance({ base, view: vh, bar: height, reach: cap, boxes });
+      const target = Math.round(base + best);
+      if (Math.abs(target - here) > 0.5) {
+        window.scrollTo({ top: target, left: 0, behavior: "instant" });
       }
-      if (shift > 0.5) {
-        window.scrollBy({ top: shift, left: 0, behavior: "instant" });
-        spent += shift;
-      }
-    };
-
-    const liftPage = () => {
-      const box = el.getBoundingClientRect();
-      clear(Math.ceil(box.height), box.top);
+      applied = Math.max(0, (window.scrollY || window.pageYOffset || 0) - base);
+      known = root.scrollHeight;
     };
 
     // Moving from one page to the next, the router scrolls the new page into
     // place with an animation of its own, and booking slots and phone fields
-    // are drawn a moment after the bar is. So the lift waits for the page to
-    // stop moving, only while it is still settling, and not at all once the
+    // are drawn a moment after the bar is. So the move waits for the page to
+    // stop changing, only while it is still settling, and not at all once the
     // visitor is scrolling for themselves.
     const soon = (delay: number) => {
       if (taken || Date.now() > settling) return;
       window.clearTimeout(pending);
       pending = window.setTimeout(() => {
-        if (!taken) liftPage();
+        if (!taken) settle();
       }, delay);
     };
     const onScroll = () => soon(150);
+    // The page grew or shrank under us — a client-rendered form, a list of
+    // booking slots. Whatever was decided against the old layout is decided
+    // again against this one.
+    const onGrow = () => {
+      if (root.scrollHeight === known) return;
+      known = root.scrollHeight;
+      soon(60);
+    };
     // The visitor has reached for the page itself: from here on it is theirs,
     // and the bar stops moving it. Reaching for the bar does not count.
     const onTakeOver = (event: Event) => {
@@ -242,36 +277,46 @@ export function CookieConsent({ locale }: { locale: Locale }) {
       // Keeps the browser's own "scroll this into view" (anchors, focused
       // fields, scrollIntoView) from parking anything behind the bar.
       root.style.scrollPaddingBottom = `${height}px`;
-      lift(height, box.top);
-      if (height > reserved) {
-        reserved = height;
-        if (arrived.current) {
-          soon(150);
-        } else {
-          // On the page the visitor landed on there is nothing to wait for:
-          // make room in the next frame, before they can reach for anything.
-          arrived.current = true;
-          window.cancelAnimationFrame(frame);
-          frame = window.requestAnimationFrame(liftPage);
-        }
-      }
+      liftFixed(height, box.top);
     };
 
     apply();
-    const timers = [300, 900, 1800].map((delay) =>
+    // On the page the visitor landed on there is nothing to wait for: make
+    // room in the next frame, before they can reach for anything. The passes
+    // after it exist for everything the page draws afterwards.
+    frame = window.requestAnimationFrame(settle);
+    const timers = [120, 300, 700, 1400, 2400, 3400].map((delay) =>
       window.setTimeout(() => soon(60), delay),
     );
-    let observer: ResizeObserver | undefined;
+    const observers: ResizeObserver[] = [];
     if (typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(apply);
-      observer.observe(el);
+      const bar = new ResizeObserver(() => {
+        apply();
+        soon(60);
+      });
+      bar.observe(el);
+      const page = new ResizeObserver(onGrow);
+      page.observe(document.body);
+      observers.push(bar, page);
+    }
+    // Furniture that turns up later — the chat's consent card opens long after
+    // the page has settled — still has to ride above the bar. This only moves
+    // that furniture; it never moves the page, so it keeps working after the
+    // visitor has taken over.
+    let watcher: MutationObserver | undefined;
+    if (typeof MutationObserver !== "undefined") {
+      watcher = new MutationObserver(() => {
+        const box = el.getBoundingClientRect();
+        liftFixed(Math.ceil(box.height), box.top);
+      });
+      watcher.observe(document.body, { childList: true });
     }
     // A turn of the phone is a new page as far as the layout is concerned.
     const onRotate = () => {
       taken = false;
-      reserved = 0;
-      settling = Date.now() + 1500;
+      settling = Date.now() + SETTLING;
       apply();
+      soon(60);
     };
     window.addEventListener("resize", apply);
     window.addEventListener("orientationchange", onRotate);
@@ -283,7 +328,8 @@ export function CookieConsent({ locale }: { locale: Locale }) {
       for (const timer of timers) window.clearTimeout(timer);
       window.clearTimeout(pending);
       window.cancelAnimationFrame(frame);
-      if (observer) observer.disconnect();
+      for (const observer of observers) observer.disconnect();
+      if (watcher) watcher.disconnect();
       window.removeEventListener("resize", apply);
       window.removeEventListener("orientationchange", onRotate);
       window.removeEventListener("scroll", onScroll);
@@ -297,9 +343,11 @@ export function CookieConsent({ locale }: { locale: Locale }) {
   }, [show, pathname]);
 
   // Announce it to assistive technology without trapping anyone: focus moves to
-  // the bar, the page does not scroll, and Escape takes the careful choice from
-  // anywhere on the page, unless another control is plainly the one that owns
-  // the key (an open menu or dialog, a field being typed into).
+  // the bar, the page does not scroll, and Escape there takes the careful
+  // choice. Escape belongs to whatever the visitor is actually in — an open
+  // menu, a dialog, a field — so it is only taken when the bar has the focus or
+  // nothing else does. A decision this permanent is never recorded on a key
+  // press meant for something else.
   useEffect(() => {
     if (!show) return;
     const el = ref.current;
@@ -314,16 +362,7 @@ export function CookieConsent({ locale }: { locale: Locale }) {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Escape" || event.defaultPrevented) return;
       const active = document.activeElement;
-      if (active instanceof HTMLElement && !el.contains(active)) {
-        if (active.closest("[role='dialog'], [aria-modal='true']")) return;
-        if (
-          active.matches(
-            "input, textarea, select, [contenteditable='true'], [aria-expanded='true']",
-          )
-        ) {
-          return;
-        }
-      }
+      if (active && active !== document.body && !el.contains(active)) return;
       choose("essential");
     };
     document.addEventListener("keydown", onKeyDown);
