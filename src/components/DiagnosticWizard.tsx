@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import {
-  STEP1, ROUTER, BRANCHES, BRANCH_CORE, TOOLS, MAGIC, STEP5, CONTACT, UI,
+  STEP1, ROUTER, BRANCHES, BRANCH_CORE, TOOLS, MAGIC, STEP5, CONTACT, UI, BUDGET_CAD,
   type Question, type BranchKey,
 } from "@/content/diagnostic";
 import { score, RESULT_CARDS, SELF_SERVE, type Scoring, type ServiceLine } from "@/lib/diagnosticScoring";
 import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
+import { countryFromTimeZone, countryFromLanguages } from "@/lib/phone";
 import { currentAttribution, attributionQuery } from "@/lib/attributionClient";
 
 type Answers = Record<string, string | string[]>;
@@ -40,49 +41,23 @@ function normalizeUrl(raw: string): string | null {
 }
 
 /**
- * Copy for the "here is why Continue does nothing" line and for the rule-based
- * stand-in on the results screen. It lives in this file rather than in
- * content/diagnostic.ts because that file belongs to another work unit.
+ * Where the browser says the visitor is, as ISO2, or null when it will not say.
+ * Time zone first, then the browser languages: the same two signals
+ * `guessCountry` trusts first, and deliberately NOT its `fallbackDial` step,
+ * which returns the dial code the page was rendered with (+33 on /fr). Posting
+ * that would file every Quebec lead as French, which is the exact thing the
+ * server refuses to do.
  */
-const BLOCKED_COPY = {
-  fr: {
-    generic: "Répondez à la question ci-dessus pour continuer.",
-    answer: (list: string) => `Il reste à répondre : ${list}`,
-    detailGeneric: "Précisez votre réponse dans le champ ci-dessus pour continuer.",
-    detail: (list: string) => `Précisez votre réponse à ${list}`,
-    /** Both at once — one sentence, so the two halves never run together. */
-    both: (answers: string, details: string) =>
-      `Il reste à répondre : ${answers}, et à préciser votre réponse à ${details}`,
-    quote: (s: string) => `« ${s} »`,
-    and: "et",
-    more: (n: number) => (n === 1 ? "1 autre question" : `${n} autres questions`),
-  },
-  en: {
-    generic: "Answer the question above to continue.",
-    answer: (list: string) => `Still to answer: ${list}`,
-    detailGeneric: "Fill in the box above to continue.",
-    detail: (list: string) => `Add a few words for ${list}`,
-    both: (answers: string, details: string) =>
-      `Still to answer: ${answers}, plus a few words for ${details}`,
-    quote: (s: string) => `“${s}”`,
-    and: "and",
-    more: (n: number) => (n === 1 ? "1 more question" : `${n} more questions`),
-  },
-} as const;
-
-/** Shown in place of the AI paragraph when the model gives us nothing usable. */
-const RESULT_FALLBACK = {
-  fr: {
-    lead: (list: string) => `D'après vos réponses, c'est par là qu'il vaut mieux commencer : ${list}. Vous trouverez juste en dessous ce que cela change concrètement pour vous.`,
-    none: "D'après vos réponses, aucun projet ne s'impose dans l'immédiat. Les pistes ci-dessous vous donnent un point de départ concret.",
-    and: "et",
-  },
-  en: {
-    lead: (list: string) => `From your answers, the best place to start is here: ${list}. What that changes for you is spelled out just below.`,
-    none: "From your answers, nothing needs fixing right away. The starting points below give you something concrete to begin with.",
-    and: "and",
-  },
-} as const;
+function browserCountry(): string | null {
+  try {
+    return (
+      countryFromTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ??
+      countryFromLanguages(navigator.languages)
+    );
+  } catch {
+    return null; // exotic browser: say nothing rather than guess
+  }
+}
 
 /** "a, b et c" — plain enumeration, so the blocked line reads like a sentence. */
 function joinWords(items: string[], and: string): string {
@@ -138,6 +113,9 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [result, setResult] = useState<Scoring | null>(null);
   const [serverProposed, setServerProposed] = useState<ServiceLine[] | null>(null);
   const [rationale, setRationale] = useState<string | null>(null);
+  // Server render and first client render have to agree, so the guess happens
+  // after hydration, exactly as PhoneField does it.
+  const [country, setCountry] = useState<string | null>(null);
   const { token: tsToken, container: tsDiv } = useTurnstile(step === 6);
   const topRef = useRef<HTMLDivElement | null>(null);
   const scrolledFor = useRef<number | null>(null);
@@ -162,6 +140,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
 
   // A new step starts quiet: the "what is missing" line waits for a tap again.
   useEffect(() => { setTried(false); }, [step]);
+
+  useEffect(() => { setCountry(browserCountry()); }, []);
 
   // ----- draft autosave / resume -----
   useEffect(() => {
@@ -256,7 +236,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
 
   /** Names of the questions still open, trimmed and quoted, at most three. */
   function nameList(qs: Question[]): string {
-    const c = BLOCKED_COPY[L];
+    const c = t.blocked;
     const shown = qs.slice(0, 3).map((q) => c.quote(shortLabel(plainName(L === "fr" ? q.fr : q.en))));
     const rest = qs.length - shown.length;
     return joinWords(rest > 0 ? [...shown, c.more(rest)] : shown, c.and);
@@ -266,7 +246,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   // question AND for the free text behind a selected "Autre" (step 1 does it),
   // and gluing the two halves with a space read as one run-on line.
   function blockedText(): string {
-    const c = BLOCKED_COPY[L];
+    const c = t.blocked;
     const only = stepQs.length === 1; // a single question needs no naming
     if (missingAnswers.length && missingDetails.length) {
       return endStop(c.both(nameList(missingAnswers), nameList(missingDetails)));
@@ -318,7 +298,11 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution }),
+        // `phoneCountry` is only ever the browser's own answer (see
+        // browserCountry): the server uses it for "Where" when the number
+        // carries no dial code, so a guess from the page locale would be worse
+        // than nothing. `undefined` drops out of the JSON.
+        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution, phoneCountry: country ?? undefined }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error("rejected");
@@ -355,6 +339,19 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     });
   }
 
+  /**
+   * The chip as the visitor reads it. Only the budget chips change, and only
+   * for a visitor the browser puts in Canada: the euro band stays, with a
+   * rounded Canadian figure after it. `o.id` is untouched, so the stored
+   * answer, the scoring and the price grid all still see the euro band.
+   */
+  function optionLabel(q: Question, o: { id: string; en: string; fr: string }): string {
+    const base = L === "fr" ? o.fr : o.en;
+    if (q.id !== "budget" || country !== "CA") return base;
+    const hint = BUDGET_CAD[o.id];
+    return hint ? `${base} ${L === "fr" ? hint.fr : hint.en}` : base;
+  }
+
   function renderQ(q: Question) {
     const label = L === "fr" ? q.fr : q.en;
     const hint = L === "fr" ? q.hintFr : q.hintEn;
@@ -387,7 +384,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
                     : "border-white/10 bg-surface-2 text-fg-muted hover:border-accent/40 hover:text-fg-heading")
                 }
               >
-                {L === "fr" ? o.fr : o.en}
+                {optionLabel(q, o)}
               </button>
             ))}
           </div>
@@ -531,9 +528,9 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     const summary =
       aiSummary ||
       (selfServe
-        ? RESULT_FALLBACK[L].none
-        : RESULT_FALLBACK[L].lead(
-            joinWords(cards.map((line) => RESULT_CARDS[line][L].title), RESULT_FALLBACK[L].and),
+        ? t.resultFallback.none
+        : t.resultFallback.lead(
+            joinWords(cards.map((line) => RESULT_CARDS[line][L].title), t.resultFallback.and),
           ));
     // Pre-fill the booking form from what they just told us — one less form to retype.
     const bookParams = new URLSearchParams();

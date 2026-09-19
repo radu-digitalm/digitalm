@@ -652,7 +652,7 @@ export const fr = {
       success: "Merci — votre message est parti. Nous revenons vers vous.",
       error: "Une erreur est survenue. Écrivez-nous directement à",
       required: "Merci de remplir les champs obligatoires.",
-      responsePromise: "Nous répondons sous un jour ouvré, avec un avis honnête.",
+      responsePromise: "Nous répondons sous un jour ouvrable, avec un avis honnête.",
     },
   },
 

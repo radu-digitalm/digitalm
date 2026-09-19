@@ -344,6 +344,20 @@ export const MAGIC: Question = {
 };
 
 // ---------- Step 5 — Practical bits ----------
+/**
+ * Nearly all the paid traffic is in Quebec. The budget bands stay in euros
+ * (the ids, the stored answer and the price grid are all euro), but a Quebec
+ * shopkeeper should not have to convert in their head to answer. Appended to
+ * the chip label only when the browser puts the visitor in Canada; rounded on
+ * purpose, and prefixed "environ" / "about", because it is a hint and not a quote.
+ */
+export const BUDGET_CAD: Record<string, { en: string; fr: string }> = {
+  "<1500": { en: "(about CA$2,300)", fr: "(environ 2 300 $ CA)" },
+  "1500-3500": { en: "(about CA$2,300-5,300)", fr: "(environ 2 300 à 5 300 $ CA)" },
+  "3500-7000": { en: "(about CA$5,300-10,600)", fr: "(environ 5 300 à 10 600 $ CA)" },
+  "7000+": { en: "(about CA$10,600+)", fr: "(environ 10 600 $ CA et plus)" },
+};
+
 export const STEP5: Question[] = [
   {
     id: "start",
@@ -462,6 +476,24 @@ export const UI = {
     otherPlaceholder: "In a few words…",
     urlInvalid: "Enter a full address, for example yourbusiness.com",
     selfServeTitle: "What you can do right now, on your own",
+    /** Why "Continue" does nothing yet. One finished sentence, never a fragment. */
+    blocked: {
+      generic: "Answer the question above to continue.",
+      answer: (list: string) => `Still to answer: ${list}`,
+      detailGeneric: "Fill in the box above to continue.",
+      detail: (list: string) => `Add a few words for ${list}`,
+      both: (answers: string, details: string) =>
+        `Still to answer: ${answers}, plus a few words for ${details}`,
+      quote: (s: string) => `“${s}”`,
+      and: "and",
+      more: (n: number) => (n === 1 ? "1 more question" : `${n} more questions`),
+    },
+    /** Stands in for the AI paragraph on the results screen when the model gives us nothing usable. */
+    resultFallback: {
+      lead: (list: string) => `From your answers, the best place to start is here: ${list}. What that changes for you is spelled out just below.`,
+      none: "From your answers, nothing needs fixing right away. The starting points below give you something concrete to begin with.",
+      and: "and",
+    },
   },
   fr: {
     metaTitle: "Check-up numérique gratuit | Digital M",
@@ -492,5 +524,24 @@ export const UI = {
     otherPlaceholder: "En deux mots…",
     urlInvalid: "Indiquez une adresse complète, par exemple votreentreprise.fr",
     selfServeTitle: "Ce que vous pouvez faire dès maintenant, sans nous",
+    /** Pourquoi « Continuer » ne fait rien encore. Une phrase finie, jamais un fragment. */
+    blocked: {
+      generic: "Répondez à la question ci-dessus pour continuer.",
+      answer: (list: string) => `Il reste à répondre : ${list}`,
+      detailGeneric: "Précisez votre réponse dans le champ ci-dessus pour continuer.",
+      detail: (list: string) => `Précisez votre réponse à ${list}`,
+      /** Les deux à la fois, en une seule phrase, pour que les deux moitiés ne se télescopent pas. */
+      both: (answers: string, details: string) =>
+        `Il reste à répondre : ${answers}, et à préciser votre réponse à ${details}`,
+      quote: (s: string) => `« ${s} »`,
+      and: "et",
+      more: (n: number) => (n === 1 ? "1 autre question" : `${n} autres questions`),
+    },
+    /** Remplace le paragraphe de l'IA sur l'écran de résultats quand le modèle ne renvoie rien d'utilisable. */
+    resultFallback: {
+      lead: (list: string) => `D'après vos réponses, c'est par là qu'il vaut mieux commencer : ${list}. Vous trouverez juste en dessous ce que cela change concrètement pour vous.`,
+      none: "D'après vos réponses, aucun projet ne s'impose dans l'immédiat. Les pistes ci-dessous vous donnent un point de départ concret.",
+      and: "et",
+    },
   },
 } as const;

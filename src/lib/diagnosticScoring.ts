@@ -104,37 +104,37 @@ export function score(a: Answers): Scoring {
 // ---------- Results-screen copy per service line ----------
 export const RESULT_CARDS: Record<ServiceLine, { en: { title: string; body: string }; fr: { title: string; body: string } }> = {
   AUTO: {
-    en: { title: "Process automation", body: "Your repetitive admin (quotes, follow-ups, re-typing between tools) is exactly what automation removes first — usually hours back every week." },
-    fr: { title: "Automatisation des tâches", body: "Vos tâches répétitives (devis, relances, ressaisies entre outils) sont exactement ce que l'automatisation supprime en premier — souvent plusieurs heures récupérées chaque semaine." },
+    en: { title: "Process automation", body: "Your repetitive admin (quotes, follow-ups, re-typing between tools) is exactly what automation removes first, and it usually gives you hours back every week." },
+    fr: { title: "Automatisation des tâches", body: "Vos tâches répétitives (devis, relances, ressaisies entre outils) sont exactement ce que l'automatisation supprime en premier, et c'est souvent plusieurs heures récupérées chaque semaine." },
   },
   AGENT: {
-    en: { title: "AI assistant for customer messages", body: "An assistant that answers common questions and takes bookings 24/7 — so nothing slips through and you stop repeating yourself." },
-    fr: { title: "Assistant IA pour vos messages clients", body: "Un assistant qui répond aux questions courantes et prend les rendez-vous 24h/24 — plus rien ne passe à la trappe et vous arrêtez de vous répéter." },
+    en: { title: "AI assistant for customer messages", body: "An assistant that answers common questions and takes bookings 24/7, so nothing goes unanswered and you stop repeating yourself." },
+    fr: { title: "Assistant IA pour vos messages clients", body: "Un assistant qui répond aux questions courantes et prend les rendez-vous 24 h sur 24 : plus rien ne reste sans réponse et vous arrêtez de vous répéter." },
   },
   WEB: {
-    en: { title: "Website / online shop", body: "A site that looks right, gets found, and lets customers buy or book — the foundation the rest builds on." },
-    fr: { title: "Site web / boutique en ligne", body: "Un site qui inspire confiance, se fait trouver, et permet d'acheter ou de réserver — la base sur laquelle tout le reste s'appuie." },
+    en: { title: "Website / online shop", body: "A site that looks right, gets found, and lets customers buy or book. It is the foundation the rest builds on." },
+    fr: { title: "Site web / boutique en ligne", body: "Un site qui inspire confiance, se fait trouver, et permet d'acheter ou de réserver. C'est la base sur laquelle tout le reste s'appuie." },
   },
   CRM: {
-    en: { title: "Customer follow-up (CRM)", body: "One place for customer info, quotes and follow-ups — so every quote gets chased and the team sees the same picture." },
-    fr: { title: "Suivi client (CRM)", body: "Un seul endroit pour les infos clients, devis et relances — chaque devis est suivi et toute l'équipe voit la même chose." },
+    en: { title: "Customer follow-up (CRM)", body: "One place for customer info, quotes and follow-ups, so every quote gets chased and everyone sees the same picture." },
+    fr: { title: "Suivi client (CRM)", body: "Un seul endroit pour les infos clients, les devis et les relances : chaque devis est suivi et tout le monde voit la même chose." },
   },
   SEC: {
-    en: { title: "E-commerce security audit", body: "A practical check of your shop: payments, customer data, known holes — with a clear fix list, not jargon." },
-    fr: { title: "Audit sécurité e-commerce", body: "Un contrôle concret de votre boutique : paiements, données clients, failles connues — avec une liste de correctifs claire, sans jargon." },
+    en: { title: "E-commerce security audit", body: "A practical check of your shop (payments, customer data, known holes), with a clear fix list, not jargon." },
+    fr: { title: "Audit sécurité e-commerce", body: "Un contrôle concret de votre boutique (paiements, données clients, failles connues), avec une liste de correctifs claire, sans jargon." },
   },
 };
 
 // Self-serve tips for C-grade (exploring / below floor) instead of a pitch.
 export const SELF_SERVE = {
   en: [
-    "Write down the 3 tasks that eat the most time each week — that list is 80% of a good diagnostic.",
-    "If you're not on Google Maps yet, claim your free Business Profile — biggest visibility win for zero cost.",
-    "Try our free 48h express audit when you're ready: tell us your site, we send 2–3 concrete recommendations.",
+    "Write down the 3 tasks that eat the most time each week: that list is already 80% of a good diagnostic.",
+    "If you're not on Google Maps yet, claim your free Business Profile: it is the biggest visibility win there is, and it costs nothing.",
+    "Try our free 48h express audit when you're ready: tell us your site, we send you 2 or 3 concrete recommendations.",
   ],
   fr: [
-    "Notez les 3 tâches qui mangent le plus de temps chaque semaine — cette liste, c'est 80 % d'un bon diagnostic.",
-    "Si vous n'êtes pas encore sur Google Maps, créez votre fiche gratuite — le plus gros gain de visibilité à coût nul.",
-    "Quand vous serez prêt, essayez notre audit express gratuit sous 48 h : donnez-nous votre site, on renvoie 2–3 recommandations concrètes.",
+    "Notez les 3 tâches qui vous prennent le plus de temps chaque semaine : cette liste, c'est déjà 80 % d'un bon diagnostic.",
+    "Si vous n'êtes pas encore sur Google Maps, créez votre fiche gratuite : c'est le plus gros gain de visibilité, et il ne coûte rien.",
+    "Quand vous serez prêt, essayez notre audit express gratuit sous 48 h : donnez-nous votre site, on vous renvoie 2 ou 3 recommandations concrètes.",
   ],
 } as const;
