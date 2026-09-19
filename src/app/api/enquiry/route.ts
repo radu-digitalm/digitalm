@@ -46,6 +46,24 @@ const PRICE_FIT: Record<string, string> = {
 };
 const STANDARD_PRICE = "not stated — quote the standard €1,500-3,500 range";
 
+// The same bands in plain ASCII, for the model only. The label the visitor
+// picked ("€3,500–7,000") carries a euro sign and an en dash, and typographic
+// characters in the model input are the proven cause of the corrupted French
+// Radu received. The pretty label still goes in the email and the Telegram push.
+const BUDGET_FOR_MODEL: Record<string, string> = {
+  "<1500": "under 1,500 EUR",
+  "1500-3500": "1,500-3,500 EUR",
+  "3500-7000": "3,500-7,000 EUR",
+  "7000+": "7,000 EUR and up",
+  unsure: "not decided yet",
+};
+
+// Telegram refuses a message over 4,096 characters, and the push now carries
+// the magic-wand answer as well as the draft. The textarea has no maximum
+// length, so one talkative visitor could cost the whole speed-to-lead alert.
+const TG_MAGIC_MAX = 400;
+const TG_MAX = 3_900;
+
 function labelFor(q: Question, v: string): string {
   return q.options?.find((o) => o.id === v)?.en ?? v;
 }
@@ -146,7 +164,13 @@ export async function POST(req: NextRequest) {
   const answerOf = (id: string): string => entries.find((e) => e.id === id)?.value ?? "";
 
   const company = String(answers.company ?? "").trim().slice(0, 200);
-  const website = String(answers.site ?? "").trim().slice(0, 300);
+  // The address can come from three questions: the general one on the last
+  // step, and the branch fields of the website and the security branches.
+  // Reading only `site` told Radu "Website: not given" and showed the model an
+  // empty website while the visitor had typed the URL two screens earlier.
+  const website = ([answers.site, answers.C_url, answers.E_url]
+    .map((v) => String(v ?? "").trim())
+    .find((v) => v !== "") ?? "").slice(0, 300);
   const budgetId = String(answers.budget ?? "").trim();
   const budgetLabel = answerOf("budget");
   const priceFit = PRICE_FIT[budgetId] ?? STANDARD_PRICE;
@@ -165,7 +189,7 @@ export async function POST(req: NextRequest) {
 
   // LLM triage — reads the free text the rules can't. Rule scoring is the fallback.
   const triage = await triageEnquiry(
-    { firstName, company, website, budget: budgetLabel, answers: modelAnswers },
+    { firstName, company, website, budget: BUDGET_FOR_MODEL[budgetId] ?? "", answers: modelAnswers },
     scoring,
     locale,
   );
@@ -207,9 +231,16 @@ export async function POST(req: NextRequest) {
   // @@crm:inbox
   const lead = leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
 
-  // Where they are, as far as the evidence goes: the number's dial code first,
-  // then the country the CRM row settled on. Never the page language.
-  const place = leadPlace({ phone, country: lead?.country ?? null });
+  // Where they are, as far as the evidence goes: the dial code of the number
+  // they typed, then the country the browser reported behind the phone field.
+  // NOT the CRM lead row's country: `insertLead` defaults that column to
+  // `countryForLocale(locale)` whenever the number carries no dial code, so
+  // reading it back would announce a Quebec restaurant to Radu as French and
+  // send him calling six time zones off.
+  const place = leadPlace({
+    phone,
+    country: typeof body.phoneCountry === "string" ? body.phoneCountry : null,
+  });
   const e164 = dialable(phone);
   const crmUrl = lead ? `${SITE_URL}/admin/leads/${lead.reference}` : undefined;
 
@@ -221,6 +252,7 @@ export async function POST(req: NextRequest) {
   // Same order as the email: who, where, how to reach them, their own words,
   // then the draft. A number that cannot be dialled says so instead of being
   // printed as if it could.
+  const tgMagic = magic.length > TG_MAGIC_MAX ? `${magic.slice(0, TG_MAGIC_MAX).trimEnd()} [...]` : magic;
   const tgLines = [
     `🔔 ${scoring.grade}${scoring.urgent ? " · URGENT" : ""} lead — ${reference}`,
     `${firstName}${company ? ` · ${company}` : ""}${place ? ` · ${place}` : ""}`,
@@ -228,18 +260,22 @@ export async function POST(req: NextRequest) {
     e164 ? `📞 ${e164}` : phone ? `📞 ${phone} (not dialable as stored)` : null,
     `✉️ ${email}`,
     via ? `📣 via ${via}` : null,
-    magic ? `\n— their own words —\n"${magic}"` : null,
+    tgMagic ? `\n— their own words —\n"${tgMagic}"` : null,
     triage?.replyDraft ? `\n— ready reply —\n${triage.replyDraft}` : null,
     crmUrl ? `\n${crmUrl}` : null,
   ].filter(Boolean);
-  notifyTelegram(tgLines.join("\n"));
+  const tgText = tgLines.join("\n");
+  notifyTelegram(tgText.length > TG_MAX ? `${tgText.slice(0, TG_MAX)}\n[...]` : tgText);
 
   // ---- Triage email to Radu (best-effort; the enquiry is already stored) ----
   if (mailConfigured()) {
-    const replySubject =
+    // One subject for the visitor's confirmation and for the reply Radu sends
+    // in one tap, so the two sit in the same thread. No em dash: a prospect
+    // reads this one.
+    const checkupSubject =
       locale === "fr"
-        ? `Votre check-up numérique — ${reference}`
-        : `Your digital check-up — ${reference}`;
+        ? `Votre check-up numérique (${reference})`
+        : `Your digital check-up (${reference})`;
     const { subject, text, html } = renderLeadNotification({
       reference,
       grade: scoring.grade,
@@ -275,7 +311,7 @@ export async function POST(req: NextRequest) {
       },
       callQuestions: triage?.callQuestions,
       unknowns: triage?.unknowns,
-      reply: triage?.replyDraft ? splitReplyDraft(triage.replyDraft, replySubject) : undefined,
+      reply: triage?.replyDraft ? splitReplyDraft(triage.replyDraft, checkupSubject) : undefined,
       detail: entries.map((e) => ({ label: e.label, value: e.value })),
       diagnostics: [
         { label: "Rule scores", value: Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-" },
@@ -308,29 +344,33 @@ export async function POST(req: NextRequest) {
       });
 
     // ---- Ack to the user, in their language (branded HTML + text) ----
+    // The same promise as the results screen they have just read: Radu himself,
+    // by name, within one working day. "Notre équipe" for a one-person studio
+    // read as a call centre, and "1 jour ouvré" is not what a Quebec reader
+    // says. Signed by him, like the reply draft.
     const ack =
       locale === "fr"
         ? {
-            subject: `Votre check-up numérique — ${reference}`,
-            title: `Merci ${firstName} — votre check-up est entre de bonnes mains`,
+            subject: checkupSubject,
+            title: `Merci ${firstName}, votre check-up est bien arrivé`,
             paragraphs: [
-              "Notre équipe l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.",
+              "C'est Radu, le fondateur de Digital M, qui le lit lui-même et vous répond sous 1 jour ouvrable, avec des pistes concrètes.",
               "Envie d'aller plus vite ? Réservez directement un appel gratuit de 30 minutes :",
             ],
             cta: { label: "Réserver un appel gratuit", url: "https://digitalm.eu/fr/book" },
-            footnote: `Votre référence : ${reference} — mentionnez-la si vous souhaitez un jour que vos données soient supprimées.`,
-            text: `Bonjour ${firstName},\n\nMerci pour votre check-up ! Notre équipe l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.\n\nEnvie d'aller plus vite ? Réservez un appel gratuit de 30 min : https://digitalm.eu/fr/book\n\nVotre référence : ${reference} (mentionnez-la si vous souhaitez que vos données soient supprimées).\n\nÀ très vite,\nL'équipe Digital M — digitalm.eu`,
+            footnote: `Votre référence : ${reference}. Mentionnez-la si vous souhaitez un jour que vos données soient supprimées.`,
+            text: `Bonjour ${firstName},\n\nMerci pour votre check-up. C'est Radu, le fondateur de Digital M, qui le lit lui-même et vous répond sous 1 jour ouvrable, avec des pistes concrètes.\n\nEnvie d'aller plus vite ? Réservez un appel gratuit de 30 minutes : https://digitalm.eu/fr/book\n\nVotre référence : ${reference} (mentionnez-la si vous souhaitez que vos données soient supprimées).\n\nÀ très vite,\nRadu, Digital M\ndigitalm.eu`,
           }
         : {
-            subject: `Your digital check-up — ${reference}`,
-            title: `Thanks ${firstName} — your check-up is in good hands`,
+            subject: checkupSubject,
+            title: `Thanks ${firstName}, your check-up has arrived`,
             paragraphs: [
-              "Our team reviews it personally and will reply within 1 business day with concrete recommendations.",
+              "I am Radu, the founder of Digital M. I read every check-up myself and will reply within 1 working day, with concrete suggestions.",
               "Want to move faster? Book a free 30-minute call directly:",
             ],
             cta: { label: "Book a free call", url: "https://digitalm.eu/en/book" },
-            footnote: `Your reference: ${reference} — quote it if you ever want your data deleted.`,
-            text: `Hi ${firstName},\n\nThanks for completing the check-up! Our team reviews it personally and will reply within 1 business day with concrete recommendations.\n\nWant to move faster? Book a free 30-min call: https://digitalm.eu/en/book\n\nYour reference: ${reference} (quote it if you ever want your data deleted).\n\nSpeak soon,\nThe Digital M team — digitalm.eu`,
+            footnote: `Your reference: ${reference}. Quote it if you ever want your data deleted.`,
+            text: `Hi ${firstName},\n\nThanks for completing the check-up. I am Radu, the founder of Digital M, and I read every one myself. You will hear back from me within 1 working day, with concrete suggestions.\n\nWant to move faster? Book a free 30-minute call: https://digitalm.eu/en/book\n\nYour reference: ${reference} (quote it if you ever want your data deleted).\n\nSpeak soon,\nRadu, Digital M\ndigitalm.eu`,
           };
     sendMail({
       subject: ack.subject,

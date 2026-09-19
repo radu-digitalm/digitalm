@@ -19,7 +19,7 @@ const MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
 const LINES = ["AGENT", "AUTO", "WEB", "CRM", "SEC"] as const;
 
-const TriageSchema = z.object({
+export const TriageSchema = z.object({
   proposed: z.array(z.enum(LINES)).min(1).max(3)
     .describe("Service lines to propose, best first. AGENT=AI assistant/chatbot, AUTO=process automation, WEB=website/e-commerce, CRM=customer follow-up, SEC=e-commerce security audit."),
   subjectSummary: z.string().max(90)
@@ -89,26 +89,71 @@ function isWordChar(ch: string | undefined): boolean {
   return (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || (c >= 0xc0 && c <= 0xff);
 }
 
-// The latin-1 codes the legacy " e9" form may stand for: pairs containing a
-// digit only. Letter-only pairs such as "ea" would eat real French
-// ("les eaux" -> "lseux"), which is worse than the bug itself.
-const LEGACY_PAIRS = /^(?:[cdef][0-9]|a0)$/i;
+// The legacy " e9" form: a space where the escape's backslash-x used to be.
+//
+// ONE shape is used both to detect it and to repair it, so a repair can never
+// rewrite something the guard would not have called damage. It takes a letter,
+// exactly one space, a LOWERCASE hex pair out of the set the old guard knew,
+// and a lowercase letter right after: "impay e9es" -> "impayées". Anything
+// looser rewrites ordinary prose, which is the bug itself with extra steps:
+// "votre boutique D2C et" became "votre boutiqueÒC et", "un test E2E sur" became
+// "un testâE sur", and because the result carried no control character the
+// caller was told the text was clean and shipped it to the visitor's screen.
+const LEGACY_RE = /([A-Za-z\xc0-\xff])[ \xa0](c[0-9]|e[0-9]|f[49])(?=[a-z\xe0-\xff])/g;
+
+// The rebuild has to land on an ACCENTED letter (x is the multiplication sign
+// and a0 is a no-break space: neither is a letter that went missing out of a
+// French word) whose case matches the word it is glued to. That last test is
+// what keeps "du c2c" intact: 0xc2 is a capital A circumflex, and no French
+// word has one in the middle of a lowercase word.
+const LOWER_ACCENT = /^[\xdf-\xf6\xf8-\xff]$/;
+const UPPER_ACCENT = /^[\xc0-\xd6\xd8-\xde]$/;
+
+/** The accented letter a legacy pair stands for, or null when it stands for none. */
+function legacyLetter(before: string, hex: string): string | null {
+  const ch = latin1Char(parseInt(hex, 16));
+  if (!ch) return null;
+  const lower = LOWER_ACCENT.test(ch);
+  if (!lower && !UPPER_ACCENT.test(ch)) return null;
+  return lower === /[a-z\xdf-\xff]/.test(before) ? ch : null;
+}
+
+/** True when the string carries a legacy pair this file can actually rebuild. */
+function hasLegacyPair(s: string): boolean {
+  LEGACY_RE.lastIndex = 0;
+  for (let m = LEGACY_RE.exec(s); m; m = LEGACY_RE.exec(s)) {
+    if (legacyLetter(m[1]!, m[2]!)) {
+      LEGACY_RE.lastIndex = 0;
+      return true;
+    }
+  }
+  return false;
+}
+
+// A tab is legitimate whitespace, so the run of letters on each side decides.
+// Two complete words joined by a tab ("semaine<TAB>perdues") is a column
+// separator or a stray keystroke, not damage, and calling it damage costs the
+// whole triage: retry, then the rules fallback, so no reply draft and no
+// paragraph on the results screen.
+const WHOLE_WORD = 6;
 
 /**
  * A tab standing in for an accented letter ("int<TAB>ress<TAB> par" = the row
- * DM-NG93X, where "intéressé" lost both its letters). Two letters are required
- * on each side so that a tab used as a column separator ("5 h<TAB>par semaine")
- * is not mistaken for damage: a needless retry costs a whole triage.
+ * DM-NG93X, where "intéressé" lost both its letters). At least two letters are
+ * required on each side ("5 h<TAB>par semaine" is a column), and at least one
+ * of the two runs has to be short enough to be a word fragment rather than a
+ * word: "int" and "ress" are fragments, "semaine" and "perdues" are not.
  */
 function hasTabInWord(s: string): boolean {
-  for (let i = 2; i < s.length - 2; i++) {
-    if (
-      s.charCodeAt(i) === TAB &&
-      isWordChar(s[i - 1]) && isWordChar(s[i - 2]) &&
-      isWordChar(s[i + 1]) && isWordChar(s[i + 2])
-    ) {
-      return true;
-    }
+  for (let i = 1; i < s.length - 1; i++) {
+    if (s.charCodeAt(i) !== TAB) continue;
+    let left = 0;
+    while (isWordChar(s[i - 1 - left])) left++;
+    let right = 0;
+    while (isWordChar(s[i + 1 + right])) right++;
+    if (left < 2 || right < 2) continue; // a separator, not a broken word
+    if (left >= WHOLE_WORD && right >= WHOLE_WORD) continue; // two whole words
+    return true;
   }
   return false;
 }
@@ -125,11 +170,7 @@ function hasTabInWord(s: string): boolean {
 export function isMangled(s: string): boolean {
   if (!s) return false;
   for (let i = 0; i < s.length; i++) if (isBadControl(s.charCodeAt(i))) return true;
-  return (
-    hasTabInWord(s) ||
-    /(?:^|\s)(?:[ec][0-9]|f[49]|a0)(?=[a-z\xe0-\xff])/i.test(s) ||
-    /\\x[0-9a-fA-F]{2}/.test(s)
-  );
+  return hasTabInWord(s) || hasLegacyPair(s) || /\\x[0-9a-fA-F]{2}/.test(s);
 }
 
 /**
@@ -191,15 +232,11 @@ export function repairMangled(s: string): { text: string; repaired: boolean; dam
     unrecoverable = true; // nothing to rebuild from: drop it, but remember why
   }
 
-  // The legacy form, only where the pair is glued between two letters.
-  const text = mapped.replace(
-    /([A-Za-z\xc0-\xff])[ \xa0]?([0-9a-fA-F]{2})(?=[A-Za-z\xc0-\xff])/g,
-    (m, before: string, hex: string) => {
-      if (!LEGACY_PAIRS.test(hex)) return m;
-      const ch = latin1Char(parseInt(hex, 16));
-      return ch && /[a-z\xe0-\xff]/i.test(ch) ? before + ch : m;
-    },
-  );
+  // The legacy form, on exactly the shape the guard above calls damage.
+  const text = mapped.replace(LEGACY_RE, (m, before: string, hex: string) => {
+    const ch = legacyLetter(before, hex);
+    return ch ? before + ch : m;
+  });
 
   return { text, repaired: text !== s, damaged: unrecoverable || isMangled(text) };
 }
@@ -228,6 +265,47 @@ function repairTriage(t: Triage): { value: Triage; repaired: boolean; damaged: b
 }
 
 // ---------------------------------------------------------------------------
+// The ASCII net for everything that comes from outside this file
+// ---------------------------------------------------------------------------
+
+// The schema descriptions and the prompt are written in ASCII by hand. What
+// the route interpolates is not: the budget band arrives as "EUR3,500-7,000"
+// with a euro sign and an en dash, the labelled answers carry every accent the
+// questions and the visitor wrote. Those characters are the proven cause of the
+// corrupted output, so they are converted before the model ever sees them.
+// Accents are dropped rather than guessed at: the model reads "reservations"
+// exactly as it reads the accented spelling, and it still answers in proper
+// French because the output rule tells it to.
+const ASCII_SUBST: Record<string, string> = {
+  "\u00a0": " ", "\u202f": " ", "\u2009": " ", // no-break, narrow, thin spaces
+  "\u20ac": "EUR ", "\u00a3": "GBP ", "\u00a5": "JPY ",
+  "\u2018": "'", "\u2019": "'", "\u201a": "'", "\u2032": "'",
+  "\u201c": '"', "\u201d": '"', "\u201e": '"', "\u00ab": '"', "\u00bb": '"',
+  "\u2010": "-", "\u2011": "-", "\u2013": "-", "\u2014": "-", "\u2212": "-",
+  "\u2026": "...", "\u2022": "-", "\u00b7": "-", "\u2192": "->", "\u00b0": " deg",
+  "\u0152": "OE", "\u0153": "oe", "\u00c6": "AE", "\u00e6": "ae", "\u00df": "ss",
+  "\u00d8": "O", "\u00f8": "o", "\u0141": "L", "\u0142": "l", "\u0131": "i",
+  "\u00d0": "D", "\u00f0": "d", "\u00de": "Th", "\u00fe": "th",
+};
+
+const ASCII_RE = new RegExp(`[${Object.keys(ASCII_SUBST).join("")}]`, "g");
+
+/** Plain ASCII, for anything that goes into the model input. */
+export function toAscii(s: string): string {
+  return (s ?? "")
+    // French guillemets hug their content with a space: keep the quotes, drop
+    // the space, so "<<en ligne>>" does not come out as '" en ligne "'.
+    .replace(/\u00ab[ \t\u00a0\u202f\u2009]*/g, '"')
+    .replace(/[ \t\u00a0\u202f\u2009]*\u00bb/g, '"')
+    .replace(ASCII_RE, (c) => ASCII_SUBST[c] ?? " ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // the accents themselves, once separated
+    .replace(/[^\n\r\t\x20-\x7e]/g, "") // anything still out of range
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/[ \t]+\n/g, "\n");
+}
+
+// ---------------------------------------------------------------------------
 
 function leadBlock(lead: TriageLead): string {
   return [
@@ -238,19 +316,9 @@ function leadBlock(lead: TriageLead): string {
   ].join("\n");
 }
 
-export async function triageEnquiry(
-  lead: TriageLead,
-  ruleScoring: Scoring,
-  locale: "en" | "fr",
-  attempt = 1,
-): Promise<Triage | null> {
-  if (!process.env.OPENAI_API_KEY) return null;
-  try {
-    const { object } = await generateObject({
-      model: openai(MODEL),
-      schema: TriageSchema,
-      abortSignal: AbortSignal.timeout(18_000),
-      prompt: `You triage enquiries for Digital M, a one-person AI-for-commerce studio run by Radu (services: AI agents and chatbots [AGENT], process automation including invoicing and reminders [AUTO], websites and e-commerce [WEB], customer follow-up / CRM [CRM], e-commerce security audits [SEC]). Clients are small, non-technical businesses. Radu reads every enquiry and replies himself, so the reply draft is signed by him, not by a team.
+/** The whole model input, ASCII by construction. Exported so a test can prove it. */
+export function buildTriagePrompt(lead: TriageLead, ruleScoring: Scoring, locale: "en" | "fr"): string {
+  return toAscii(`You triage enquiries for Digital M, a one-person AI-for-commerce studio run by Radu (services: AI agents and chatbots [AGENT], process automation including invoicing and reminders [AUTO], websites and e-commerce [WEB], customer follow-up / CRM [CRM], e-commerce security audits [SEC]). Clients are small, non-technical businesses. Radu reads every enquiry and replies himself, so the reply draft is signed by him, not by a team.
 
 WHO THIS PERSON IS
 ${leadBlock(lead)}
@@ -279,7 +347,22 @@ VOICE - clientRationale is printed on the results screen and this person reads i
 
 Recommend what genuinely fits this person's situation and budget - modest is fine; "start with one small automation" is a great answer. Never propose SEC unless they sell online. If nothing we sell honestly fits, say so in noFit and still fill the other fields with the least bad option.
 
-CRITICAL OUTPUT RULE: write every field as ordinary text in the lead's language, with normal accented letters (e acute, a grave, c cedilla and the rest). NEVER use escape sequences, hex codes, backslash codes or character references of any kind.`,
+CRITICAL OUTPUT RULE: write every field as ordinary text in the lead's language, with normal accented letters (e acute, a grave, c cedilla and the rest). NEVER use escape sequences, hex codes, backslash codes or character references of any kind.`);
+}
+
+export async function triageEnquiry(
+  lead: TriageLead,
+  ruleScoring: Scoring,
+  locale: "en" | "fr",
+  attempt = 1,
+): Promise<Triage | null> {
+  if (!process.env.OPENAI_API_KEY) return null;
+  try {
+    const { object } = await generateObject({
+      model: openai(MODEL),
+      schema: TriageSchema,
+      abortSignal: AbortSignal.timeout(18_000),
+      prompt: buildTriagePrompt(lead, ruleScoring, locale),
     });
     // Belt & braces: never let the model propose an invalid line.
     const proposed = object.proposed.filter((p): p is ServiceLine => (LINES as readonly string[]).includes(p));

@@ -281,14 +281,22 @@ export function dialable(phone: string | null | undefined): string | null {
 }
 
 /**
- * Where this lead is, as far as the evidence goes: the number's dial code
- * first (it is the only thing the visitor typed that carries a country), then
- * the country on the CRM lead row. Never guessed from the page language — that
- * is exactly how every Quebec lead ended up filed under France.
+ * Where this lead is, as far as the EVIDENCE goes: the dial code of the number
+ * they typed first (it is the only thing the visitor typed that carries a
+ * country), then a country the caller can vouch for — the one the browser
+ * reported behind the phone field, for instance.
+ *
+ * `country` must never be the page language dressed up as a country, and in
+ * particular never the CRM lead row's `country` column: `insertLead` falls back
+ * to `countryForLocale(locale)` whenever the number carries no dial code, so
+ * reading it back announces every French-speaking Quebec lead as French. When
+ * there is no evidence this returns null and the email says so plainly, which
+ * costs Radu nothing and misleads him about nothing.
  */
 export function leadPlace(opts: { phone?: string | null; country?: string | null }): string | null {
   const e164 = dialable(opts.phone);
-  const iso = countryFromE164(e164) ?? (opts.country ? opts.country.toUpperCase() : null);
+  const given = String(opts.country ?? "").trim();
+  const iso = countryFromE164(e164) ?? (/^[A-Za-z]{2}$/.test(given) ? given.toUpperCase() : null);
   if (!iso) return null;
   const name = countryFor(iso)?.name ?? iso;
   if (e164 && /^\+1\d{10}$/.test(e164)) {
@@ -309,8 +317,23 @@ export function splitReplyDraft(draft: string, fallbackSubject: string): { subje
   return { subject: m[1]!.trim() || fallbackSubject, body: text.slice(m[0].length).trim() };
 }
 
-function mailtoLink(to: string, subject: string, body: string): string {
-  return `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+/**
+ * A mailto: a phone will actually open. The body is percent-encoded into the
+ * URL, so a 2,200-character draft makes a link of several thousand characters
+ * that some clients truncate and some refuse outright. Past the limit the body
+ * is left out: the draft is printed in full just above, and a link that opens
+ * with the right address and subject beats one that opens half a reply.
+ */
+function mailtoLink(to: string, subject: string, body?: string, maxLength = 6000): string {
+  const head = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}`;
+  if (!body) return head;
+  const full = `${head}&body=${encodeURIComponent(body)}`;
+  return full.length <= maxLength ? full : head;
+}
+
+/** True when the link above kept the body, so the button can say so honestly. */
+function isPrefilled(link: string): boolean {
+  return link.includes("&body=");
 }
 
 function telLink(e164: string): string {
@@ -356,6 +379,11 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     ? [`Subject: ${i.reply.subject}`, "", i.reply.body].join("\n")
     : "No draft: the AI triage did not answer. The facts above are all rule-based.";
 
+  // The plain-text part is what Telegram and some clients show, so the link
+  // stays short enough to be read: a whole draft percent-encoded into a URL
+  // would bury the rest of the message in three lines of %20.
+  const sendLink = i.reply ? mailtoLink(i.email, i.reply.subject, i.reply.body, 1200) : null;
+
   return (
     `${subject}\n${"=".repeat(Math.min(subject.length, 72))}\n` +
     textBlock("WHO AND WHERE", [
@@ -378,7 +406,9 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     ]) +
     textBlock("READY-TO-SEND REPLY", [reply]) +
     textBlock("LINKS", [
-      i.reply ? `Send that reply in one tap:\n${mailtoLink(i.email, i.reply.subject, i.reply.body)}` : null,
+      sendLink
+        ? `${isPrefilled(sendLink) ? "Send that reply in one tap" : "Reply (the draft is above, too long to pre-fill here)"}:\n${sendLink}`
+        : null,
       i.crmUrl ? `Lead in the CRM: ${i.crmUrl}` : null,
     ]) +
     textBlock("THE DETAIL", [
@@ -420,7 +450,7 @@ function htmlButton(label: string, href: string, primary = false): string {
   return `<a href="${esc(href)}" style="display:inline-block;${style}text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px;margin:0 8px 8px 0;">${esc(label)}</a>`;
 }
 
-function renderLeadHtml(i: LeadMailInput, subject: string): string {
+function renderLeadHtml(i: LeadMailInput): string {
   const e164 = dialable(i.phone);
   const words = (i.ownWords ?? []).filter((w) => w.text.trim());
 
@@ -471,7 +501,8 @@ function renderLeadHtml(i: LeadMailInput, subject: string): string {
         }`
       : "";
 
-  const replyHtml = i.reply
+  const replyLink = i.reply ? mailtoLink(i.email, i.reply.subject, i.reply.body) : null;
+  const replyHtml = i.reply && replyLink
     ? `<div style="border:1px solid #e6e8ec;border-radius:10px;overflow:hidden;">
       <p style="margin:0;padding:10px 14px;background:#f7f8fa;font-size:13px;color:${MUTED};">Subject: <span style="color:${INK};">${esc(
         i.reply.subject,
@@ -481,8 +512,8 @@ function renderLeadHtml(i: LeadMailInput, subject: string): string {
       )}</div>
     </div>
     <p style="margin:12px 0 0;">${htmlButton(
-      "Send this reply",
-      mailtoLink(i.email, i.reply.subject, i.reply.body),
+      isPrefilled(replyLink) ? "Send this reply" : "Open a reply (draft above, too long to pre-fill)",
+      replyLink,
       true,
     )}</p>`
     : `<p style="margin:0;font-size:14px;color:${INK};">The AI triage did not answer. Everything above is rule-based.</p>`;
@@ -534,5 +565,5 @@ function renderLeadHtml(i: LeadMailInput, subject: string): string {
  */
 export function renderLeadNotification(input: LeadMailInput): { subject: string; text: string; html: string } {
   const subject = leadSubject(input);
-  return { subject, text: renderLeadText(input, subject), html: renderLeadHtml(input, subject) };
+  return { subject, text: renderLeadText(input, subject), html: renderLeadHtml(input) };
 }
