@@ -4,6 +4,7 @@
 // mail outage cannot lose it. Telegram pings carry references only.
 import { attributionLabel, attributionSource, type Attribution } from "@/lib/attribution";
 import { notifyTelegram } from "@/lib/notify";
+import { countryFromE164 } from "@/lib/phone";
 import { sqlNow, zonedDateString } from "@/lib/crm/time";
 import type { Lead } from "@/lib/crm/types";
 import { attachByCampaign, getLead, insertLead, linkEnquiry, type LeadInput } from "./leads";
@@ -59,6 +60,11 @@ export function leadFromEnquiry(p: {
         company: p.company,
         phone: p.phone,
         locale: p.locale,
+        // The check-up is served in French to the whole world, so the locale
+        // is not a country: every Quebec lead was filed under France. Trust
+        // the number when it carries a dial code, and fall back to the
+        // locale's country (insertLead's default) when it does not.
+        country: countryFromE164(p.phone),
         sourceLabel: attributionLabel(p.attr),
         sourceUtm: attributionSource(p.attr) || null,
         attribution: p.attr,

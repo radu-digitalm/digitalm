@@ -8,6 +8,7 @@ import {
 } from "@/content/diagnostic";
 import { score, RESULT_CARDS, SELF_SERVE, type Scoring, type ServiceLine } from "@/lib/diagnosticScoring";
 import { useTurnstile } from "@/lib/useTurnstile";
+import { PhoneField } from "./PhoneField";
 import { currentAttribution, attributionQuery } from "@/lib/attributionClient";
 
 type Answers = Record<string, string | string[]>;
@@ -289,7 +290,35 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       );
     }
 
-    // text / email / tel / url
+    // The phone question uses the same field, and therefore the same rules, as
+    // the booking and contact forms: country picked from the browser, the
+    // number checked against it, E.164 stored. The wizard has no <form>, so
+    // the field publishes through `onValueChange` instead of hidden inputs.
+    // It stays optional: an empty field stores an empty answer, never a bare
+    // dial code. A number that does not check out is kept exactly as typed —
+    // the server repairs what it can and Radu still gets something to read.
+    if (q.kind === "tel") {
+      return (
+        <div key={q.id} className="mt-4 first:mt-0">
+          <PhoneField
+            id={`dm-${q.id}`}
+            label={label}
+            required={isRequired(q)}
+            note={hint}
+            defaultDial={L === "fr" ? "+33" : "+44"}
+            initialValue={typeof val === "string" ? val : ""}
+            onValueChange={(v) => {
+              const next = v.valid ? v.e164 : v.raw.trim();
+              setAnswers((a) => ((a[q.id] ?? "") === next ? a : { ...a, [q.id]: next }));
+            }}
+            fieldClass={INPUT}
+            labelClass="mb-1.5 block text-sm text-fg-muted"
+          />
+        </div>
+      );
+    }
+
+    // text / email / url
     const required = isRequired(q);
     const hintText = (required ? (L === "fr" ? q.hintRequiredFr : q.hintRequiredEn) : undefined) ?? hint;
     const typed = typeof val === "string" ? val.trim() : "";

@@ -132,6 +132,22 @@ export type PhoneCheck =
   | { ok: true; national: string; e164: string; foreign: boolean }
   | { ok: false; reason: "empty" | "short" | "long" | "shape" };
 
+/**
+ * What `PhoneField` publishes to a parent that cannot read FormData (the
+ * check-up wizard keeps its answers in React state). `raw` is the field as the
+ * visitor left it, so a number the rules cannot accept is never silently lost.
+ */
+export type PhoneValue = {
+  raw: string;
+  /** National digits, trunk prefix gone. Empty unless `valid`. */
+  national: string;
+  /** The picked dial code, empty for a number that carries its own. */
+  dial: string;
+  /** International form. Empty unless `valid`. */
+  e164: string;
+  valid: boolean;
+};
+
 // North American numbering plan: neither the area code nor the exchange ever
 // starts with 0 or 1. Without this, a French 10-digit number typed while the
 // picker sits on Canada (a French expat in Quebec gets CA from the time zone)
@@ -212,6 +228,86 @@ export function checkPostedPhone(raw: unknown): string | null {
   // A country the picker does not carry: taken as typed, the way the field
   // does it, rather than turning away a lead from the rest of the world.
   return digits.startsWith("0") ? null : `+${digits}`;
+}
+
+// Characters a written phone number is made of. Anything else (a letter, an
+// "@", a sentence) means the visitor typed something that is not a number, and
+// nothing may be inferred from its digits.
+const PHONE_CHARS = /^[+\d\s().\-/]+$/;
+
+/**
+ * The tolerant entry point, for a phone that arrives without the field's help:
+ * a page cached before the check-up got `PhoneField`, a script, an integration.
+ * Unlike `checkPostedPhone` it never returns null and never throws — the worst
+ * case gives the value back exactly as typed.
+ *
+ * The order is evidence first, guesswork never:
+ *  1. "+…" or "00…" already names a country: `checkPostedPhone` decides.
+ *  2. A country or dial code the caller knows about is used as typed.
+ *  3. Eleven digits opening on 1 can only be North American ("15817015976",
+ *     the 18 Sep 2026 lead, becomes "+15817015976").
+ *  4. Otherwise the raw value is kept. "4187172114" is a Quebec number in
+ *     Quebec and a Paris number nowhere; filing it under a country we merely
+ *     assumed is exactly how the last three leads became undialable, and a
+ *     lead Radu cannot call is worse than a string he can read.
+ */
+export function repairPostedPhone(
+  raw: unknown,
+  hints: { country?: string | null; dial?: string | null } = {},
+): string {
+  const typed = String(raw ?? "").trim();
+  if (!typed || !PHONE_CHARS.test(typed)) return typed;
+  const digits = digitsOf(typed);
+  if (!digits) return typed;
+
+  // 1. Already international.
+  if (/^\+/.test(typed) || digits.startsWith("00")) {
+    const intl = /^\+/.test(typed) ? typed : `+${digits.replace(/^00/, "")}`;
+    return checkPostedPhone(intl) ?? typed;
+  }
+
+  // 2. The country the caller knows about.
+  const hinted = countryFor(hints.country) ?? countryForDial(hints.dial);
+  if (hinted) {
+    const res = validatePhone(typed, hinted);
+    if (res.ok) return res.e164;
+  }
+
+  // 3. The North American domestic form: a trunk 1, then a valid NANP number.
+  if (digits.length === 11 && digits.startsWith("1") && NANP_SHAPE.test(digits.slice(1))) {
+    return `+${digits}`;
+  }
+
+  // 4. Nothing can be decided.
+  return typed;
+}
+
+// Canadian area codes (NANP, 2026). Canada and the United States share "+1",
+// so the dial code alone cannot tell them apart: without this every Quebec
+// lead would be filed as American.
+const CANADA_AREA_CODES = new Set([
+  "204", "226", "236", "249", "250", "263", "289", "306", "343", "354", "365",
+  "367", "368", "382", "387", "403", "416", "418", "428", "431", "437", "438",
+  "450", "468", "474", "506", "514", "519", "548", "579", "581", "584", "587",
+  "604", "613", "639", "647", "672", "683", "705", "709", "742", "753", "778",
+  "780", "782", "807", "819", "825", "867", "873", "902", "905",
+]);
+
+/**
+ * ISO2 country of a number already in international form, or null when the
+ * dial code does not name one of the countries we carry. Callers use it to
+ * stop filing a lead under the locale's country when the number says otherwise.
+ */
+export function countryFromE164(value: string | null | undefined): string | null {
+  const typed = String(value ?? "").trim();
+  if (!/^\+/.test(typed)) return null;
+  const digits = digitsOf(typed);
+  if (digits.length < 7 || digits.length > 15) return null;
+  if (digits.startsWith("1")) {
+    if (digits.length !== 11) return null;
+    return CANADA_AREA_CODES.has(digits.slice(1, 4)) ? "CA" : "US";
+  }
+  return countryForDigits(digits)?.c ?? null;
 }
 
 // ---------------------------------------------------------------------------
