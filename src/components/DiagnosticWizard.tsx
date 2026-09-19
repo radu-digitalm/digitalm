@@ -3,12 +3,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Locale } from "@/lib/i18n";
 import {
-  STEP1, ROUTER, BRANCHES, BRANCH_CORE, TOOLS, MAGIC, STEP5, CONTACT, UI,
+  STEP1, ROUTER, BRANCHES, BRANCH_CORE, TOOLS, MAGIC, STEP5, CONTACT, UI, BUDGET_CAD,
   type Question, type BranchKey,
 } from "@/content/diagnostic";
 import { score, RESULT_CARDS, SELF_SERVE, type Scoring, type ServiceLine } from "@/lib/diagnosticScoring";
 import { useTurnstile } from "@/lib/useTurnstile";
 import { PhoneField } from "./PhoneField";
+import { countryFromTimeZone, countryFromLanguages } from "@/lib/phone";
 import { currentAttribution, attributionQuery } from "@/lib/attributionClient";
 
 type Answers = Record<string, string | string[]>;
@@ -39,6 +40,59 @@ function normalizeUrl(raw: string): string | null {
   return full;
 }
 
+/**
+ * Where the browser says the visitor is, as ISO2, or null when it will not say.
+ * Time zone first, then the browser languages: the same two signals
+ * `guessCountry` trusts first, and deliberately NOT its `fallbackDial` step,
+ * which returns the dial code the page was rendered with (+33 on /fr). Posting
+ * that would file every Quebec lead as French, which is the exact thing the
+ * server refuses to do.
+ */
+function browserCountry(): string | null {
+  try {
+    return (
+      countryFromTimeZone(Intl.DateTimeFormat().resolvedOptions().timeZone) ??
+      countryFromLanguages(navigator.languages)
+    );
+  } catch {
+    return null; // exotic browser: say nothing rather than guess
+  }
+}
+
+/** "a, b et c" — plain enumeration, so the blocked line reads like a sentence. */
+function joinWords(items: string[], and: string): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]!}`;
+}
+
+/**
+ * Ends the reminder like a sentence. A line that already closes on a quoted
+ * question ("… ? »" / "…?”") keeps that mark and takes no extra full stop,
+ * which is what French typography expects.
+ */
+function endStop(s: string): string {
+  return !s || /[.!?…]\s*[»”]?$/.test(s) ? s : `${s}.`;
+}
+
+/**
+ * "Votre site web (si vous en avez un)" -> "Votre site web". The reminder only
+ * ever names a field the visitor has to fill in, so a trailing aside about it
+ * being optional would contradict the line it appears in.
+ */
+function plainName(label: string): string {
+  const stripped = label.replace(/\s*\([^()]*\)\s*$/, "").trim();
+  return stripped || label;
+}
+
+/** Question labels can run long; the reminder has to stay one short line. */
+function shortLabel(s: string, max = 52): string {
+  const clean = s.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > 24 ? cut.slice(0, space) : cut).trim()}…`;
+}
+
 /** url-kind answers, normalised on submit so a bare domain arrives usable. */
 const URL_QUESTION_IDS: string[] = [
   ...STEP1, ROUTER, ...Object.values(BRANCHES).flat(), TOOLS, MAGIC, ...STEP5, ...CONTACT,
@@ -51,6 +105,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [answers, setAnswers] = useState<Answers>({});
   const [other, setOther] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [tried, setTried] = useState(false); // they pressed Continue while it was not available
   const [showResume, setShowResume] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -58,8 +113,35 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [result, setResult] = useState<Scoring | null>(null);
   const [serverProposed, setServerProposed] = useState<ServiceLine[] | null>(null);
   const [rationale, setRationale] = useState<string | null>(null);
+  // Server render and first client render have to agree, so the guess happens
+  // after hydration, exactly as PhoneField does it.
+  const [country, setCountry] = useState<string | null>(null);
   const { token: tsToken, container: tsDiv } = useTurnstile(step === 6);
   const topRef = useRef<HTMLDivElement | null>(null);
+  const scrolledFor = useRef<number | null>(null);
+  const sending = useRef(false);
+
+  // ----- put the new step at the top of the screen -----
+  // Asking for the scroll in the same tick as setStep measures the step that is
+  // leaving, so the visitor landed hundreds of pixels below the new question
+  // (measured on mobile, 18 Sep 2026). The scroll waits for the new step to be
+  // painted instead. It never runs on the first paint, so arriving on the page
+  // (or resuming a draft on load) does not move it.
+  useEffect(() => {
+    const previous = scrolledFor.current;
+    scrolledFor.current = step;
+    if (previous === null || previous === step) return;
+    const frame = requestAnimationFrame(() => {
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      topRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
+
+  // A new step starts quiet: the "what is missing" line waits for a tap again.
+  useEffect(() => { setTried(false); }, [step]);
+
+  useEffect(() => { setCountry(browserCountry()); }, []);
 
   // ----- draft autosave / resume -----
   useEffect(() => {
@@ -114,7 +196,6 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     }
     setStep(n);
     track(`dm_step_${n}`, picked?.length ? { branch: picked.join("+") } : undefined);
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function back() {
     let n = step - 1;
@@ -146,14 +227,60 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     return otherDetailRequired(q) && !(other[q.id] ?? "").trim();
   }
 
-  const currentValid = (stepQuestions[step] ?? []).every(
-    (q) => (!isRequired(q) || answered(q)) && !otherDetailMissing(q),
-  );
+  // What this step is still waiting for. `currentValid` is unchanged in meaning:
+  // every required question answered, every "other" detail filled in.
+  const stepQs: Question[] = stepQuestions[step] ?? [];
+  const missingAnswers = stepQs.filter((q) => isRequired(q) && !answered(q));
+  const missingDetails = stepQs.filter((q) => otherDetailMissing(q));
+  const currentValid = missingAnswers.length === 0 && missingDetails.length === 0;
+
+  /** Names of the questions still open, trimmed and quoted, at most three. */
+  function nameList(qs: Question[]): string {
+    const c = t.blocked;
+    const shown = qs.slice(0, 3).map((q) => c.quote(shortLabel(plainName(L === "fr" ? q.fr : q.en))));
+    const rest = qs.length - shown.length;
+    return joinWords(rest > 0 ? [...shown, c.more(rest)] : shown, c.and);
+  }
+
+  // One sentence, always finished. A step can be waiting for an unanswered
+  // question AND for the free text behind a selected "Autre" (step 1 does it),
+  // and gluing the two halves with a space read as one run-on line.
+  function blockedText(): string {
+    const c = t.blocked;
+    const only = stepQs.length === 1; // a single question needs no naming
+    if (missingAnswers.length && missingDetails.length) {
+      return endStop(c.both(nameList(missingAnswers), nameList(missingDetails)));
+    }
+    if (missingAnswers.length) {
+      return endStop(only ? c.generic : c.answer(nameList(missingAnswers)));
+    }
+    if (missingDetails.length) {
+      return endStop(only ? c.detailGeneric : c.detail(nameList(missingDetails)));
+    }
+    return "";
+  }
+
+  // Quiet by default: the reminder shows once they have tried the button, or
+  // once they have answered something on this screen and the rest is missing.
+  const blockedMsg =
+    !currentValid && (tried || stepQs.some((q) => answered(q))) ? blockedText() : "";
+
+  function tryNext() {
+    if (!currentValid) { setTried(true); return; }
+    next();
+  }
+  function trySubmit() {
+    if (busy || sending.current) return;
+    if (!currentValid) { setTried(true); return; }
+    void submit();
+  }
 
   // Turnstile is handled by the shared useTurnstile(step === 6) hook above.
 
   // ----- submit -----
   async function submit() {
+    if (sending.current) return; // the button is no longer `disabled`; guard a double tap
+    sending.current = true;
     setBusy(true); setError(false);
     const merged: Answers = { ...answers };
     for (const id of URL_QUESTION_IDS) {
@@ -171,7 +298,11 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       const res = await fetch("/api/enquiry", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution }),
+        // `phoneCountry` is only ever the browser's own answer (see
+        // browserCountry): the server uses it for "Where" when the number
+        // carries no dial code, so a guess from the page locale would be worse
+        // than nothing. `undefined` drops out of the JSON.
+        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution, phoneCountry: country ?? undefined }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error("rejected");
@@ -182,10 +313,10 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setStep(7);
       track("dm_submit", { grade: json.grade });
-      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
       setError(true);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -206,6 +337,19 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       }
       return { ...a, [q.id]: cur };
     });
+  }
+
+  /**
+   * The chip as the visitor reads it. Only the budget chips change, and only
+   * for a visitor the browser puts in Canada: the euro band stays, with a
+   * rounded Canadian figure after it. `o.id` is untouched, so the stored
+   * answer, the scoring and the price grid all still see the euro band.
+   */
+  function optionLabel(q: Question, o: { id: string; en: string; fr: string }): string {
+    const base = L === "fr" ? o.fr : o.en;
+    if (q.id !== "budget" || country !== "CA") return base;
+    const hint = BUDGET_CAD[o.id];
+    return hint ? `${base} ${L === "fr" ? hint.fr : hint.en}` : base;
   }
 
   function renderQ(q: Question) {
@@ -240,7 +384,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
                     : "border-white/10 bg-surface-2 text-fg-muted hover:border-accent/40 hover:text-fg-heading")
                 }
               >
-                {L === "fr" ? o.fr : o.en}
+                {optionLabel(q, o)}
               </button>
             ))}
           </div>
@@ -377,6 +521,17 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   if (step === 7 && result) {
     const cards: readonly ServiceLine[] =
       serverProposed ?? (result.proposed.length ? result.proposed : (["AUTO"] as const));
+    const selfServe = result.grade === "C" && !serverProposed;
+    // The AI paragraph is best-effort: when the model returns nothing usable the
+    // screen falls back to the rule-based reading instead of an empty box.
+    const aiSummary = typeof rationale === "string" ? rationale.trim() : "";
+    const summary =
+      aiSummary ||
+      (selfServe
+        ? t.resultFallback.none
+        : t.resultFallback.lead(
+            joinWords(cards.map((line) => RESULT_CARDS[line][L].title), t.resultFallback.and),
+          ));
     // Pre-fill the booking form from what they just told us — one less form to retype.
     const bookParams = new URLSearchParams();
     if (typeof answers.firstName === "string" && answers.firstName) bookParams.set("name", answers.firstName as string);
@@ -395,12 +550,10 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
             {t.youToldUs} <span className="text-fg-heading">« {(answers.magic as string).trim()} »</span>
           </blockquote>
         ) : null}
-        {rationale ? (
-          <p className="mt-4 break-words rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
-            {rationale}
-          </p>
-        ) : null}
-        {result.grade === "C" && !serverProposed ? (
+        <p className="mt-4 break-words rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
+          {summary}
+        </p>
+        {selfServe ? (
           <div className="mt-6">
             <p className="text-sm font-semibold text-fg-heading">{t.selfServeTitle}</p>
             <ul className="mt-3 space-y-2">
@@ -429,9 +582,20 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   }
 
   // steps 1..6
-  const visibleStep = step > 3 && branchQuestions.length === 0 ? step - 1 : step;
-  const totalSteps = branchQuestions.length === 0 ? 5 : 6;
-  const pct = 15 + (visibleStep / (totalSteps + 1)) * 85;
+  // The deep dive is assumed to happen until the router answer rules it out, so
+  // the total is 6 from the first screen instead of growing from 5 to 6 the
+  // moment the visitor engages ("Étape 1 sur 5" then "Étape 3 sur 6"). Only
+  // "unsure" drops it to 5, and that drop waits until they have left the router
+  // screen: while they are still on it, picking "je ne sais pas trop" and then
+  // a pain instead moved the finish line back and forth under them. The step
+  // number itself never jumps either way.
+  const routerAnswered = Array.isArray(answers.pains) && (answers.pains as string[]).length > 0;
+  const skipsDeepDive = step > 2 && routerAnswered && branchQuestions.length === 0;
+  const visibleStep = skipsDeepDive && step > 3 ? step - 1 : step;
+  const totalSteps = skipsDeepDive ? 5 : 6;
+  // Capped short of full: the last screen is a form nobody has submitted yet,
+  // and a bar at 100 % above it reads as "finished".
+  const pct = Math.min(95, Math.round((visibleStep / totalSteps) * 100));
 
   return (
     <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
@@ -441,7 +605,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         </p>
         <p className="text-sm text-fg-muted">{t.stepNames[step - 1]}</p>
       </div>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
+      <div aria-hidden className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
       </div>
 
@@ -461,18 +625,38 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         </>
       ) : null}
 
+      {/* The button stays reachable and keeps `aria-disabled`, so a tap on a
+          greyed-out button can answer the visitor instead of doing nothing. */}
       <div className="mt-7 flex items-center gap-4">
         <button onClick={back} className="-ml-3 inline-flex min-h-[2.75rem] items-center px-3 text-sm text-fg-muted underline hover:text-fg-heading">{t.back}</button>
         {step < 6 ? (
-          <button onClick={next} disabled={!currentValid} className="btn-primary ml-auto inline-flex px-6 py-3 text-sm disabled:opacity-50">
+          <button
+            onClick={tryNext}
+            aria-disabled={!currentValid || undefined}
+            aria-describedby="dm-blocked"
+            className={`btn-primary ml-auto inline-flex px-6 py-3 text-sm${currentValid ? "" : " opacity-50"}`}
+          >
             {t.continue}
           </button>
         ) : (
-          <button onClick={submit} disabled={!currentValid || busy} className="btn-primary ml-auto inline-flex px-6 py-3 text-sm disabled:opacity-50">
+          <button
+            onClick={trySubmit}
+            aria-disabled={!currentValid || busy || undefined}
+            aria-busy={busy || undefined}
+            aria-describedby="dm-blocked"
+            className={`btn-primary ml-auto inline-flex px-6 py-3 text-sm${currentValid && !busy ? "" : " opacity-50"}`}
+          >
             {busy ? t.sending : t.see}
           </button>
         )}
       </div>
+      <p
+        id="dm-blocked"
+        aria-live="polite"
+        className={blockedMsg ? "mt-3 text-sm leading-relaxed text-fg-muted" : "sr-only"}
+      >
+        {blockedMsg}
+      </p>
       {error ? <p role="alert" className="mt-3 text-sm text-accent-soft">{t.error}</p> : null}
     </div>
   );

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { sendMail, mailConfigured, renderNotification, renderClientEmail } from "@/lib/mail";
+import { sendMail, mailConfigured, renderClientEmail, renderLeadNotification, splitReplyDraft, leadPlace, dialable } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
-import { score } from "@/lib/diagnosticScoring";
-import { triageEnquiry } from "@/lib/diagnosticTriage";
+import { score, type ServiceLine } from "@/lib/diagnosticScoring";
+import { triageEnquiry, toAscii } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
@@ -23,6 +23,46 @@ const ALL_QUESTIONS: Question[] = [
   TOOLS, MAGIC, ...STEP5, ...CONTACT,
 ];
 const BY_ID = new Map(ALL_QUESTIONS.map((q) => [q.id, q]));
+
+// Plain names for the service lines: Radu reads the email on a phone, and
+// "AUTO+CRM" is not what he wants to see at 7am.
+const LINE_LABEL: Record<ServiceLine, string> = {
+  AGENT: "AI assistant",
+  AUTO: "Process automation",
+  WEB: "Website / e-commerce",
+  CRM: "Customer follow-up (CRM)",
+  SEC: "E-commerce security audit",
+};
+
+// What to quote against the band they chose. The model gets the same rule in
+// its prompt; this line is what Radu reads when the model did not answer at
+// all, and it is why nobody gets offered the floor price of the grid again.
+const PRICE_FIT: Record<string, string> = {
+  "<1500": "under €1,500 — quote €800-1,500, never the €500 entry price",
+  "1500-3500": "€1,500-3,500 — quote €2,000-3,500",
+  "3500-7000": "€3,500-7,000 — quote €4,000-6,000",
+  "7000+": "€7,000+ — quote from €7,000 up",
+  unsure: "not decided — quote the standard €1,500-3,500 range",
+};
+const STANDARD_PRICE = "not stated — quote the standard €1,500-3,500 range";
+
+// The same bands in plain ASCII, for the model only. The label the visitor
+// picked ("€3,500–7,000") carries a euro sign and an en dash, and typographic
+// characters in the model input are the proven cause of the corrupted French
+// Radu received. The pretty label still goes in the email and the Telegram push.
+const BUDGET_FOR_MODEL: Record<string, string> = {
+  "<1500": "under 1,500 EUR",
+  "1500-3500": "1,500-3,500 EUR",
+  "3500-7000": "3,500-7,000 EUR",
+  "7000+": "7,000 EUR and up",
+  unsure: "not decided yet",
+};
+
+// Telegram refuses a message over 4,096 characters, and the push now carries
+// the magic-wand answer as well as the draft. The textarea has no maximum
+// length, so one talkative visitor could cost the whole speed-to-lead alert.
+const TG_MAGIC_MAX = 400;
+const TG_MAX = 3_900;
 
 function labelFor(q: Question, v: string): string {
   return q.options?.find((o) => o.id === v)?.en ?? v;
@@ -105,28 +145,73 @@ export async function POST(req: NextRequest) {
 
   const scoring = score(answers as Parameters<typeof score>[0]);
 
-  // Labeled answers (EN labels) — for the LLM triage and the email body.
+  // Labelled answers (EN labels), kept as data rather than one string: the
+  // email picks out the facts that decide the sale and leaves the rest for the
+  // bottom of the message, and the model gets the same thing as prose.
   const magic = String(answers.magic ?? "").trim();
-  const detail: string[] = [];
-  if (magic) detail.push(`MAGIC WAND (their own words):\n"${magic}"\n`);
+  // `freeText` = show it under "their own words"; `typed` = the visitor wrote
+  // these characters, so they go to the model exactly as written (a question
+  // with no options - the site address, for one - is typed even though it is
+  // not free text, and de-accenting a domain makes it a different domain).
+  const entries: { id: string; label: string; value: string; freeText: boolean; typed: boolean }[] = [];
   for (const [id, v] of Object.entries(answers)) {
-    if (["firstName", "email", "company", "phone", "source", "magic"].includes(id)) continue;
+    if (["firstName", "email", "company", "phone", "magic"].includes(id)) continue;
     const q = BY_ID.get(id.replace(/_other$/, ""));
     if (!q) continue;
-    if (id.endsWith("_other")) { detail.push(`${q.en} (other): ${String(v)}`); continue; }
+    if (id.endsWith("_other")) {
+      entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true, typed: true });
+      continue;
+    }
     const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
-    detail.push(`${q.en}: ${vals}`);
+    entries.push({ id, label: q.en, value: vals, freeText: false, typed: !q.options?.length });
   }
+  const answerOf = (id: string): string => entries.find((e) => e.id === id)?.value ?? "";
+
+  const company = String(answers.company ?? "").trim().slice(0, 200);
+  // The address can come from three questions: the general one on the last
+  // step, and the branch fields of the website and the security branches.
+  // Reading only `site` told Radu "Website: not given" and showed the model an
+  // empty website while the visitor had typed the URL two screens earlier.
+  const website = ([answers.site, answers.C_url, answers.E_url]
+    .map((v) => String(v ?? "").trim())
+    .find((v) => v !== "") ?? "").slice(0, 300);
+  const budgetId = String(answers.budget ?? "").trim();
+  const budgetLabel = answerOf("budget");
+  const priceFit = PRICE_FIT[budgetId] ?? STANDARD_PRICE;
+
+  // The model is shown who this is: without the first name every "ready-to-send"
+  // draft opened with a bare "Bonjour,", and without the budget it quoted the
+  // floor price of the grid to a prospect who had declared several thousand.
+  // "How did you hear about us" is left out: it changes nothing and the one
+  // real lead's answer contradicted the ad tag we already had.
+  //
+  // OUR strings go to the model in ASCII (question labels and the option
+  // labels we wrote are the same class of text as the prompt itself, and
+  // typographic characters in them are the proven cause of the corrupted
+  // French). THEIR strings - the magic wand and every answer they typed
+  // themselves - go verbatim, accents and all: that is what the reply draft
+  // has to echo back, and a de-accented domain is a different domain.
+  const modelAnswers = [
+    magic ? `MAGIC WAND (their own words):\n"${magic}"\n` : null,
+    ...entries
+      .filter((e) => e.id !== "source")
+      .map((e) => `${toAscii(e.label)}: ${e.typed ? e.value : toAscii(e.value)}`),
+  ]
+    .filter((l): l is string => !!l)
+    .join("\n");
 
   // LLM triage — reads the free text the rules can't. Rule scoring is the fallback.
-  const triage = await triageEnquiry(detail.join("\n"), scoring, locale);
+  const triage = await triageEnquiry(
+    { firstName, company, website, budget: BUDGET_FOR_MODEL[budgetId] ?? "", answers: modelAnswers },
+    scoring,
+    locale,
+  );
   const proposed = triage?.proposed ?? scoring.proposed;
 
   const reference = newReference();
   const attr = readAttribution(body.attribution);
   if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
   const via = attributionLabel(attr);
-  const company = String(answers.company ?? "").trim().slice(0, 200);
   // The check-up now posts an E.164 number, but a page cached before that
   // deploy still posts whatever was typed ("15817015976", the 18 Sep 2026
   // lead). Repair what can be repaired and keep the rest exactly as typed:
@@ -157,57 +242,104 @@ export async function POST(req: NextRequest) {
   }
 
   // @@crm:inbox
-  leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
+  const lead = leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
+
+  // Where they are, as far as the evidence goes: the dial code of the number
+  // they typed, then the country the browser reported behind the phone field.
+  // NOT the CRM lead row's country: `insertLead` defaults that column to
+  // `countryForLocale(locale)` whenever the number carries no dial code, so
+  // reading it back would announce a Quebec restaurant to Radu as French and
+  // send him calling six time zones off.
+  const place = leadPlace({
+    phone,
+    country: typeof body.phoneCountry === "string" ? body.phoneCountry : null,
+  });
+  const e164 = dialable(phone);
+  const crmUrl = lead ? `${SITE_URL}/admin/leads/${lead.reference}` : undefined;
 
   serverTrack("diagnostic_completed", { grade: scoring.grade, proposed: proposed.join("+") || "-", locale, source: attributionSource(attr) || "direct" });
   // ChatGPT Ads conversion — only fires when the visitor landed from an ad (?oppref=).
   adsConversion("lead_created", { id: reference, sourceUrl: `${SITE_URL}/${locale}/diagnostic`, oppref: attr.oppref });
 
   // ---- Telegram push (speed-to-lead: reply from your phone in minutes) ----
+  // Same order as the email: who, where, how to reach them, their own words,
+  // then the draft. A number that cannot be dialled says so instead of being
+  // printed as if it could.
+  const tgMagic = magic.length > TG_MAGIC_MAX ? `${magic.slice(0, TG_MAGIC_MAX).trimEnd()} [...]` : magic;
   const tgLines = [
     `🔔 ${scoring.grade}${scoring.urgent ? " · URGENT" : ""} lead — ${reference}`,
-    `${firstName}${company ? ` · ${company}` : ""} · ${proposed.join("+") || "?"}`,
-    via ? `📣 via ${via}` : null,
-    phone ? `📞 ${phone}` : null,
+    `${firstName}${company ? ` · ${company}` : ""}${place ? ` · ${place}` : ""}`,
+    `→ ${proposed.map((p) => LINE_LABEL[p]).join(" + ") || "?"} · ${budgetLabel || "budget not stated"}`,
+    e164 ? `📞 ${e164}` : phone ? `📞 ${phone} (not dialable as stored)` : null,
     `✉️ ${email}`,
+    via ? `📣 via ${via}` : null,
+    tgMagic ? `\n— their own words —\n"${tgMagic}"` : null,
     triage?.replyDraft ? `\n— ready reply —\n${triage.replyDraft}` : null,
+    crmUrl ? `\n${crmUrl}` : null,
   ].filter(Boolean);
-  notifyTelegram(tgLines.join("\n"));
+  const tgText = tgLines.join("\n");
+  notifyTelegram(tgText.length > TG_MAX ? `${tgText.slice(0, TG_MAX)}\n[...]` : tgText);
 
   // ---- Triage email to Radu (best-effort; the enquiry is already stored) ----
   if (mailConfigured()) {
-    const rows: [string, string][] = [
-      ["Reference", reference],
-      ["Grade", `${scoring.grade}${scoring.urgent ? " · URGENT" : ""}${flagged ? " · FLAGGED (turnstile outage)" : ""}`],
-      ["Proposed", proposed.join(" + ") || "(none scored)"],
-      ["Urgency", `${scoring.urgency}/5`],
-      ["Name", firstName],
-      ["Email", email],
-    ];
-    if (company) rows.push(["Company", company]);
-    if (phone) rows.push(["Phone", phone]);
-    if (source) rows.push(["Heard about us", labelFor(BY_ID.get("source")!, source)]);
-    if (via) rows.push(["Source", via]);
-    rows.push(["Language", locale], ["IP", ip]);
-
-    const body =
-      (triage
-        ? `READY-TO-SEND REPLY (review, tweak, send):\n\n${triage.replyDraft}\n\n———\nSTRATEGY NOTE:\n${triage.noteForRadu}\n\n———\n`
-        : "") +
-      detail.join("\n") +
-      `\n\nRule scores: ${Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-"}${triage ? "" : "  (LLM triage unavailable — rules only)"}`;
-
-    const grade = `[${scoring.grade}]${scoring.urgent ? "[URGENT]" : ""}`;
-    const summary =
-      triage?.subjectSummary ??
-      `${firstName}${company ? `, ${company}` : ""} — ${proposed.join("+") || "?"} — ${String(answers.start ?? "?")}${answers.budget ? `, ${answers.budget}` : ""}`;
-    const { text, html } = renderNotification({
-      source: "Digital check-up",
-      rows,
-      body,
+    // One subject for the visitor's confirmation and for the reply Radu sends
+    // in one tap, so the two sit in the same thread. No em dash: a prospect
+    // reads this one.
+    const checkupSubject =
+      locale === "fr"
+        ? `Votre check-up numérique (${reference})`
+        : `Your digital check-up (${reference})`;
+    const { subject, text, html } = renderLeadNotification({
+      reference,
+      grade: scoring.grade,
+      urgent: scoring.urgent,
+      flagged,
+      locale,
+      firstName,
+      company: company || undefined,
+      email,
+      phone: phone || undefined,
+      place: place || undefined,
+      summary: triage?.subjectSummary,
+      crmUrl,
+      ownWords: [
+        ...(magic ? [{ label: "Magic wand — the chore they want gone", text: magic }] : []),
+        ...entries.filter((e) => e.freeText).map((e) => ({ label: e.label, text: e.value })),
+      ],
+      facts: [
+        { label: "What they do", value: [answerOf("activity"), answerOf("activity_other")].filter(Boolean).join(" — ") || "not stated" },
+        { label: "Size", value: answerOf("team") || "not stated" },
+        { label: "Sells online", value: answerOf("sellsOnline") || "not stated" },
+        { label: "Budget", value: budgetLabel || "not stated" },
+        { label: "Wants to start", value: answerOf("start") || "not stated" },
+        { label: "Who decides", value: answerOf("decision") || "not stated" },
+        { label: "Tools today", value: answerOf("tools") || "none picked" },
+        { label: "Website", value: website || "not given" },
+      ],
+      propose: {
+        lines: proposed.map((p) => LINE_LABEL[p]).join(" + ") || "(none scored)",
+        why: triage?.noteForRadu,
+        price: priceFit,
+        noFit: triage?.noFit?.trim() || undefined,
+      },
+      callQuestions: triage?.callQuestions,
+      unknowns: triage?.unknowns,
+      reply: triage?.replyDraft ? splitReplyDraft(triage.replyDraft, checkupSubject) : undefined,
+      detail: entries.map((e) => ({ label: e.label, value: e.value })),
+      diagnostics: [
+        { label: "Rule scores", value: Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-" },
+        { label: "Urgency", value: `${scoring.urgency}/5` },
+        { label: "Flags", value: scoring.flags.join(", ") || "-" },
+        { label: "Heard about us", value: source ? labelFor(BY_ID.get("source")!, source) : "not answered" },
+        { label: "Attribution", value: via || "direct" },
+        { label: "Language", value: locale },
+        { label: "IP", value: ip },
+        { label: "Turnstile", value: flagged ? "outage — accepted unverified" : "verified" },
+        { label: "AI triage", value: triage ? "ok" : "unavailable — rules only" },
+      ],
     });
     sendMail({
-      subject: `[${reference}] ${grade} ${summary}`,
+      subject,
       text,
       html,
       replyTo: email,
@@ -225,29 +357,33 @@ export async function POST(req: NextRequest) {
       });
 
     // ---- Ack to the user, in their language (branded HTML + text) ----
+    // The same promise as the results screen they have just read: Radu himself,
+    // by name, within one working day. "Notre équipe" for a one-person studio
+    // read as a call centre, and "1 jour ouvré" is not what a Quebec reader
+    // says. Signed by him, like the reply draft.
     const ack =
       locale === "fr"
         ? {
-            subject: `Votre check-up numérique — ${reference}`,
-            title: `Merci ${firstName} — votre check-up est entre de bonnes mains`,
+            subject: checkupSubject,
+            title: `Merci ${firstName}, votre check-up est bien arrivé`,
             paragraphs: [
-              "Notre équipe l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.",
+              "C'est Radu, le fondateur de Digital M, qui le lit lui-même et vous répond sous 1 jour ouvrable, avec des pistes concrètes.",
               "Envie d'aller plus vite ? Réservez directement un appel gratuit de 30 minutes :",
             ],
             cta: { label: "Réserver un appel gratuit", url: "https://digitalm.eu/fr/book" },
-            footnote: `Votre référence : ${reference} — mentionnez-la si vous souhaitez un jour que vos données soient supprimées.`,
-            text: `Bonjour ${firstName},\n\nMerci pour votre check-up ! Notre équipe l'examine personnellement et vous répond sous 1 jour ouvré avec des recommandations concrètes.\n\nEnvie d'aller plus vite ? Réservez un appel gratuit de 30 min : https://digitalm.eu/fr/book\n\nVotre référence : ${reference} (mentionnez-la si vous souhaitez que vos données soient supprimées).\n\nÀ très vite,\nL'équipe Digital M — digitalm.eu`,
+            footnote: `Votre référence : ${reference}. Mentionnez-la si vous souhaitez un jour que vos données soient supprimées.`,
+            text: `Bonjour ${firstName},\n\nMerci pour votre check-up. C'est Radu, le fondateur de Digital M, qui le lit lui-même et vous répond sous 1 jour ouvrable, avec des pistes concrètes.\n\nEnvie d'aller plus vite ? Réservez un appel gratuit de 30 minutes : https://digitalm.eu/fr/book\n\nVotre référence : ${reference} (mentionnez-la si vous souhaitez que vos données soient supprimées).\n\nÀ très vite,\nRadu, Digital M\ndigitalm.eu`,
           }
         : {
-            subject: `Your digital check-up — ${reference}`,
-            title: `Thanks ${firstName} — your check-up is in good hands`,
+            subject: checkupSubject,
+            title: `Thanks ${firstName}, your check-up has arrived`,
             paragraphs: [
-              "Our team reviews it personally and will reply within 1 business day with concrete recommendations.",
+              "I am Radu, the founder of Digital M. I read every check-up myself and will reply within 1 working day, with concrete suggestions.",
               "Want to move faster? Book a free 30-minute call directly:",
             ],
             cta: { label: "Book a free call", url: "https://digitalm.eu/en/book" },
-            footnote: `Your reference: ${reference} — quote it if you ever want your data deleted.`,
-            text: `Hi ${firstName},\n\nThanks for completing the check-up! Our team reviews it personally and will reply within 1 business day with concrete recommendations.\n\nWant to move faster? Book a free 30-min call: https://digitalm.eu/en/book\n\nYour reference: ${reference} (quote it if you ever want your data deleted).\n\nSpeak soon,\nThe Digital M team — digitalm.eu`,
+            footnote: `Your reference: ${reference}. Quote it if you ever want your data deleted.`,
+            text: `Hi ${firstName},\n\nThanks for completing the check-up. I am Radu, the founder of Digital M, and I read every one myself. You will hear back from me within 1 working day, with concrete suggestions.\n\nWant to move faster? Book a free 30-minute call: https://digitalm.eu/en/book\n\nYour reference: ${reference} (quote it if you ever want your data deleted).\n\nSpeak soon,\nRadu, Digital M\ndigitalm.eu`,
           };
     sendMail({
       subject: ack.subject,

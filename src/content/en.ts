@@ -649,7 +649,7 @@ export const en = {
       success: "Thanks — your message is on its way. We'll be in touch.",
       error: "Something went wrong. Please email us directly at",
       required: "Please fill in the required fields.",
-      responsePromise: "We reply within one business day with an honest read.",
+      responsePromise: "We reply within one working day with an honest read.",
     },
   },
 
