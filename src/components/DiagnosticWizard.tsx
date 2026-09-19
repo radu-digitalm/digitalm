@@ -50,6 +50,9 @@ const BLOCKED_COPY = {
     answer: (list: string) => `Il reste à répondre : ${list}`,
     detailGeneric: "Précisez votre réponse dans le champ ci-dessus pour continuer.",
     detail: (list: string) => `Précisez votre réponse à ${list}`,
+    /** Both at once — one sentence, so the two halves never run together. */
+    both: (answers: string, details: string) =>
+      `Il reste à répondre : ${answers}, et à préciser votre réponse à ${details}`,
     quote: (s: string) => `« ${s} »`,
     and: "et",
     more: (n: number) => (n === 1 ? "1 autre question" : `${n} autres questions`),
@@ -59,6 +62,8 @@ const BLOCKED_COPY = {
     answer: (list: string) => `Still to answer: ${list}`,
     detailGeneric: "Fill in the box above to continue.",
     detail: (list: string) => `Add a few words for ${list}`,
+    both: (answers: string, details: string) =>
+      `Still to answer: ${answers}, plus a few words for ${details}`,
     quote: (s: string) => `“${s}”`,
     and: "and",
     more: (n: number) => (n === 1 ? "1 more question" : `${n} more questions`),
@@ -68,12 +73,12 @@ const BLOCKED_COPY = {
 /** Shown in place of the AI paragraph when the model gives us nothing usable. */
 const RESULT_FALLBACK = {
   fr: {
-    lead: (list: string) => `D'après vos réponses, voici ce qui ressort en premier : ${list}. Le détail est juste en dessous.`,
+    lead: (list: string) => `D'après vos réponses, c'est par là qu'il vaut mieux commencer : ${list}. Vous trouverez juste en dessous ce que cela change concrètement pour vous.`,
     none: "D'après vos réponses, aucun projet ne s'impose dans l'immédiat. Les pistes ci-dessous vous donnent un point de départ concret.",
     and: "et",
   },
   en: {
-    lead: (list: string) => `From your answers, here is what stands out first: ${list}. The detail is just below.`,
+    lead: (list: string) => `From your answers, the best place to start is here: ${list}. What that changes for you is spelled out just below.`,
     none: "From your answers, nothing needs fixing right away. The starting points below give you something concrete to begin with.",
     and: "and",
   },
@@ -83,6 +88,25 @@ const RESULT_FALLBACK = {
 function joinWords(items: string[], and: string): string {
   if (items.length <= 1) return items[0] ?? "";
   return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]!}`;
+}
+
+/**
+ * Ends the reminder like a sentence. A line that already closes on a quoted
+ * question ("… ? »" / "…?”") keeps that mark and takes no extra full stop,
+ * which is what French typography expects.
+ */
+function endStop(s: string): string {
+  return !s || /[.!?…]\s*[»”]?$/.test(s) ? s : `${s}.`;
+}
+
+/**
+ * "Votre site web (si vous en avez un)" -> "Votre site web". The reminder only
+ * ever names a field the visitor has to fill in, so a trailing aside about it
+ * being optional would contradict the line it appears in.
+ */
+function plainName(label: string): string {
+  const stripped = label.replace(/\s*\([^()]*\)\s*$/, "").trim();
+  return stripped || label;
 }
 
 /** Question labels can run long; the reminder has to stay one short line. */
@@ -233,25 +257,27 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   /** Names of the questions still open, trimmed and quoted, at most three. */
   function nameList(qs: Question[]): string {
     const c = BLOCKED_COPY[L];
-    const shown = qs.slice(0, 3).map((q) => c.quote(shortLabel(L === "fr" ? q.fr : q.en)));
+    const shown = qs.slice(0, 3).map((q) => c.quote(shortLabel(plainName(L === "fr" ? q.fr : q.en))));
     const rest = qs.length - shown.length;
     return joinWords(rest > 0 ? [...shown, c.more(rest)] : shown, c.and);
   }
 
+  // One sentence, always finished. A step can be waiting for an unanswered
+  // question AND for the free text behind a selected "Autre" (step 1 does it),
+  // and gluing the two halves with a space read as one run-on line.
   function blockedText(): string {
     const c = BLOCKED_COPY[L];
-    const parts: string[] = [];
+    const only = stepQs.length === 1; // a single question needs no naming
+    if (missingAnswers.length && missingDetails.length) {
+      return endStop(c.both(nameList(missingAnswers), nameList(missingDetails)));
+    }
     if (missingAnswers.length) {
-      parts.push(stepQs.length === 1 ? c.generic : c.answer(nameList(missingAnswers)));
+      return endStop(only ? c.generic : c.answer(nameList(missingAnswers)));
     }
     if (missingDetails.length) {
-      parts.push(
-        stepQs.length === 1 && missingAnswers.length === 0
-          ? c.detailGeneric
-          : c.detail(nameList(missingDetails)),
-      );
+      return endStop(only ? c.detailGeneric : c.detail(nameList(missingDetails)));
     }
-    return parts.join(" ");
+    return "";
   }
 
   // Quiet by default: the reminder shows once they have tried the button, or
@@ -561,14 +587,18 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   // steps 1..6
   // The deep dive is assumed to happen until the router answer rules it out, so
   // the total is 6 from the first screen instead of growing from 5 to 6 the
-  // moment the visitor engages ("Étape 1 sur 5" then "Étape 3 sur 6"). Choosing
-  // only "unsure" drops it to 5, and both the total and the numbering change on
-  // the same screen, so the displayed step never jumps.
+  // moment the visitor engages ("Étape 1 sur 5" then "Étape 3 sur 6"). Only
+  // "unsure" drops it to 5, and that drop waits until they have left the router
+  // screen: while they are still on it, picking "je ne sais pas trop" and then
+  // a pain instead moved the finish line back and forth under them. The step
+  // number itself never jumps either way.
   const routerAnswered = Array.isArray(answers.pains) && (answers.pains as string[]).length > 0;
-  const skipsDeepDive = routerAnswered && branchQuestions.length === 0;
+  const skipsDeepDive = step > 2 && routerAnswered && branchQuestions.length === 0;
   const visibleStep = skipsDeepDive && step > 3 ? step - 1 : step;
   const totalSteps = skipsDeepDive ? 5 : 6;
-  const pct = Math.min(100, Math.round((visibleStep / totalSteps) * 100));
+  // Capped short of full: the last screen is a form nobody has submitted yet,
+  // and a bar at 100 % above it reads as "finished".
+  const pct = Math.min(95, Math.round((visibleStep / totalSteps) * 100));
 
   return (
     <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
