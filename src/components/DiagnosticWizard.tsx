@@ -39,6 +39,61 @@ function normalizeUrl(raw: string): string | null {
   return full;
 }
 
+/**
+ * Copy for the "here is why Continue does nothing" line and for the rule-based
+ * stand-in on the results screen. It lives in this file rather than in
+ * content/diagnostic.ts because that file belongs to another work unit.
+ */
+const BLOCKED_COPY = {
+  fr: {
+    generic: "Répondez à la question ci-dessus pour continuer.",
+    answer: (list: string) => `Il reste à répondre : ${list}`,
+    detailGeneric: "Précisez votre réponse dans le champ ci-dessus pour continuer.",
+    detail: (list: string) => `Précisez votre réponse à ${list}`,
+    quote: (s: string) => `« ${s} »`,
+    and: "et",
+    more: (n: number) => (n === 1 ? "1 autre question" : `${n} autres questions`),
+  },
+  en: {
+    generic: "Answer the question above to continue.",
+    answer: (list: string) => `Still to answer: ${list}`,
+    detailGeneric: "Fill in the box above to continue.",
+    detail: (list: string) => `Add a few words for ${list}`,
+    quote: (s: string) => `“${s}”`,
+    and: "and",
+    more: (n: number) => (n === 1 ? "1 more question" : `${n} more questions`),
+  },
+} as const;
+
+/** Shown in place of the AI paragraph when the model gives us nothing usable. */
+const RESULT_FALLBACK = {
+  fr: {
+    lead: (list: string) => `D'après vos réponses, voici ce qui ressort en premier : ${list}. Le détail est juste en dessous.`,
+    none: "D'après vos réponses, aucun projet ne s'impose dans l'immédiat. Les pistes ci-dessous vous donnent un point de départ concret.",
+    and: "et",
+  },
+  en: {
+    lead: (list: string) => `From your answers, here is what stands out first: ${list}. The detail is just below.`,
+    none: "From your answers, nothing needs fixing right away. The starting points below give you something concrete to begin with.",
+    and: "and",
+  },
+} as const;
+
+/** "a, b et c" — plain enumeration, so the blocked line reads like a sentence. */
+function joinWords(items: string[], and: string): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} ${and} ${items[items.length - 1]!}`;
+}
+
+/** Question labels can run long; the reminder has to stay one short line. */
+function shortLabel(s: string, max = 52): string {
+  const clean = s.replace(/\s+/g, " ").trim();
+  if (clean.length <= max) return clean;
+  const cut = clean.slice(0, max);
+  const space = cut.lastIndexOf(" ");
+  return `${(space > 24 ? cut.slice(0, space) : cut).trim()}…`;
+}
+
 /** url-kind answers, normalised on submit so a bare domain arrives usable. */
 const URL_QUESTION_IDS: string[] = [
   ...STEP1, ROUTER, ...Object.values(BRANCHES).flat(), TOOLS, MAGIC, ...STEP5, ...CONTACT,
@@ -51,6 +106,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [answers, setAnswers] = useState<Answers>({});
   const [other, setOther] = useState<Record<string, string>>({});
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [tried, setTried] = useState(false); // they pressed Continue while it was not available
   const [showResume, setShowResume] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(false);
@@ -60,6 +116,28 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const [rationale, setRationale] = useState<string | null>(null);
   const { token: tsToken, container: tsDiv } = useTurnstile(step === 6);
   const topRef = useRef<HTMLDivElement | null>(null);
+  const scrolledFor = useRef<number | null>(null);
+  const sending = useRef(false);
+
+  // ----- put the new step at the top of the screen -----
+  // Asking for the scroll in the same tick as setStep measures the step that is
+  // leaving, so the visitor landed hundreds of pixels below the new question
+  // (measured on mobile, 18 Sep 2026). The scroll waits for the new step to be
+  // painted instead. It never runs on the first paint, so arriving on the page
+  // (or resuming a draft on load) does not move it.
+  useEffect(() => {
+    const previous = scrolledFor.current;
+    scrolledFor.current = step;
+    if (previous === null || previous === step) return;
+    const frame = requestAnimationFrame(() => {
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+      topRef.current?.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [step]);
+
+  // A new step starts quiet: the "what is missing" line waits for a tap again.
+  useEffect(() => { setTried(false); }, [step]);
 
   // ----- draft autosave / resume -----
   useEffect(() => {
@@ -114,7 +192,6 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     }
     setStep(n);
     track(`dm_step_${n}`, picked?.length ? { branch: picked.join("+") } : undefined);
-    topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
   function back() {
     let n = step - 1;
@@ -146,14 +223,58 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     return otherDetailRequired(q) && !(other[q.id] ?? "").trim();
   }
 
-  const currentValid = (stepQuestions[step] ?? []).every(
-    (q) => (!isRequired(q) || answered(q)) && !otherDetailMissing(q),
-  );
+  // What this step is still waiting for. `currentValid` is unchanged in meaning:
+  // every required question answered, every "other" detail filled in.
+  const stepQs: Question[] = stepQuestions[step] ?? [];
+  const missingAnswers = stepQs.filter((q) => isRequired(q) && !answered(q));
+  const missingDetails = stepQs.filter((q) => otherDetailMissing(q));
+  const currentValid = missingAnswers.length === 0 && missingDetails.length === 0;
+
+  /** Names of the questions still open, trimmed and quoted, at most three. */
+  function nameList(qs: Question[]): string {
+    const c = BLOCKED_COPY[L];
+    const shown = qs.slice(0, 3).map((q) => c.quote(shortLabel(L === "fr" ? q.fr : q.en)));
+    const rest = qs.length - shown.length;
+    return joinWords(rest > 0 ? [...shown, c.more(rest)] : shown, c.and);
+  }
+
+  function blockedText(): string {
+    const c = BLOCKED_COPY[L];
+    const parts: string[] = [];
+    if (missingAnswers.length) {
+      parts.push(stepQs.length === 1 ? c.generic : c.answer(nameList(missingAnswers)));
+    }
+    if (missingDetails.length) {
+      parts.push(
+        stepQs.length === 1 && missingAnswers.length === 0
+          ? c.detailGeneric
+          : c.detail(nameList(missingDetails)),
+      );
+    }
+    return parts.join(" ");
+  }
+
+  // Quiet by default: the reminder shows once they have tried the button, or
+  // once they have answered something on this screen and the rest is missing.
+  const blockedMsg =
+    !currentValid && (tried || stepQs.some((q) => answered(q))) ? blockedText() : "";
+
+  function tryNext() {
+    if (!currentValid) { setTried(true); return; }
+    next();
+  }
+  function trySubmit() {
+    if (busy || sending.current) return;
+    if (!currentValid) { setTried(true); return; }
+    void submit();
+  }
 
   // Turnstile is handled by the shared useTurnstile(step === 6) hook above.
 
   // ----- submit -----
   async function submit() {
+    if (sending.current) return; // the button is no longer `disabled`; guard a double tap
+    sending.current = true;
     setBusy(true); setError(false);
     const merged: Answers = { ...answers };
     for (const id of URL_QUESTION_IDS) {
@@ -182,10 +303,10 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setStep(7);
       track("dm_submit", { grade: json.grade });
-      topRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     } catch {
       setError(true);
     } finally {
+      sending.current = false;
       setBusy(false);
     }
   }
@@ -377,6 +498,17 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   if (step === 7 && result) {
     const cards: readonly ServiceLine[] =
       serverProposed ?? (result.proposed.length ? result.proposed : (["AUTO"] as const));
+    const selfServe = result.grade === "C" && !serverProposed;
+    // The AI paragraph is best-effort: when the model returns nothing usable the
+    // screen falls back to the rule-based reading instead of an empty box.
+    const aiSummary = typeof rationale === "string" ? rationale.trim() : "";
+    const summary =
+      aiSummary ||
+      (selfServe
+        ? RESULT_FALLBACK[L].none
+        : RESULT_FALLBACK[L].lead(
+            joinWords(cards.map((line) => RESULT_CARDS[line][L].title), RESULT_FALLBACK[L].and),
+          ));
     // Pre-fill the booking form from what they just told us — one less form to retype.
     const bookParams = new URLSearchParams();
     if (typeof answers.firstName === "string" && answers.firstName) bookParams.set("name", answers.firstName as string);
@@ -395,12 +527,10 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
             {t.youToldUs} <span className="text-fg-heading">« {(answers.magic as string).trim()} »</span>
           </blockquote>
         ) : null}
-        {rationale ? (
-          <p className="mt-4 break-words rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
-            {rationale}
-          </p>
-        ) : null}
-        {result.grade === "C" && !serverProposed ? (
+        <p className="mt-4 break-words rounded-lg border border-accent/25 bg-accent/10 px-4 py-3 text-sm leading-relaxed text-fg-heading">
+          {summary}
+        </p>
+        {selfServe ? (
           <div className="mt-6">
             <p className="text-sm font-semibold text-fg-heading">{t.selfServeTitle}</p>
             <ul className="mt-3 space-y-2">
@@ -429,9 +559,16 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   }
 
   // steps 1..6
-  const visibleStep = step > 3 && branchQuestions.length === 0 ? step - 1 : step;
-  const totalSteps = branchQuestions.length === 0 ? 5 : 6;
-  const pct = 15 + (visibleStep / (totalSteps + 1)) * 85;
+  // The deep dive is assumed to happen until the router answer rules it out, so
+  // the total is 6 from the first screen instead of growing from 5 to 6 the
+  // moment the visitor engages ("Étape 1 sur 5" then "Étape 3 sur 6"). Choosing
+  // only "unsure" drops it to 5, and both the total and the numbering change on
+  // the same screen, so the displayed step never jumps.
+  const routerAnswered = Array.isArray(answers.pains) && (answers.pains as string[]).length > 0;
+  const skipsDeepDive = routerAnswered && branchQuestions.length === 0;
+  const visibleStep = skipsDeepDive && step > 3 ? step - 1 : step;
+  const totalSteps = skipsDeepDive ? 5 : 6;
+  const pct = Math.min(100, Math.round((visibleStep / totalSteps) * 100));
 
   return (
     <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
@@ -441,7 +578,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         </p>
         <p className="text-sm text-fg-muted">{t.stepNames[step - 1]}</p>
       </div>
-      <div className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
+      <div aria-hidden className="mt-3 h-1 overflow-hidden rounded-full bg-white/10">
         <div className="h-full rounded-full bg-accent transition-all" style={{ width: `${pct}%` }} />
       </div>
 
@@ -461,18 +598,38 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         </>
       ) : null}
 
+      {/* The button stays reachable and keeps `aria-disabled`, so a tap on a
+          greyed-out button can answer the visitor instead of doing nothing. */}
       <div className="mt-7 flex items-center gap-4">
         <button onClick={back} className="-ml-3 inline-flex min-h-[2.75rem] items-center px-3 text-sm text-fg-muted underline hover:text-fg-heading">{t.back}</button>
         {step < 6 ? (
-          <button onClick={next} disabled={!currentValid} className="btn-primary ml-auto inline-flex px-6 py-3 text-sm disabled:opacity-50">
+          <button
+            onClick={tryNext}
+            aria-disabled={!currentValid || undefined}
+            aria-describedby="dm-blocked"
+            className={`btn-primary ml-auto inline-flex px-6 py-3 text-sm${currentValid ? "" : " opacity-50"}`}
+          >
             {t.continue}
           </button>
         ) : (
-          <button onClick={submit} disabled={!currentValid || busy} className="btn-primary ml-auto inline-flex px-6 py-3 text-sm disabled:opacity-50">
+          <button
+            onClick={trySubmit}
+            aria-disabled={!currentValid || busy || undefined}
+            aria-busy={busy || undefined}
+            aria-describedby="dm-blocked"
+            className={`btn-primary ml-auto inline-flex px-6 py-3 text-sm${currentValid && !busy ? "" : " opacity-50"}`}
+          >
             {busy ? t.sending : t.see}
           </button>
         )}
       </div>
+      <p
+        id="dm-blocked"
+        aria-live="polite"
+        className={blockedMsg ? "mt-3 text-sm leading-relaxed text-fg-muted" : "sr-only"}
+      >
+        {blockedMsg}
+      </p>
       {error ? <p role="alert" className="mt-3 text-sm text-accent-soft">{t.error}</p> : null}
     </div>
   );
