@@ -3,7 +3,7 @@ import { sendMail, mailConfigured, renderClientEmail, renderLeadNotification, sp
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
 import { score, type ServiceLine } from "@/lib/diagnosticScoring";
-import { triageEnquiry } from "@/lib/diagnosticTriage";
+import { triageEnquiry, toAscii } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
@@ -149,17 +149,21 @@ export async function POST(req: NextRequest) {
   // email picks out the facts that decide the sale and leaves the rest for the
   // bottom of the message, and the model gets the same thing as prose.
   const magic = String(answers.magic ?? "").trim();
-  const entries: { id: string; label: string; value: string; freeText: boolean }[] = [];
+  // `freeText` = show it under "their own words"; `typed` = the visitor wrote
+  // these characters, so they go to the model exactly as written (a question
+  // with no options - the site address, for one - is typed even though it is
+  // not free text, and de-accenting a domain makes it a different domain).
+  const entries: { id: string; label: string; value: string; freeText: boolean; typed: boolean }[] = [];
   for (const [id, v] of Object.entries(answers)) {
     if (["firstName", "email", "company", "phone", "magic"].includes(id)) continue;
     const q = BY_ID.get(id.replace(/_other$/, ""));
     if (!q) continue;
     if (id.endsWith("_other")) {
-      entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true });
+      entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true, typed: true });
       continue;
     }
     const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
-    entries.push({ id, label: q.en, value: vals, freeText: false });
+    entries.push({ id, label: q.en, value: vals, freeText: false, typed: !q.options?.length });
   }
   const answerOf = (id: string): string => entries.find((e) => e.id === id)?.value ?? "";
 
@@ -180,9 +184,18 @@ export async function POST(req: NextRequest) {
   // floor price of the grid to a prospect who had declared several thousand.
   // "How did you hear about us" is left out: it changes nothing and the one
   // real lead's answer contradicted the ad tag we already had.
+  //
+  // OUR strings go to the model in ASCII (question labels and the option
+  // labels we wrote are the same class of text as the prompt itself, and
+  // typographic characters in them are the proven cause of the corrupted
+  // French). THEIR strings - the magic wand and every answer they typed
+  // themselves - go verbatim, accents and all: that is what the reply draft
+  // has to echo back, and a de-accented domain is a different domain.
   const modelAnswers = [
     magic ? `MAGIC WAND (their own words):\n"${magic}"\n` : null,
-    ...entries.filter((e) => e.id !== "source").map((e) => `${e.label}: ${e.value}`),
+    ...entries
+      .filter((e) => e.id !== "source")
+      .map((e) => `${toAscii(e.label)}: ${e.typed ? e.value : toAscii(e.value)}`),
   ]
     .filter((l): l is string => !!l)
     .join("\n");

@@ -2,14 +2,23 @@
 // free-text magic wand, which the rule scoring can't see) and produces the
 // proposal Radu actually needs. Falls back to null: callers keep rule output.
 //
-// EVERYTHING THE MODEL IS SHOWN IS PLAIN ASCII ON PURPOSE. 6 of the 11 French
-// rows stored on staging came back with control characters glued inside words
-// ("indiqu<NUL>e9 que", "m<NUL>eames"), and the production lead DM-C4DQ3 carried
-// three of them in the subject line Radu received. The cause was isolated by
-// experiment: accented letters and typographic punctuation inside the zod
-// schema descriptions and the prompt. Twenty runs with ASCII-only descriptions
-// produced zero corruption. Keep every model-facing string in this file ASCII:
-// no accented letters, no curly quotes, no em dashes, no arrows, no euro sign.
+// ENCODING - WHAT IS ASCII AND WHAT IS NOT. 6 of the 11 French rows stored on
+// staging came back with control characters glued inside words ("indiqu<NUL>e9
+// que", "m<NUL>eames"), and the production lead DM-C4DQ3 carried three of them
+// in the subject line Radu received. The cause was isolated by experiment:
+// accented letters and typographic punctuation inside the zod schema
+// descriptions and the prompt. Twenty runs with ASCII-only descriptions
+// produced zero corruption - and those runs still carried accented answers
+// typed by the visitor, so what the PERSON wrote is not the cause.
+//
+// So the line is drawn between the two: every string WE write (this file's
+// schema descriptions and prompt, the question labels the route interpolates)
+// is plain ASCII - no accented letters, no curly quotes, no em dashes, no
+// arrows, no euro sign. What the PERSON typed - first name, business name,
+// website, their own words - reaches the model exactly as they typed it.
+// It has to: the draft greets them by name and can quote their domain, and a
+// reply that opens "Bonjour Helene," or points at cremerie-quebec.ca is the
+// same defect as the bare "Bonjour," this file exists to fix.
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
@@ -29,7 +38,7 @@ export const TriageSchema = z.object({
   clientRationale: z.string().max(450)
     .describe("1 or 2 warm, complete sentences SHOWN ON SCREEN TO THE LEAD, in their language, addressed directly to them as vous / you. Reflect their own words back and say what you would look at first. Never say le client, leur, the client, they, this prospect. No hype, no pricing."),
   replyDraft: z.string().max(2200)
-    .describe("A complete, ready-to-send reply email to the lead, in the lead's language. Plain text. Structure: subject line first ('Objet: ...' / 'Subject: ...'), then a greeting using their actual first name as given above, 1 or 2 sentences mirroring their exact pain in their words, then 1 or 2 numbered offer phases, each with a plain title, a price range that respects the budget they declared, and a timeline, then one ROI sentence grounded in their answers (hours lost, unfollowed quotes), then the booking link, then the sign-off 'Radu, Digital M'. Fixed scope, no pressure. Complete sentences only."),
+    .describe("A complete, ready-to-send reply email to the lead, in the lead's language. Plain text. Structure: subject line first ('Objet: ...' / 'Subject: ...'), then a greeting using their actual first name, spelled exactly as it appears above, accents included, 1 or 2 sentences mirroring their exact pain in their words, then 1 or 2 numbered offer phases, each with a plain title, a price range that respects the budget they declared, and a timeline, then one ROI sentence grounded in their answers (hours lost, unfollowed quotes), then the booking link, then the sign-off 'Radu, Digital M'. Fixed scope, no pressure. Complete sentences only."),
   unknowns: z.string().max(300)
     .describe("One short line, in English, listing what we still do not know about this lead and would need before quoting: for example 'no company name, no website, trade unstated, volume unknown'. Write 'nothing important missing' when the answers really are enough."),
   callQuestions: z.array(z.string().max(200)).min(1).max(3)
@@ -40,14 +49,21 @@ export const TriageSchema = z.object({
 
 export type Triage = z.infer<typeof TriageSchema>;
 
-/** Model-facing context about the person, built by the route. */
+/**
+ * Model-facing context about the person, built by the route.
+ *
+ * The three identity fields are the person's own spelling and are passed on
+ * untouched: they end up in the greeting and in the reply draft.
+ */
 export type TriageLead = {
+  /** Exactly as they typed it: "Helene" and "Helene" are different people. */
   firstName: string;
   company?: string;
+  /** Exactly as they typed it: a de-accented domain is a different domain. */
   website?: string;
-  /** The budget band as the lead chose it, e.g. "EUR 1,500-3,500". */
+  /** The budget band, already ASCII, e.g. "1,500-3,500 EUR". */
   budget?: string;
-  /** Labelled answers, one per line, magic wand first. */
+  /** Labelled answers, one per line, magic wand first: ASCII labels, their own words verbatim. */
   answers: string;
 };
 
@@ -93,13 +109,15 @@ function isWordChar(ch: string | undefined): boolean {
 //
 // ONE shape is used both to detect it and to repair it, so a repair can never
 // rewrite something the guard would not have called damage. It takes a letter,
-// exactly one space, a LOWERCASE hex pair out of the set the old guard knew,
-// and a lowercase letter right after: "impay e9es" -> "impayées". Anything
-// looser rewrites ordinary prose, which is the bug itself with extra steps:
+// exactly one space, a hex pair out of the set the old guard knew (either
+// case: the model writes "\xE9" as readily as "\xe9", and legacyLetter below
+// validates the rebuilt character anyway), and a lowercase letter right after:
+// "impay e9es" -> "impayées". Anything looser rewrites ordinary prose, which
+// is the bug itself with extra steps:
 // "votre boutique D2C et" became "votre boutiqueÒC et", "un test E2E sur" became
 // "un testâE sur", and because the result carried no control character the
 // caller was told the text was clean and shipped it to the visitor's screen.
-const LEGACY_RE = /([A-Za-z\xc0-\xff])[ \xa0](c[0-9]|e[0-9]|f[49])(?=[a-z\xe0-\xff])/g;
+const LEGACY_RE = /([A-Za-z\xc0-\xff])[ \xa0]([cCeE][0-9]|[fF][49])(?=[a-z\xe0-\xff])/g;
 
 // The rebuild has to land on an ACCENTED letter (x is the multiplication sign
 // and a0 is a no-break space: neither is a letter that went missing out of a
@@ -290,7 +308,7 @@ const ASCII_SUBST: Record<string, string> = {
 
 const ASCII_RE = new RegExp(`[${Object.keys(ASCII_SUBST).join("")}]`, "g");
 
-/** Plain ASCII, for anything that goes into the model input. */
+/** Plain ASCII, for every string WE wrote that goes into the model input. */
 export function toAscii(s: string): string {
   return (s ?? "")
     // French guillemets hug their content with a space: keep the quotes, drop
@@ -306,26 +324,55 @@ export function toAscii(s: string): string {
 }
 
 // ---------------------------------------------------------------------------
+// What the person typed
+// ---------------------------------------------------------------------------
+
+/**
+ * Their own text, on its way to the model: keep every letter they typed,
+ * accents included, and drop only what can never be prose - the C0 controls
+ * (that is the corruption this file hunts, and it must not be fed back in) and
+ * DEL. Combining accents are composed first, so "e" + acute counts as one
+ * character for the model and comes back as one character in the draft.
+ */
+export function sanitizeLeadText(s: string): string {
+  return (s ?? "")
+    .normalize("NFC")
+    .replace(/\p{Cc}/gu, (c) => (c === "\t" || c === "\n" || c === "\r" ? c : ""));
+}
+
+/** The same, for a value that has to stay on one line of the prompt. */
+function leadField(s: string | undefined, fallback: string): string {
+  const v = sanitizeLeadText(s ?? "").replace(/[\t\r\n]+/g, " ").trim();
+  return v || fallback;
+}
 
 function leadBlock(lead: TriageLead): string {
+  // ASCII labels, their own spelling in the values. De-accenting here is what
+  // made the "ready-to-send" draft greet Helene as "Helene" and quote a domain
+  // she never typed, which is exactly the defect this block exists to close.
   return [
-    `First name (use it in the greeting): ${lead.firstName || "not given"}`,
-    `Business name: ${lead.company || "not given"}`,
-    `Website: ${lead.website || "not given"}`,
-    `Budget they declared: ${lead.budget || "not stated"}`,
+    `First name (use it in the greeting, spelled exactly like this): ${leadField(lead.firstName, "not given")}`,
+    `Business name: ${leadField(lead.company, "not given")}`,
+    `Website (quote it exactly as written): ${leadField(lead.website, "not given")}`,
+    `Budget they declared: ${toAscii(lead.budget ?? "").trim() || "not stated"}`,
   ].join("\n");
 }
 
-/** The whole model input, ASCII by construction. Exported so a test can prove it. */
+/**
+ * The whole model input. Every hand-written line is ASCII by construction
+ * (a test builds this with an ASCII lead and proves the result is all ASCII);
+ * the person's own name, company, website and words go in verbatim.
+ */
 export function buildTriagePrompt(lead: TriageLead, ruleScoring: Scoring, locale: "en" | "fr"): string {
-  return toAscii(`You triage enquiries for Digital M, a one-person AI-for-commerce studio run by Radu (services: AI agents and chatbots [AGENT], process automation including invoicing and reminders [AUTO], websites and e-commerce [WEB], customer follow-up / CRM [CRM], e-commerce security audits [SEC]). Clients are small, non-technical businesses. Radu reads every enquiry and replies himself, so the reply draft is signed by him, not by a team.
+  return [
+    toAscii(`You triage enquiries for Digital M, a one-person AI-for-commerce studio run by Radu (services: AI agents and chatbots [AGENT], process automation including invoicing and reminders [AUTO], websites and e-commerce [WEB], customer follow-up / CRM [CRM], e-commerce security audits [SEC]). Clients are small, non-technical businesses. Radu reads every enquiry and replies himself, so the reply draft is signed by him, not by a team.
 
-WHO THIS PERSON IS
-${leadBlock(lead)}
-
-A prospect completed the diagnostic form (language: ${locale}). Their answers:
-${lead.answers}
-
+WHO THIS PERSON IS`),
+    leadBlock(lead),
+    toAscii(`
+A prospect completed the diagnostic form (language: ${locale}). Their answers, in their own words and their own spelling:`),
+    sanitizeLeadText(lead.answers),
+    toAscii(`
 Rule-based scoring suggested: ${ruleScoring.proposed.join("+") || "nothing"} (scores ${JSON.stringify(ruleScoring.scores)}). The rules CANNOT read free text - you can. If their own words (especially the magic-wand answer) point somewhere else, trust the words over the rules.
 
 PUBLISHED PACKAGE GRID (all prices in euros, indicative, fixed scope agreed up front; day rate 500 EUR per day, preferential for small businesses):
@@ -347,7 +394,10 @@ VOICE - clientRationale is printed on the results screen and this person reads i
 
 Recommend what genuinely fits this person's situation and budget - modest is fine; "start with one small automation" is a great answer. Never propose SEC unless they sell online. If nothing we sell honestly fits, say so in noFit and still fill the other fields with the least bad option.
 
-CRITICAL OUTPUT RULE: write every field as ordinary text in the lead's language, with normal accented letters (e acute, a grave, c cedilla and the rest). NEVER use escape sequences, hex codes, backslash codes or character references of any kind.`);
+NAMES AND ADDRESSES: copy the first name, the business name and the website above character for character, accents and capitals included. Never strip an accent from a name and never rewrite a web address.
+
+CRITICAL OUTPUT RULE: write every field as ordinary text in the lead's language, with normal accented letters (e acute, a grave, c cedilla and the rest). NEVER use escape sequences, hex codes, backslash codes or character references of any kind.`),
+  ].join("\n");
 }
 
 export async function triageEnquiry(

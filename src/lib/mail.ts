@@ -256,6 +256,13 @@ export interface LeadMailInput {
 // Canadian area codes by province (NANP, 2026). Nearly all the paid traffic is
 // from Quebec, and "Canada" alone does not tell Radu whether he is calling
 // Montreal or Vancouver five time zones away.
+//
+// phone.ts keeps its own set of the same codes (CANADA_AREA_CODES, unexported)
+// to tell CA from US. The two cannot contradict each other: this map is only
+// consulted after countryFromE164 has already said CA, so a code phone.ts
+// knows and this map does not simply reads "Canada" instead of "Quebec,
+// Canada". Merging them means exporting from phone.ts, which belongs to
+// another unit.
 const CA_AREA_REGION: Record<string, string> = {
   "263": "Quebec", "354": "Quebec", "367": "Quebec", "418": "Quebec", "438": "Quebec",
   "450": "Quebec", "468": "Quebec", "514": "Quebec", "579": "Quebec", "581": "Quebec",
@@ -318,6 +325,17 @@ export function splitReplyDraft(draft: string, fallbackSubject: string): { subje
 }
 
 /**
+ * The address part of a mailto:. RFC 6068 wants a literal "@" in the addr-spec;
+ * encodeURIComponent turns it into %40, so the link read
+ * "mailto:jojo%40lechaudron.ca" while the HTML button right beside it used the
+ * plain address - two links that disagree, one of which some clients balk at.
+ * Everything that genuinely needs escaping still is.
+ */
+function mailtoAddress(to: string): string {
+  return encodeURIComponent(String(to).trim()).replace(/%40/g, "@");
+}
+
+/**
  * A mailto: a phone will actually open. The body is percent-encoded into the
  * URL, so a 2,200-character draft makes a link of several thousand characters
  * that some clients truncate and some refuse outright. Past the limit the body
@@ -325,15 +343,26 @@ export function splitReplyDraft(draft: string, fallbackSubject: string): { subje
  * with the right address and subject beats one that opens half a reply.
  */
 function mailtoLink(to: string, subject: string, body?: string, maxLength = 6000): string {
-  const head = `mailto:${encodeURIComponent(to)}?subject=${encodeURIComponent(subject)}`;
+  const head = `mailto:${mailtoAddress(to)}?subject=${encodeURIComponent(subject)}`;
   if (!body) return head;
   const full = `${head}&body=${encodeURIComponent(body)}`;
   return full.length <= maxLength ? full : head;
 }
 
-/** True when the link above kept the body, so the button can say so honestly. */
-function isPrefilled(link: string): boolean {
-  return link.includes("&body=");
+/**
+ * What a reply link can honestly promise. "none" is a draft that is a subject
+ * line and nothing else (the model does return one occasionally): there is no
+ * body to pre-fill, and saying "too long to pre-fill" about an empty body
+ * sends Radu looking for text that is not there.
+ */
+type Prefill = "full" | "long" | "none";
+
+/** The reply link plus what it actually carries, so the label can be true. */
+function replyLink(to: string, reply: { subject: string; body: string }, maxLength?: number): { href: string; prefill: Prefill } {
+  const body = reply.body.trim();
+  if (!body) return { href: mailtoLink(to, reply.subject, undefined, maxLength), prefill: "none" };
+  const href = mailtoLink(to, reply.subject, body, maxLength);
+  return { href, prefill: href.includes("&body=") ? "full" : "long" };
 }
 
 function telLink(e164: string): string {
@@ -376,13 +405,25 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     .map((w) => `${w.label}:\n"${w.text.trim()}"`);
 
   const reply = i.reply
-    ? [`Subject: ${i.reply.subject}`, "", i.reply.body].join("\n")
+    ? [
+        `Subject: ${i.reply.subject}`,
+        "",
+        i.reply.body.trim() || "(the AI returned a subject line and no body - write the reply yourself)",
+      ].join("\n")
     : "No draft: the AI triage did not answer. The facts above are all rule-based.";
 
   // The plain-text part is what Telegram and some clients show, so the link
-  // stays short enough to be read: a whole draft percent-encoded into a URL
-  // would bury the rest of the message in three lines of %20.
-  const sendLink = i.reply ? mailtoLink(i.email, i.reply.subject, i.reply.body, 1200) : null;
+  // has to stay readable rather than bury the message in three lines of %20.
+  // 2,200 is measured, not guessed: the ten real drafts on staging are 913 to
+  // 1,284 characters and percent-encode to 1,364-1,965, so the old 1,200 cap
+  // dropped the body of EVERY ONE of them and the text part always read "too
+  // long to pre-fill". At 2,200 the one-tap reply works in Telegram too.
+  const send = i.reply ? replyLink(i.email, i.reply, 2200) : null;
+  const sendLabel: Record<Prefill, string> = {
+    full: "Send that reply in one tap",
+    long: "Reply (the draft is above, too long to pre-fill here)",
+    none: "Reply (the draft above is a subject line only)",
+  };
 
   return (
     `${subject}\n${"=".repeat(Math.min(subject.length, 72))}\n` +
@@ -406,9 +447,7 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     ]) +
     textBlock("READY-TO-SEND REPLY", [reply]) +
     textBlock("LINKS", [
-      sendLink
-        ? `${isPrefilled(sendLink) ? "Send that reply in one tap" : "Reply (the draft is above, too long to pre-fill here)"}:\n${sendLink}`
-        : null,
+      send ? `${sendLabel[send.prefill]}:\n${send.href}` : null,
       i.crmUrl ? `Lead in the CRM: ${i.crmUrl}` : null,
     ]) +
     textBlock("THE DETAIL", [
@@ -431,14 +470,22 @@ function htmlSection(title: string, inner: string): string {
     </div>`;
 }
 
+// A short label ("Budget", "Where") is better on one line, but a long one
+// ("Which tools do you use day-to-day?", down in "The detail") held the label
+// column open on a 360 px phone and squeezed the value into a 55 px ribbon.
+// Past this many characters the label wraps and the value gets the room.
+const NOWRAP_LABEL_MAX = 18;
+
 function htmlFacts(facts: LeadMailFact[]): string {
   if (!facts.length) return "";
   return `<table style="width:100%;border-collapse:collapse;font-size:14px;line-height:1.5;">${facts
     .map(
       (f) =>
-        `<tr><td style="padding:5px 14px 5px 0;color:${MUTED};white-space:nowrap;vertical-align:top;">${esc(
+        `<tr><td style="padding:5px 14px 5px 0;color:${MUTED};white-space:${
+          f.label.length > NOWRAP_LABEL_MAX ? "normal" : "nowrap"
+        };vertical-align:top;">${esc(
           f.label,
-        )}</td><td style="padding:5px 0;color:${INK};">${esc(f.value)}</td></tr>`,
+        )}</td><td style="padding:5px 0;color:${INK};vertical-align:top;">${esc(f.value)}</td></tr>`,
     )
     .join("")}</table>`;
 }
@@ -455,7 +502,7 @@ function renderLeadHtml(i: LeadMailInput): string {
   const words = (i.ownWords ?? []).filter((w) => w.text.trim());
 
   const contact =
-    htmlButton(`Email ${i.firstName}`, `mailto:${i.email}`) +
+    htmlButton(`Email ${i.firstName}`, `mailto:${mailtoAddress(i.email)}`) +
     (e164
       ? htmlButton(`Call ${e164}`, telLink(e164))
       : `<p style="margin:6px 0 0;font-size:14px;color:${INK};">${
@@ -501,21 +548,26 @@ function renderLeadHtml(i: LeadMailInput): string {
         }`
       : "";
 
-  const replyLink = i.reply ? mailtoLink(i.email, i.reply.subject, i.reply.body) : null;
-  const replyHtml = i.reply && replyLink
+  const send = i.reply ? replyLink(i.email, i.reply) : null;
+  const sendLabel: Record<Prefill, string> = {
+    full: "Send this reply",
+    long: "Open a reply (draft above, too long to pre-fill)",
+    none: "Open a reply (the draft is a subject line only)",
+  };
+  const replyHtml = i.reply && send
     ? `<div style="border:1px solid #e6e8ec;border-radius:10px;overflow:hidden;">
       <p style="margin:0;padding:10px 14px;background:#f7f8fa;font-size:13px;color:${MUTED};">Subject: <span style="color:${INK};">${esc(
         i.reply.subject,
       )}</span></p>
-      <div style="padding:14px;white-space:pre-wrap;font-size:14px;line-height:1.65;color:${INK};">${esc(
-        i.reply.body,
-      )}</div>
+      <div style="padding:14px;white-space:pre-wrap;font-size:14px;line-height:1.65;color:${
+        send.prefill === "none" ? MUTED : INK
+      };">${
+        send.prefill === "none"
+          ? "The AI returned a subject line and no body - write the reply yourself."
+          : esc(i.reply.body.trim())
+      }</div>
     </div>
-    <p style="margin:12px 0 0;">${htmlButton(
-      isPrefilled(replyLink) ? "Send this reply" : "Open a reply (draft above, too long to pre-fill)",
-      replyLink,
-      true,
-    )}</p>`
+    <p style="margin:12px 0 0;">${htmlButton(sendLabel[send.prefill], send.href, true)}</p>`
     : `<p style="margin:0;font-size:14px;color:${INK};">The AI triage did not answer. Everything above is rule-based.</p>`;
 
   const detail = [...(i.detail ?? []), ...(i.diagnostics ?? [])];
