@@ -68,6 +68,25 @@ function labelFor(q: Question, v: string): string {
   return q.options?.find((o) => o.id === v)?.en ?? v;
 }
 
+/** The first value that is a two-letter country code, upper-cased; null when none is. */
+function readCountryHint(...values: unknown[]): string | null {
+  for (const v of values) {
+    const s = String(v ?? "").trim().toUpperCase();
+    if (/^[A-Z]{2}$/.test(s)) return s;
+  }
+  return null;
+}
+
+/**
+ * The browser's own time zone, kept for the lead page's "their local hour".
+ * Shape only — a zone name is letters, digits and the separators of an IANA
+ * id, nothing else. Anything odd is dropped rather than stored.
+ */
+function readTimeZoneHint(v: unknown): string | null {
+  const s = String(v ?? "").trim();
+  return s.length >= 3 && s.length <= 64 && /^[A-Za-z0-9_+\-/]+$/.test(s) ? s : null;
+}
+
 /** Record whether the triage email actually went out. Never throws. */
 function markMail(reference: string, status: "sent" | "failed" | "skipped", error?: string): void {
   try {
@@ -113,10 +132,19 @@ export async function POST(req: NextRequest) {
     website?: string;
     oppref?: string; // legacy field — now inside `attribution`
     attribution?: unknown; // utm_* + oppref read from the page URL by the wizard
-    // Optional country hints for the phone. The wizard posts an E.164 number
-    // and needs neither; they are here for a caller that knows where the
-    // visitor is but cannot format the number itself.
+    // What the visitor's own browser says about where they are. The wizard
+    // reads both behind the phone field (time zone first, then the browser
+    // languages) and posts them with the form; nothing is looked up, nothing
+    // third-party is called. `phoneCountry` is the older name for the country
+    // and is still the one the wizard sends.
+    //
+    // They are hints, and the lead page treats them as hints: a number that
+    // can be dialled outranks them. But they are the ONLY thing allowed to
+    // name a country when there is no usable number — the page language never
+    // is, which is how three Quebec leads came to be filed as French.
     phoneCountry?: unknown; // ISO2, e.g. "CA"
+    browserCountry?: unknown; // the same value under its real name
+    browserTz?: unknown; // IANA time zone, e.g. "America/Toronto"
     phoneDial?: unknown; // dial code, e.g. "+1"
   };
   try {
@@ -212,22 +240,31 @@ export async function POST(req: NextRequest) {
   const attr = readAttribution(body.attribution);
   if (!attr.oppref && typeof body.oppref === "string") attr.oppref = body.oppref;
   const via = attributionLabel(attr);
+  // Stored on the enquiry AND on the lead: a lead with no usable number has
+  // nothing else that can say where its person is, and the page would rather
+  // print "Not known" than the page language wearing a country's clothes.
+  const browserCountry = readCountryHint(body.browserCountry, body.phoneCountry);
+  const browserTz = readTimeZoneHint(body.browserTz);
   // The check-up now posts an E.164 number, but a page cached before that
   // deploy still posts whatever was typed ("15817015976", the 18 Sep 2026
   // lead). Repair what can be repaired and keep the rest exactly as typed:
   // this never throws and never refuses, so a badly written number cannot
   // cost us the lead, and `answers` keeps the original either way.
   const phone = repairPostedPhone(answers.phone, {
-    country: typeof body.phoneCountry === "string" ? body.phoneCountry : null,
+    country: browserCountry,
     dial: typeof body.phoneDial === "string" ? body.phoneDial : null,
   }).slice(0, 50);
   const source = String(answers.source ?? "").trim().slice(0, 100);
 
   try {
+    // The triage's questions for the call, its line of what we still do not
+    // know and its honest "nothing we sell fits" used to exist for the length
+    // of one email and then be gone: the lead page had no way to show Radu
+    // what to ask on a call he had already booked. They are columns now.
     enquiriesDb()
       .prepare(
-        `INSERT INTO enquiries (reference, locale, answers, scores, proposed, grade, urgent, flagged, first_name, email, company, phone, source, ip, reply_draft, note_for_radu, subject_summary, source_utm, attribution)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO enquiries (reference, locale, answers, scores, proposed, grade, urgent, flagged, first_name, email, company, phone, source, ip, reply_draft, note_for_radu, subject_summary, source_utm, attribution, call_questions, unknowns, no_fit, browser_country, browser_tz)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         reference, locale, JSON.stringify(answers), JSON.stringify(scoring.scores),
@@ -235,6 +272,10 @@ export async function POST(req: NextRequest) {
         firstName, email, company || null, phone || null, source || null, ip,
         triage?.replyDraft ?? null, triage?.noteForRadu ?? null, triage?.subjectSummary ?? null,
         attributionSource(attr) || null, Object.keys(attr).length ? JSON.stringify(attr) : null,
+        triage?.callQuestions?.length ? JSON.stringify(triage.callQuestions) : null,
+        triage?.unknowns?.trim() || null,
+        triage?.noFit?.trim() || null,
+        browserCountry, browserTz,
       );
   } catch (e) {
     console.error("enquiry db insert failed", e);
@@ -242,7 +283,7 @@ export async function POST(req: NextRequest) {
   }
 
   // @@crm:inbox
-  const lead = leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip });
+  const lead = leadFromEnquiry({ reference, locale, firstName, email, company, phone, attr, ip, browserCountry, browserTz });
 
   // Where they are, as far as the evidence goes: the dial code of the number
   // they typed, then the country the browser reported behind the phone field.
@@ -250,10 +291,7 @@ export async function POST(req: NextRequest) {
   // `countryForLocale(locale)` whenever the number carries no dial code, so
   // reading it back would announce a Quebec restaurant to Radu as French and
   // send him calling six time zones off.
-  const place = leadPlace({
-    phone,
-    country: typeof body.phoneCountry === "string" ? body.phoneCountry : null,
-  });
+  const place = leadPlace({ phone, country: browserCountry });
   const e164 = dialable(phone);
   const crmUrl = lead ? `${SITE_URL}/admin/leads/${lead.reference}` : undefined;
 

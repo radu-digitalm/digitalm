@@ -19,12 +19,19 @@
 // It has to: the draft greets them by name and can quote their domain, and a
 // reply that opens "Bonjour Helene," or points at cremerie-quebec.ca is the
 // same defect as the bare "Bonjour," this file exists to fix.
+//
+// WHICH MODEL RUNS THIS. `OPENAI_MODEL_TRIAGE`, beside the two names its
+// siblings already use (`OPENAI_MODEL_CHAT` in the chat route,
+// `OPENAI_MODEL_DRAFTS` in the outreach drafts). This file used to read a bare
+// `OPENAI_MODEL`, a name that is set nowhere: every triage silently ran on the
+// hardcoded default, and nobody could change the model without editing code.
+// The old name is still honoured so a host that does set it keeps working.
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
 import type { Scoring, ServiceLine } from "./diagnosticScoring";
 
-const MODEL = process.env.OPENAI_MODEL || "gpt-4.1-mini";
+const MODEL = process.env.OPENAI_MODEL_TRIAGE || process.env.OPENAI_MODEL || "gpt-4.1-mini";
 
 const LINES = ["AGENT", "AUTO", "WEB", "CRM", "SEC"] as const;
 

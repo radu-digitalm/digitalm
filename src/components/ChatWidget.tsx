@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { Locale } from "@/lib/i18n";
 
 // The heavy chat panel (AI SDK, ~hundreds of KB) is only imported once the
@@ -38,6 +39,14 @@ const CONSENT_COPY: Record<
   },
 };
 
+// The check-up is the one page the bubble may not sit on. It is a 56 px circle
+// pinned to the bottom right of every public page, and at 390 px it lands on
+// top of the answer chips ("Oui, sur notre propre site" at step 1) and, at the
+// foot of the page, on the legal line in the footer. Everywhere else it is a
+// second way in; here it competes with the funnel it exists to feed, and it
+// covers the thing the visitor is trying to tap.
+const CHECKUP_PATH = /\/diagnostic\/?$/;
+
 function readChatAllowed(): boolean {
   try {
     const get = (k: string) =>
@@ -53,6 +62,7 @@ export function ChatWidget({ locale }: { locale: Locale }) {
   const [open, setOpen] = useState(false);
   const [allowed, setAllowed] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const pathname = usePathname();
 
   // Keep the panel mounted once first opened with consent, so closing it
   // (X or launcher) just hides it and the conversation is preserved.
@@ -88,6 +98,9 @@ export function ChatWidget({ locale }: { locale: Locale }) {
   }
 
   const cc = CONSENT_COPY[locale] ?? CONSENT_COPY.en;
+
+  // After every hook, so the rules of hooks hold on a route change.
+  if (CHECKUP_PATH.test(pathname ?? "")) return null;
 
   return (
     <>
