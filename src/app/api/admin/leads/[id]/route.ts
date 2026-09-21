@@ -16,7 +16,14 @@ function leadId(raw: string): number | null {
  * Patch a lead: { stage?, next_action?, next_action_at?, note?, name?, company?, email?, phone? }
  * or fold another lead into this one: { merge_from: <id> }. Only keys present
  * in the body change; an empty string clears a nullable field. A stage change
- * writes a stage_change activity with {from, to}.
+ * writes a stage_change activity with {from, to}; a phone change re-hashes the
+ * number, so "Fix the number" and the inline phone edit both land here.
+ *
+ * `country` is deliberately not a key: it is what the phone hash is normalised
+ * with, never a fact about the person, so the lead page never shows it and
+ * never offers to edit it. The lead page no longer posts `note` either — the
+ * customer's own message is read-only there and notes go to the timeline
+ * (/activity {kind:"note"}) — but the key stays for the older callers.
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await guardAdminPost(req);

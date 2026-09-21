@@ -97,6 +97,66 @@ export function stageAfterReply(stage: LeadStage): LeadStage {
   return stage === "new" || stage === "contacted" ? "replied" : stage;
 }
 
+// ---- the forward path ---------------------------------------------------------
+
+/**
+ * The stages a lead walks through in order, drawn as the path on the lead page.
+ * Lost, No response and STOP are off the path: they are reached through the
+ * "Change stage" select, never by the one-tap button.
+ */
+export const FORWARD_STAGES: readonly LeadStage[] = ["new", "contacted", "replied", "meeting", "proposal", "won"];
+
+/** One step further along the path, or null at the end of it and for the three stages off it. */
+export function nextForwardStage(stage: LeadStage): LeadStage | null {
+  const i = FORWARD_STAGES.indexOf(stage);
+  return i >= 0 && i < FORWARD_STAGES.length - 1 ? FORWARD_STAGES[i + 1] : null;
+}
+
+// The words on the one primary button of the stage path. "They replied" is the
+// customer's move, so it is written as an inbound reply (markReplied), not as a
+// plain stage change — the two write different rows.
+const NEXT_MOVE_LABELS: Partial<Record<LeadStage, string>> = {
+  new: "Mark contacted",
+  contacted: "They replied",
+  replied: "Mark meeting",
+  meeting: "Mark proposal",
+  proposal: "Mark won",
+};
+
+/** What the next move is called, or null when there is no forward move to offer. */
+export function nextMoveLabel(stage: LeadStage): string | null {
+  return NEXT_MOVE_LABELS[stage] ?? null;
+}
+
+// ---- logging a call -----------------------------------------------------------
+
+/**
+ * The five outcomes a logged call can have — the same five the outreach call
+ * log uses, repeated here because this module is pure: the box on the lead page
+ * and the lead activity route both read it without loading the outreach rules
+ * (which need a prospect; logging a call on the lead page does not).
+ */
+export const CALL_OUTCOMES = ["no_answer", "answered", "callback", "refused", "wrong_number"] as const;
+export type CallLogOutcome = (typeof CALL_OUTCOMES)[number];
+
+export const CALL_OUTCOME_LABELS: Record<CallLogOutcome, string> = {
+  no_answer: "No answer",
+  answered: "Answered",
+  callback: "Call back",
+  refused: "Refused — do not call again",
+  wrong_number: "Wrong number",
+};
+
+export function isCallLogOutcome(x: unknown): x is CallLogOutcome {
+  return typeof x === "string" && (CALL_OUTCOMES as readonly string[]).includes(x);
+}
+
+/** Timeline summary of a logged call: "Call — No answer · left a message". */
+export function callLogSummary(outcome: CallLogOutcome, note?: string | null): string {
+  const text = (note ?? "").trim();
+  return `Call — ${CALL_OUTCOME_LABELS[outcome]}${text ? ` · ${text}` : ""}`;
+}
+
 /**
  * Stage after an inbound enquiry merges into an existing lead: a prospect we
  * had only contacted has now answered; every other stage is left alone.
@@ -170,6 +230,30 @@ export function daysSince(sql: string | null | undefined, now: Date): number | n
   const ms = sqlToMs(sql);
   if (ms === null) return null;
   return Math.floor((now.getTime() - ms) / 86_400_000);
+}
+
+/** Today as YYYY-MM-DD in Europe/Paris — next_action_at is a civil date there, not a UTC one. */
+export function parisToday(now: Date = new Date()): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Paris", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+}
+
+/** How a follow-up date reads on the page, and whether it is late. */
+export interface DueWords {
+  text: string;
+  overdue: boolean;
+}
+
+/**
+ * "25 Sep 2026, in 4 days" · "25 Sep 2026 — today" · "was due 19 Sep 2026, 2 days ago".
+ * Overdue is what turns the line amber; today is due but not late.
+ */
+export function dueWords(date: string, today: string): DueWords {
+  const n = daysUntil(date, today);
+  const when = fmtDate(date);
+  if (n < 0) return { text: `was due ${when}, ${n === -1 ? "1 day" : `${-n} days`} ago`, overdue: true };
+  if (n === 0) return { text: `${when} — today`, overdue: false };
+  if (n === 1) return { text: `${when} — tomorrow`, overdue: false };
+  return { text: `${when}, in ${n} days`, overdue: false };
 }
 
 /** YYYY-MM-DD `days` after a YYYY-MM-DD. */

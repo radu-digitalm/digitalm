@@ -2,9 +2,19 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   AUDIT_CAMPAIGN_RE,
+  CALL_OUTCOMES,
+  CALL_OUTCOME_LABELS,
   CLOSED_STAGES,
+  FORWARD_STAGES,
+  LEAD_STAGES,
   OPEN_STAGES,
   addDays,
+  callLogSummary,
+  dueWords,
+  isCallLogOutcome,
+  nextForwardStage,
+  nextMoveLabel,
+  parisToday,
   daysSince,
   daysUntil,
   fmtDate,
@@ -126,4 +136,74 @@ test("leadTitle", () => {
   assert.equal(leadTitle({ name: "Paul", company: "Le Fournil", reference: "LD-AAAAA" }), "Paul · Le Fournil");
   assert.equal(leadTitle({ name: null, company: "Le Fournil", reference: "LD-AAAAA" }), "Le Fournil");
   assert.equal(leadTitle({ name: " ", company: null, reference: "LD-AAAAA" }), "LD-AAAAA");
+});
+
+test("FORWARD_STAGES: the path, and the three stages off it", () => {
+  assert.deepEqual(FORWARD_STAGES, ["new", "contacted", "replied", "meeting", "proposal", "won"]);
+  // Every stage on the path is a real stage, and the three off it are the closed-but-not-won ones.
+  for (const s of FORWARD_STAGES) assert.ok(LEAD_STAGES.includes(s), s);
+  assert.deepEqual(
+    LEAD_STAGES.filter((s) => !FORWARD_STAGES.includes(s)),
+    ["lost", "no_response", "stop"],
+  );
+});
+
+test("nextForwardStage: one step along the path, nothing at the end or off it", () => {
+  assert.equal(nextForwardStage("new"), "contacted");
+  assert.equal(nextForwardStage("contacted"), "replied");
+  assert.equal(nextForwardStage("replied"), "meeting");
+  assert.equal(nextForwardStage("meeting"), "proposal");
+  assert.equal(nextForwardStage("proposal"), "won");
+  assert.equal(nextForwardStage("won"), null);
+  assert.equal(nextForwardStage("lost"), null);
+  assert.equal(nextForwardStage("no_response"), null);
+  assert.equal(nextForwardStage("stop"), null);
+});
+
+test("nextMoveLabel: the button names the move, and never appears on a closed lead", () => {
+  assert.equal(nextMoveLabel("new"), "Mark contacted");
+  assert.equal(nextMoveLabel("contacted"), "They replied");
+  assert.equal(nextMoveLabel("replied"), "Mark meeting");
+  assert.equal(nextMoveLabel("meeting"), "Mark proposal");
+  assert.equal(nextMoveLabel("proposal"), "Mark won");
+  for (const s of CLOSED_STAGES) assert.equal(nextMoveLabel(s), null, s);
+  // A label exists exactly where there is a move to make.
+  for (const s of LEAD_STAGES) assert.equal(nextMoveLabel(s) === null, nextForwardStage(s) === null, s);
+});
+
+test("call outcomes: five values, a label each, nothing else accepted", () => {
+  assert.deepEqual(CALL_OUTCOMES, ["no_answer", "answered", "callback", "refused", "wrong_number"]);
+  for (const o of CALL_OUTCOMES) {
+    assert.equal(typeof CALL_OUTCOME_LABELS[o], "string");
+    assert.ok(CALL_OUTCOME_LABELS[o].length > 0, o);
+    // The stored value is never the word on the screen: no snake_case reaches a person.
+    assert.doesNotMatch(CALL_OUTCOME_LABELS[o], /_/);
+    assert.equal(isCallLogOutcome(o), true);
+  }
+  assert.equal(isCallLogOutcome("busy"), false);
+  assert.equal(isCallLogOutcome(""), false);
+  assert.equal(isCallLogOutcome(3), false);
+  assert.equal(isCallLogOutcome(null), false);
+});
+
+test("callLogSummary: the outcome in words, the note after it", () => {
+  assert.equal(callLogSummary("no_answer"), "Call — No answer");
+  assert.equal(callLogSummary("answered", "  wants a quote before Friday "), "Call — Answered · wants a quote before Friday");
+  assert.equal(callLogSummary("wrong_number", ""), "Call — Wrong number");
+  assert.equal(callLogSummary("callback", null), "Call — Call back");
+});
+
+test("dueWords: due, late, and how late", () => {
+  assert.deepEqual(dueWords("2026-09-25", "2026-09-21"), { text: "25 Sept 2026, in 4 days", overdue: false });
+  assert.deepEqual(dueWords("2026-09-22", "2026-09-21"), { text: "22 Sept 2026 — tomorrow", overdue: false });
+  assert.deepEqual(dueWords("2026-09-21", "2026-09-21"), { text: "21 Sept 2026 — today", overdue: false });
+  assert.deepEqual(dueWords("2026-09-19", "2026-09-21"), { text: "was due 19 Sept 2026, 2 days ago", overdue: true });
+  assert.deepEqual(dueWords("2026-09-20", "2026-09-21"), { text: "was due 20 Sept 2026, 1 day ago", overdue: true });
+});
+
+test("parisToday: the civil date next_action_at is stored in", () => {
+  // 23:30 UTC on the 20th is already the 21st in Paris (UTC+2 in September).
+  assert.equal(parisToday(new Date("2026-09-20T23:30:00Z")), "2026-09-21");
+  assert.equal(parisToday(new Date("2026-09-21T10:00:00Z")), "2026-09-21");
+  assert.match(parisToday(), /^\d{4}-\d{2}-\d{2}$/);
 });
