@@ -4,7 +4,7 @@
 // mail outage cannot lose it. Telegram pings carry references only.
 import { attributionLabel, attributionSource, type Attribution } from "@/lib/attribution";
 import { notifyTelegram } from "@/lib/notify";
-import { countryFromE164 } from "@/lib/phone";
+import { checkPostedPhone, countryFromE164 } from "@/lib/phone";
 import { sqlNow, zonedDateString } from "@/lib/crm/time";
 import type { Lead } from "@/lib/crm/types";
 import { attachByCampaign, getLead, insertLead, linkEnquiry, type LeadInput } from "./leads";
@@ -34,6 +34,33 @@ function todayParis(): string {
   return zonedDateString("Europe/Paris");
 }
 
+/**
+ * The country the phone hash is normalised with — read from the number, and
+ * only from a number that can actually be dialled.
+ *
+ * `countryFromE164` answers on the dial code alone, so "+33 4187172114" (ten
+ * digits behind a prefix France gives nine) still comes back "FR". A number
+ * nobody can ring is not evidence of anything: when the digits do not pass the
+ * same check the forms apply, the hook passes null and `insertLead` falls back
+ * to the locale's country, which is what that default is for. Stored rows are
+ * untouched; only leads arriving from now on change.
+ */
+function countryFromDialableNumber(phone: string | null | undefined): string | null {
+  return countryFromE164(checkPostedPhone(phone));
+}
+
+/**
+ * What the visitor's own browser said about where they are: the country behind
+ * its time zone (then its languages), and the time zone itself so the lead page
+ * can show their local hour. It is a hint, never a claim — the lead page ranks
+ * it under the dial code of a number that works, and it is the only value
+ * allowed to name a country when there is no usable number.
+ */
+export type BrowserHint = {
+  browserCountry?: string | null;
+  browserTz?: string | null;
+};
+
 // Enquiries are DM- references; the booking widget passes them as `ref`.
 const ENQUIRY_REFERENCE_RE = /^DM-[23456789A-Z]{5}$/;
 
@@ -47,7 +74,7 @@ export function leadFromEnquiry(p: {
   phone: string;
   attr: Attribution;
   ip: string;
-}): Lead | null {
+} & BrowserHint): Lead | null {
   return guarded("enquiry", () => {
     // The diagnostic form is the privacy notice: notice_sent_at = created_at.
     const createdAt = sqlNow();
@@ -62,9 +89,11 @@ export function leadFromEnquiry(p: {
         locale: p.locale,
         // The check-up is served in French to the whole world, so the locale
         // is not a country: every Quebec lead was filed under France. Trust
-        // the number when it carries a dial code, and fall back to the
-        // locale's country (insertLead's default) when it does not.
-        country: countryFromE164(p.phone),
+        // the number when it can be dialled, and fall back to the locale's
+        // country (insertLead's default) when it cannot.
+        country: countryFromDialableNumber(p.phone),
+        browserCountry: p.browserCountry ?? null,
+        browserTz: p.browserTz ?? null,
         sourceLabel: attributionLabel(p.attr),
         sourceUtm: attributionSource(p.attr) || null,
         attribution: p.attr,
@@ -91,7 +120,7 @@ export function leadFromContact(p: {
   message: string;
   attr: Attribution;
   ip: string;
-}): Lead | null {
+} & BrowserHint): Lead | null {
   return guarded("contact", () => {
     const { lead } = createFrom(
       {
@@ -105,7 +134,9 @@ export function leadFromContact(p: {
         // page, not where the visitor is. The number is already E.164 here
         // (the route ran checkPostedPhone), so its dial code is the better
         // evidence; insertLead still falls back to the locale without one.
-        country: countryFromE164(p.phone),
+        country: countryFromDialableNumber(p.phone),
+        browserCountry: p.browserCountry ?? null,
+        browserTz: p.browserTz ?? null,
         sourceLabel: attributionLabel(p.attr),
         sourceUtm: attributionSource(p.attr) || null,
         attribution: p.attr,
@@ -134,7 +165,7 @@ export function leadFromBooking(p: {
   proposed?: string;
   attr: Attribution;
   ip: string;
-}): Lead | null {
+} & BrowserHint): Lead | null {
   return guarded("book", () => {
     const enquiryReference = ENQUIRY_REFERENCE_RE.test(p.ref) ? p.ref : null;
     const noteLines = [p.needs, p.mode === "requested" && p.proposed ? `Preferred times: ${p.proposed}` : null].filter(Boolean);
@@ -152,7 +183,9 @@ export function leadFromBooking(p: {
         // page, not where the visitor is. The number is already E.164 here
         // (the route ran checkPostedPhone), so its dial code is the better
         // evidence; insertLead still falls back to the locale without one.
-        country: countryFromE164(p.phone),
+        country: countryFromDialableNumber(p.phone),
+        browserCountry: p.browserCountry ?? null,
+        browserTz: p.browserTz ?? null,
         sourceLabel: attributionLabel(p.attr),
         sourceUtm: attributionSource(p.attr) || null,
         attribution: p.attr,

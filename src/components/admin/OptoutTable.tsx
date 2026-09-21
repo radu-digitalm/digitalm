@@ -6,14 +6,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { fmtDateTime } from "@/lib/inbox/stages";
+import { fmtDateTime, leadErrorWords } from "@/lib/inbox/stages";
 import type { OptoutListRow } from "@/lib/outreach/optout";
 import { Badge, type BadgeVariant } from "./Badge";
 import { Button, buttonClass } from "./Button";
 import { Field } from "./Field";
 import { Select } from "./Select";
 import { DataTable, type Column } from "./DataTable";
-import { AdminFetchError, adminFetch } from "./adminFetch";
+import { adminFetch } from "./adminFetch";
 import { useToast } from "./Toast";
 
 type Mode = "email" | "phone" | "send_reference" | "lead_reference" | "prospect_reference";
@@ -42,26 +42,10 @@ function short(hash: string | null): string {
   return hash ? `${hash.slice(0, 10)}…` : "—";
 }
 
-function errorMessage(e: unknown): string {
-  if (e instanceof AdminFetchError) {
-    const map: Record<string, string> = {
-      email: "That is not a valid email address.",
-      phone: "That number could not be normalised.",
-      send_reference: "Send references look like SN-XXXXX.",
-      send_not_found: "No send with that reference.",
-      send_without_address: "That send has no recipient on record.",
-      lead_reference: "Lead references look like LD-XXXXX.",
-      lead_not_found: "No lead with that reference.",
-      lead_without_contact: "That lead has neither an email nor a phone.",
-      prospect_not_found: "No prospect with that reference.",
-      prospect_without_contact: "That prospect has neither an email nor a phone.",
-      note_contains_contact: "The note must not contain an email address or a phone number — it is stored raw and never purged.",
-      csrf: "Session check failed — reload the page.",
-    };
-    return map[e.code] ?? `Request failed: ${e.code}`;
-  }
-  return "Request failed.";
-}
+// Every refusal this page can meet has a sentence in LEAD_ERROR_WORDS, next to
+// the ones the lead page shows. Printing the route's own code was the last way
+// a stored token reached the screen.
+const errorMessage = (e: unknown) => leadErrorWords(e);
 
 function AddForm() {
   const router = useRouter();

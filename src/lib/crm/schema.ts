@@ -283,6 +283,13 @@ export const EXTRA_COLUMNS: [table: string, column: string, decl: string][] = [
 
   // @@crm:inbox
   ["enquiries", "lead_id", "INTEGER"],
+  ["enquiries", "browser_country", "TEXT"], // lead-page: ISO2 the visitor's browser reported (time zone, then languages)
+  ["enquiries", "browser_tz", "TEXT"], // lead-page: the visitor's IANA time zone, for their local hour
+  ["enquiries", "call_questions", "TEXT"], // lead-page: JSON string[] — the triage's questions for the call
+  ["enquiries", "unknowns", "TEXT"], // lead-page: the triage's one line of what we still do not know
+  ["enquiries", "no_fit", "TEXT"], // lead-page: the triage's honest "nothing we sell fits", with its reason
+  ["leads", "browser_country", "TEXT"], // lead-page: the same hint on the lead, for rows with no check-up
+  ["leads", "browser_tz", "TEXT"], // lead-page: the same time zone on the lead
 
   // @@crm:finder
   ["prospects", "brand", "TEXT"], // chain / franchise name from OSM (badge "chain"); finder only

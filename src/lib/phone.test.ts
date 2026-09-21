@@ -545,3 +545,12 @@ test("the country is null when the number does not say, and the caller keeps its
   assert.equal(countryFromE164("+5511987654321"), null); // Brazil is not in the picker
   assert.equal(countryFromE164("+1581701"), null); // not a whole NANP number
 });
+
+test("a dial code over digits that do not fit it names no country at all", () => {
+  // Jojo's row: a Quebec number typed under +33. France has nine digits after
+  // the dial code and this has ten, so the number cannot be rung and may not
+  // file the lead under France.
+  assert.equal(countryFromE164("+33 4187172114"), null);
+  // The same digits with the right dial code do name one.
+  assert.equal(countryFromE164("+18732557953"), "CA");
+});

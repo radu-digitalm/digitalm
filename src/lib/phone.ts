@@ -299,14 +299,14 @@ const CANADA_AREA_CODES = new Set([
  * stop filing a lead under the locale's country when the number says otherwise.
  */
 export function countryFromE164(value: string | null | undefined): string | null {
-  const typed = String(value ?? "").trim();
-  if (!/^\+/.test(typed)) return null;
-  const digits = digitsOf(typed);
-  if (digits.length < 7 || digits.length > 15) return null;
-  if (digits.startsWith("1")) {
-    if (digits.length !== 11) return null;
-    return CANADA_AREA_CODES.has(digits.slice(1, 4)) ? "CA" : "US";
-  }
+  // A number nobody can ring is not evidence of anything. "+33 4187172114"
+  // wears a French dial code over a Quebec number: the dial code alone filed
+  // three of the five real leads under France, so the number has to pass the
+  // country's own length rules before it may name a place.
+  const e164 = checkPostedPhone(value);
+  if (!e164) return null;
+  const digits = digitsOf(e164);
+  if (digits.startsWith("1")) return CANADA_AREA_CODES.has(digits.slice(1, 4)) ? "CA" : "US";
   return countryForDigits(digits)?.c ?? null;
 }
 

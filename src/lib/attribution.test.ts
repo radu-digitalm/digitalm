@@ -1,0 +1,78 @@
+// What every lead carries about the ad that brought it. Untested until now,
+// and it decides three stored values: `leads.source_label` (the line Radu
+// reads when there is no attribution JSON), `leads.source_utm` and the JSON
+// itself. The click id is the reason for the last two tests: it is 180
+// characters long, it is not a fact about the person, and it must never reach
+// a line written for a human to read.
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readAttribution, attributionLabel, attributionSource, ATTRIBUTION_KEYS } from "./attribution.ts";
+
+// The shape the five production leads carry, as ChatGPT Ads posts it.
+const LIVE = {
+  utm_source: "chatgpt",
+  utm_medium: "cpc",
+  utm_campaign: "fr-france",
+  utm_content: "ad_6aa271d4-0b8f-4a7e-9f31-3f1c4a2fca0c",
+  oppref: `op_${"a1b2c3d4".repeat(20)}`,
+};
+
+test("readAttribution keeps the six keys it knows and drops everything else", () => {
+  const a = readAttribution({ ...LIVE, gclid: "x", answers: { email: "someone@example.com" } });
+  assert.deepEqual(Object.keys(a).sort(), Object.keys(LIVE).sort());
+  assert.equal(a.utm_campaign, "fr-france");
+  for (const k of Object.keys(a)) assert.ok((ATTRIBUTION_KEYS as readonly string[]).includes(k));
+});
+
+test("readAttribution trims, and ignores anything that is not a filled string", () => {
+  const a = readAttribution({ utm_source: "  chatgpt  ", utm_medium: "", utm_campaign: 42, utm_content: null });
+  assert.deepEqual(a, { utm_source: "chatgpt" });
+});
+
+test("readAttribution refuses a value carrying control characters", () => {
+  assert.deepEqual(readAttribution({ utm_campaign: "fr\u0000france" }), {});
+  assert.deepEqual(readAttribution({ utm_campaign: "fr\nfrance" }), {});
+});
+
+test("readAttribution caps the ordinary keys at 100 and the click id at 256", () => {
+  assert.deepEqual(readAttribution({ utm_campaign: "c".repeat(101) }), {});
+  assert.equal(readAttribution({ utm_campaign: "c".repeat(100) }).utm_campaign?.length, 100);
+  assert.equal(readAttribution({ oppref: "o".repeat(256) }).oppref?.length, 256);
+  assert.deepEqual(readAttribution({ oppref: "o".repeat(257) }), {});
+});
+
+test("readAttribution survives a body that is not an object", () => {
+  for (const raw of [null, undefined, "chatgpt", 7, []]) assert.deepEqual(readAttribution(raw), {});
+});
+
+test("attributionLabel names the channel and the campaign, in that order", () => {
+  assert.equal(attributionLabel(readAttribution(LIVE)), `ChatGPT Ads · fr-france / ${LIVE.utm_content}`);
+  assert.equal(attributionLabel({ utm_source: "google", utm_campaign: "occ-ariege" }), "Google · occ-ariege");
+  assert.equal(attributionLabel({ utm_source: "instagram" }), "Meta");
+  assert.equal(attributionLabel({ utm_source: "linkedin" }), "LinkedIn");
+  assert.equal(attributionLabel({ utm_source: "newsletter" }), "newsletter");
+});
+
+test("a click id with no source is still a ChatGPT ad", () => {
+  assert.equal(attributionLabel({ oppref: LIVE.oppref }), "ChatGPT Ads");
+  assert.equal(attributionSource({ oppref: LIVE.oppref }), "chatgpt");
+});
+
+test("attributionLabel is null when nothing brought them, so the lead says nothing rather than guessing", () => {
+  assert.equal(attributionLabel({}), null);
+  assert.equal(attributionLabel({ utm_medium: "cpc" }), null);
+  assert.equal(attributionSource({}), "");
+});
+
+test("attributionSource is the channel in lower case, for the event and the column", () => {
+  assert.equal(attributionSource({ utm_source: "ChatGPT" }), "chatgpt");
+  assert.equal(attributionSource(readAttribution(LIVE)), "chatgpt");
+});
+
+test("the stored label never carries the click id", () => {
+  const label = attributionLabel(readAttribution(LIVE));
+  assert.ok(label);
+  assert.ok(!label.includes(LIVE.oppref), "the click id is not a fact about the person");
+  assert.ok(!label.includes("oppref"));
+  assert.ok(!label.includes("="));
+});

@@ -14,25 +14,20 @@ import { followUpDate } from "@/lib/inbox/hooks";
 import { addActivity, ensureLeadForProspect, getLead, updateLead } from "@/lib/inbox/leads";
 import { getProspect, type ProspectRecord } from "@/lib/prospects/store";
 import { recheckRegister, type RegisterCheck } from "@/lib/prospects/registerCheck";
+import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, isCallLogOutcome, type CallLogOutcome } from "@/lib/inbox/stages";
 import { CALL_OPENERS, PHONE_SOURCES } from "@/content/outreach";
 import { isProspectOptedOut, noteCarriesContact, prospectHashes, recordOptout } from "./optout";
 import { TPS_VALID_DAYS, evaluateCallRefusals, screeningValid } from "./refusals";
 import { callWindowStatus, ruleFor, ruleKeyFor, type RuleKey, type WindowStatus } from "./rules";
 
-export type CallOutcome = "no_answer" | "answered" | "refused" | "callback" | "wrong_number";
-export const CALL_OUTCOMES: readonly CallOutcome[] = ["no_answer", "answered", "refused", "callback", "wrong_number"];
-
-export const OUTCOME_LABELS: Record<CallOutcome, string> = {
-  no_answer: "No answer",
-  answered: "Answered",
-  refused: "Refused — do not call again",
-  callback: "Call back",
-  wrong_number: "Wrong number",
-};
-
-export function isCallOutcome(x: unknown): x is CallOutcome {
-  return typeof x === "string" && (CALL_OUTCOMES as readonly string[]).includes(x);
-}
+// One list of call outcomes for the whole admin. The lead page logs a call
+// with no prospect behind it and this module logs an outreach call; they used
+// to carry separate copies of the same five ids and the same five labels, so
+// the day one gained an outcome the other quietly refused it.
+export type CallOutcome = CallLogOutcome;
+export { CALL_OUTCOMES };
+export const OUTCOME_LABELS = CALL_OUTCOME_LABELS;
+export const isCallOutcome = isCallLogOutcome;
 
 /** Error with a stable code and HTTP status for the routes. */
 export class CallError extends Error {

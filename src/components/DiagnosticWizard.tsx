@@ -48,6 +48,19 @@ function normalizeUrl(raw: string): string | null {
  * that would file every Quebec lead as French, which is the exact thing the
  * server refuses to do.
  */
+/**
+ * The visitor's IANA time zone ("America/Toronto"), or null when the browser
+ * will not say. Stored beside the country hint so a lead with no usable number
+ * can still be placed, and so Radu knows what o'clock it is where they are.
+ */
+function browserTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
+}
+
 function browserCountry(): string | null {
   try {
     return (
@@ -302,7 +315,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         // browserCountry): the server uses it for "Where" when the number
         // carries no dial code, so a guess from the page locale would be worse
         // than nothing. `undefined` drops out of the JSON.
-        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution, phoneCountry: country ?? undefined }),
+        body: JSON.stringify({ locale: L, answers: merged, turnstile: tsToken.current, website: "", attribution, phoneCountry: country ?? undefined, browserTz: browserTimeZone() ?? undefined }),
       });
       const json = await res.json();
       if (!json.ok) throw new Error("rejected");

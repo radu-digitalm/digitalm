@@ -331,7 +331,7 @@ export function splitReplyDraft(draft: string, fallbackSubject: string): { subje
  * plain address - two links that disagree, one of which some clients balk at.
  * Everything that genuinely needs escaping still is.
  */
-function mailtoAddress(to: string): string {
+export function mailtoAddress(to: string): string {
   return encodeURIComponent(String(to).trim()).replace(/%40/g, "@");
 }
 
@@ -342,7 +342,7 @@ function mailtoAddress(to: string): string {
  * is left out: the draft is printed in full just above, and a link that opens
  * with the right address and subject beats one that opens half a reply.
  */
-function mailtoLink(to: string, subject: string, body?: string, maxLength = 6000): string {
+export function mailtoLink(to: string, subject: string, body?: string, maxLength = 6000): string {
   const head = `mailto:${mailtoAddress(to)}?subject=${encodeURIComponent(subject)}`;
   if (!body) return head;
   const full = `${head}&body=${encodeURIComponent(body)}`;
@@ -355,10 +355,10 @@ function mailtoLink(to: string, subject: string, body?: string, maxLength = 6000
  * body to pre-fill, and saying "too long to pre-fill" about an empty body
  * sends Radu looking for text that is not there.
  */
-type Prefill = "full" | "long" | "none";
+export type Prefill = "full" | "long" | "none";
 
 /** The reply link plus what it actually carries, so the label can be true. */
-function replyLink(to: string, reply: { subject: string; body: string }, maxLength?: number): { href: string; prefill: Prefill } {
+export function replyLink(to: string, reply: { subject: string; body: string }, maxLength?: number): { href: string; prefill: Prefill } {
   const body = reply.body.trim();
   if (!body) return { href: mailtoLink(to, reply.subject, undefined, maxLength), prefill: "none" };
   const href = mailtoLink(to, reply.subject, body, maxLength);
