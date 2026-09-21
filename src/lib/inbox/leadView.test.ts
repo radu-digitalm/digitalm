@@ -1,26 +1,23 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import {
-  answerEntries,
   arrivedAgo,
   attributionSentence,
   buildLeadView,
   campaignRollup,
   heardAboutLine,
   leadWhere,
-  ownWords,
   phoneState,
-  priceFitFor,
-  proposedLabel,
   readableDate,
   replyMailto,
-  saleFacts,
   sendLabel,
   shortAdId,
   whereLine,
 } from "./leadView.ts";
+
+// The answers themselves — the eight facts, the labels, the price bands and
+// their own words — are tested where they live now, in
+// lib/diagnostic/answers.test.ts, against the enquiry route's own copies.
 import type { EnquirySummary } from "./leads.ts";
 import type { Attribution, Lead } from "../crm/types.ts";
 
@@ -31,12 +28,6 @@ const JOJO_ANSWERS = {
   sellsOnline: "own-site", team: "solo", activity: "other", pains: ["A"], A_where: ["stock"], A_hours: "<5",
   tools: ["salesforce"], budget: "1500-3500", decision: "me", start: "asap", firstName: "Jojo ", email: "jojokita99@gmail.com", source: "word",
 };
-const MICHEL_ANSWERS = {
-  activity: "other", team: "6-20", sellsOnline: "no", pains: ["D"], D_where: ["spreadsheets"], D_breaks: ["team"],
-  tools: ["microsoft"], magic: "Répondre aux mêmes questions WhatsApp ", start: "asap", decision: "me", budget: "unsure",
-  firstName: "Michel", email: "michelric4@gmail.com", activity_other: "Entretien piscine",
-};
-
 const CHATGPT: Attribution = {
   utm_source: "chatgpt",
   utm_medium: "cpc",
@@ -71,62 +62,6 @@ function enquiry(over: Partial<EnquirySummary> = {}): EnquirySummary {
   };
 }
 
-// ---- the page may never contradict the e-mail -------------------------------------
-
-test("saleFacts keeps the eight labels the lead e-mail prints, in order", () => {
-  const route = readFileSync(join(import.meta.dirname, "../../app/api/enquiry/route.ts"), "utf8");
-  const block = route.slice(route.indexOf("facts: ["), route.indexOf("propose: {"));
-  const inEmail = [...block.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(
-    saleFacts(JOJO_ANSWERS).map((f) => f.label),
-    inEmail,
-  );
-  assert.equal(inEmail.length, 8);
-});
-
-test("saleFacts reads the answers the old query never selected", () => {
-  const facts = saleFacts(MICHEL_ANSWERS);
-  assert.deepEqual(facts[0], { label: "What they do", value: "Other (tell us) — Entretien piscine" });
-  assert.deepEqual(facts[1], { label: "Size", value: "6–20" });
-  assert.deepEqual(facts[3], { label: "Budget", value: "Not sure yet" });
-  assert.deepEqual(facts[4], { label: "Wants to start", value: "As soon as possible" });
-  assert.deepEqual(facts[7], { label: "Website", value: "not given" });
-});
-
-test("an unanswered question reads the e-mail's word, never a dash", () => {
-  const facts = saleFacts({});
-  assert.equal(facts.find((f) => f.label === "Size")?.value, "not stated");
-  assert.equal(facts.find((f) => f.label === "Tools today")?.value, "none picked");
-  assert.equal(facts.find((f) => f.label === "Website")?.value, "not given");
-});
-
-test("answerEntries turns the branch answers into English", () => {
-  const entries = answerEntries(MICHEL_ANSWERS);
-  const pains = entries.find((e) => e.id === "pains");
-  assert.equal(pains?.label, "Which of these feels most true right now?");
-  assert.equal(pains?.value, "Customer info is scattered: quotes and follow-ups get forgotten");
-  const where = entries.find((e) => e.id === "D_where");
-  assert.ok(where && where.value.length > 0 && where.value !== "spreadsheets");
-  const other = entries.find((e) => e.id === "activity_other");
-  assert.equal(other?.label, "What does your business do? (other)");
-  assert.equal(other?.freeText, true);
-});
-
-test("ownWords quotes the magic wand first, and is empty for the lead who typed nothing", () => {
-  assert.deepEqual(ownWords(JOJO_ANSWERS), []);
-  const words = ownWords(MICHEL_ANSWERS);
-  assert.equal(words[0]?.label, "The chore they want gone");
-  assert.equal(words[0]?.text, "Répondre aux mêmes questions WhatsApp");
-  assert.equal(words[1]?.text, "Entretien piscine");
-});
-
-test("proposedLabel and priceFitFor speak the e-mail's words", () => {
-  assert.equal(proposedLabel("AUTO+CRM"), "Process automation + Customer follow-up (CRM)");
-  assert.equal(proposedLabel("-"), "");
-  assert.equal(priceFitFor("1500-3500"), "€1,500-3,500 — quote €2,000-3,500");
-  assert.equal(priceFitFor(""), "not stated — quote the standard €1,500-3,500 range");
-});
-
 // ---- the number -------------------------------------------------------------------
 
 test("phoneState has exactly three states and offers the repair Jojo's row needs", () => {
@@ -143,6 +78,9 @@ test("phoneState has exactly three states and offers the repair Jojo's row needs
     assert.equal(jojo.note, "cannot be dialled as stored — ask for it in your reply");
     assert.equal(jojo.repair, "+14187172114");
     assert.equal(jojo.repairNote, "418 is Quebec — set this number to +1 418 717 2114?");
+    // The note the repair leaves on the timeline is read by a person, so it
+    // quotes the number the way the button offered it, not the stored digits.
+    assert.equal(jojo.repairDisplay, "+1 418 717 2114");
   }
   const anaia = phoneState("15817015976");
   assert.equal(anaia.kind, "unusable");
@@ -243,7 +181,7 @@ test("what they said about hearing of us is checked against the click", () => {
   assert.equal(heardAboutLine("Jojo", JOJO_ANSWERS, true), "Jojo said they heard about you through word of mouth — that does not match the ad click.");
   assert.equal(heardAboutLine("Steven", { source: "other" }, true), 'Steven chose "Something else" and did not say what.');
   assert.equal(heardAboutLine("José", { source: "other", source_other: "Chat gpt" }, true), "José said they found you through ChatGPT — that matches.");
-  assert.equal(heardAboutLine("Michel", MICHEL_ANSWERS, true), "Michel did not answer how they heard about you.");
+  assert.equal(heardAboutLine("Michel", { activity: "other" }, true), "Michel did not answer how they heard about you.");
 });
 
 test("the campaign roll-up counts only what the evidence supports", () => {
@@ -302,6 +240,9 @@ test("Jojo's page carries the seven highlights, the repair offer and no country 
   assert.ok(!/"FR"/.test(serialised), "the country column never reaches the page");
   const countryRows = view.details.flatMap((s) => s.rows).filter((r) => r.label === "Country used to read the phone number");
   assert.equal(countryRows.length, 1);
+  // How the lead arrived is a fact of the record, not a fact of the sale: it
+  // is printed in Details (it used to be computed into the view and dropped).
+  assert.equal(view.details.flatMap((s) => s.rows).find((r) => r.label === "How it arrived")?.value, "Booking");
 });
 
 test("an overdue next step is overdue, and a missing one says so", () => {

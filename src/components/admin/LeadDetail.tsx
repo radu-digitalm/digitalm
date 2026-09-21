@@ -22,7 +22,7 @@ import { useState } from "react";
 import { OUTREACH_MODULE } from "@/lib/crm/features";
 import type { Activity, LeadStage } from "@/lib/crm/types";
 import type { DetailSection, LeadView, PhoneState } from "@/lib/inbox/leadView";
-import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, DATE_RE, FORWARD_STAGES, STAGE_LABELS, addDays, nextForwardStage, nextMoveLabel, parisToday } from "@/lib/inbox/stages";
+import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, DATE_RE, FORWARD_STAGES, STAGE_LABELS, addDays, leadErrorWords, nextForwardStage, nextMoveLabel, parisToday, stopPartlyDoneWords } from "@/lib/inbox/stages";
 import { Badge } from "./Badge";
 import { Button, buttonClass } from "./Button";
 import { ConfirmButton } from "./ConfirmButton";
@@ -47,6 +47,18 @@ const HEADING = "text-[15px] uppercase tracking-wide text-fg-faint";
 const WRAP_BUTTON = "inline-flex items-center justify-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-2 text-left text-[15px] leading-snug text-fg-heading hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-60";
 const WRAP_PRIMARY = "inline-flex items-center justify-center gap-2 btn-primary px-4 py-2 text-left text-[16px] leading-snug";
 
+/**
+ * What a handler hands back when it did two writes and only one landed: the
+ * whole sentence to show, already in words. "Mark STOP" is the case — the
+ * stage follows even when the opposition list refuses, so the toast has to say
+ * both halves without naming the code that failed.
+ */
+type PartlyDone = { partlyDone: string };
+
+function isPartlyDone(x: unknown): x is PartlyDone {
+  return !!x && typeof x === "object" && typeof (x as PartlyDone).partlyDone === "string";
+}
+
 function useAction() {
   const router = useRouter();
   const toast = useToast();
@@ -54,12 +66,22 @@ function useAction() {
   async function run(label: string, fn: () => Promise<unknown>): Promise<boolean> {
     setBusy(true);
     try {
-      await fn();
+      const out = await fn();
+      if (isPartlyDone(out)) {
+        // Something was written, so the page still has to catch up.
+        toast.push(out.partlyDone, "bad");
+        router.refresh();
+        return false;
+      }
       toast.push(label, "good");
       router.refresh();
       return true;
     } catch (e) {
-      toast.push(`${label} failed: ${(e as Error).message}`, "bad");
+      // Never (e as Error).message: adminFetch puts the route's own code there
+      // ("lead_without_contact", "http_500"), and a code on Radu's screen is a
+      // banned token (components/admin/wording.ts §7). leadErrorWords has a
+      // sentence for every code the three routes behind this page answer with.
+      toast.push(leadErrorWords(e), "bad");
       return false;
     } finally {
       setBusy(false);
@@ -202,7 +224,9 @@ function CallCell({ leadId, phone, stopped }: { leadId: number; phone: PhoneStat
                   await adminFetch(`/api/admin/leads/${leadId}`, { phone: phone.repair });
                   await adminFetch(`/api/admin/leads/${leadId}/activity`, {
                     kind: "note",
-                    text: `Phone corrected from "${phone.stored}" to "${phone.repair}"`,
+                    // The number as the button offered it, not the digits the
+                    // column stores: the timeline is read by a person.
+                    text: `Phone corrected from "${phone.stored}" to "${phone.repairDisplay ?? phone.repair}"`,
                   });
                 });
               }}
@@ -248,7 +272,12 @@ function StagePath({ leadId, stage, stopped, stopNote }: { leadId: number; stage
           </li>
         ))}
       </ol>
-      <p className="text-[16px] text-fg-muted sm:hidden">Stage: {STAGE_LABELS[stage]} →</p>
+      {/* The arrow promises a next move; on a stopped lead there is none, and
+          the greyed path above says so. */}
+      <p className="text-[16px] text-fg-muted sm:hidden">
+        Stage: {STAGE_LABELS[stage]}
+        {move ? " →" : ""}
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         {move ? (
           <Button variant="primary" size="md" loading={busy} onClick={() => go(move.stage)}>
@@ -271,6 +300,7 @@ function QuickActions({
   phone,
   email,
   emailHref,
+  emailNote,
   hasReplyBlock,
   stopped,
   onSetNextStep,
@@ -278,6 +308,12 @@ function QuickActions({
   phone: PhoneState;
   email: string | null;
   emailHref: string | null;
+  /**
+   * Why there is no address, in the same breath as the number — the one
+   * sentence buildLeadView derived for the reach strip. A constant here read
+   * "call them" next to a Call cell that said the number cannot be dialled.
+   */
+  emailNote: string | null;
   /** A check-up sits behind the lead, so there is a ready reply to scroll to. */
   hasReplyBlock: boolean;
   stopped: boolean;
@@ -285,7 +321,7 @@ function QuickActions({
 }) {
   const cellClass = "flex min-h-[44px] items-center justify-center rounded-lg border border-line bg-surface-2/40 px-3 py-2 text-center text-[16px] text-fg-heading hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-60";
   const stopReason = "Asked not to be contacted — every way of reaching them is switched off here.";
-  const noAddress = "No address on file — call them.";
+  const noAddress = emailNote ?? "No address on file.";
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
       {hasReplyBlock ? (
@@ -339,6 +375,21 @@ function Upcoming({
   const { busy, run } = useAction();
   const [action, setAction] = useState(upcoming?.action ?? "");
   const [date, setDate] = useState(upcoming?.date ?? "");
+
+  // The form is seeded from the server's values, and every chip above it
+  // writes new ones: +2 days, +1 week and Done all end in router.refresh(),
+  // which re-renders THIS instance rather than remounting it. Without this
+  // the two boxes keep the values of the first render, so Edit re-opened on
+  // the old date and Save wrote it back — the follow-up Radu had just moved
+  // was silently undone. (React's own "adjust state when a prop changes"
+  // pattern: compare, set, and let this render use the new values.)
+  const stored = `${upcoming?.action ?? ""}\u0000${upcoming?.date ?? ""}`;
+  const [seen, setSeen] = useState(stored);
+  if (seen !== stored) {
+    setSeen(stored);
+    setAction(upcoming?.action ?? "");
+    setDate(upcoming?.date ?? "");
+  }
 
   async function save(next: { next_action: string; next_action_at: string }) {
     if (await run("Next step saved", () => adminFetch(`/api/admin/leads/${leadId}`, next))) setEditing(false);
@@ -523,7 +574,7 @@ function GmailBox({ prospectId }: { prospectId: number | null }) {
       const res = await adminFetch<Prepared & { ok?: boolean }>(`/api/admin/prospects/${prospectId}/manual-send`, { action: "prepare", draftId: "followup" });
       setPrepared({ sendId: res.sendId, reference: res.reference, subject: res.subject, text: res.text });
     } catch (e) {
-      toast.push(`Could not prepare the email: ${(e as Error).message}`, "bad");
+      toast.push(`The email could not be prepared. ${leadErrorWords(e)}`, "bad");
     }
   }
 
@@ -594,15 +645,18 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
   async function markStop() {
     await run("STOP recorded", async () => {
       // The opposition list first (outreach's route); the stage follows even
-      // when that call fails, so a STOP is never lost — the toast says which.
-      let optoutError: string | null = null;
+      // when that call fails, so a STOP is never lost — the toast then says
+      // both halves, in words, without naming the code that failed.
+      let refusal: unknown = null;
       try {
         await adminFetch("/api/admin/optouts", { lead_id: view.id });
       } catch (e) {
-        optoutError = (e as Error).message;
+        refusal = e;
       }
       await adminFetch(`/api/admin/leads/${view.id}`, { stage: "stop" });
-      if (optoutError) throw new Error(`stage set, but the opt-out list was not updated (${optoutError})`);
+      // The sentence itself lives in stages.ts, next to the words it ends
+      // with, so one test keeps both halves clear of the banned tokens.
+      return refusal ? { partlyDone: stopPartlyDoneWords(refusal) } : undefined;
     });
   }
 
@@ -632,8 +686,21 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
           </div>
         </div>
 
+        {/* Seven at most, in a fixed order. The ones with no tone are given a
+            border too: separated by a gap alone, "Not sure yet" and "As soon
+            as possible" ran together into one phrase at 390 px. */}
         <div className="flex flex-wrap items-center gap-2">
-          {view.highlights.map((h, i) => (h.tone ? <Badge key={i} variant={h.tone} title={h.title}>{h.text}</Badge> : <span key={i} className="text-[16px] text-fg-heading">{h.text}</span>))}
+          {view.highlights.map((h, i) =>
+            h.tone ? (
+              <Badge key={i} variant={h.tone} title={h.title}>
+                {h.text}
+              </Badge>
+            ) : (
+              <span key={i} title={h.title} className="inline-flex max-w-full items-center rounded-full border border-line px-2.5 py-1 text-left text-[16px] leading-tight text-fg-heading">
+                {h.text}
+              </span>
+            ),
+          )}
         </div>
 
         <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-3">
@@ -669,6 +736,7 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
             phone={view.reach.phone}
             email={view.reach.email}
             emailHref={view.reach.emailHref}
+            emailNote={view.reach.emailNote}
             hasReplyBlock={view.checkup}
             stopped={view.stopped}
             onSetNextStep={() => {
@@ -719,7 +787,9 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
             <Section id="propose" title="What to propose">
               {view.propose.lines ? <p className="text-[17px] text-fg-heading">{view.propose.lines}</p> : null}
               {view.propose.price ? <p className="text-[16px] text-fg">Price that fits: {view.propose.price}</p> : null}
-              {view.propose.noFit ? <p className="text-[16px] text-amber-300">{view.propose.noFit}</p> : null}
+              {/* A Badge variant, not a colour: the light admin theme lands on
+                  top of this file without touching it (spec §9). */}
+              {view.propose.noFit ? <Badge variant="warn">{view.propose.noFit}</Badge> : null}
               {view.propose.why ? <p className="whitespace-pre-wrap text-[16px] text-fg">{view.propose.why}</p> : null}
               {view.propose.note ? <p className="text-[16px] text-fg-muted">{view.propose.note}</p> : null}
             </Section>
@@ -747,8 +817,11 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
                     <Button
                       size="md"
                       loading={busy}
-                      disabled={sent || view.stopped}
-                      title={view.stopped ? (view.stopNote ?? undefined) : undefined}
+                      // No address means the button beside this one reads "No
+                      // address to send to": recording a reply that could not
+                      // be sent would move the stage on a lie.
+                      disabled={sent || view.stopped || !view.reach.email}
+                      title={view.stopped ? (view.stopNote ?? undefined) : view.reach.email ? undefined : (view.reply.note ?? undefined)}
                       onClick={() => iSentIt(view.reply!.subject)}
                     >
                       {sent ? "Recorded" : "I sent it"}

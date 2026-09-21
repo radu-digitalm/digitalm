@@ -640,18 +640,28 @@ export function getEnquirySummary(reference: string): EnquirySummary | null {
   };
 }
 
-/** Every lead on one campaign, for the lead page's roll-up line and ad count. */
+/**
+ * Every lead on one campaign, for the lead page's roll-up line and ad count.
+ *
+ * The campaign name is matched in SQL first — the JSON is a stored string, so
+ * a LIKE on the name cuts the rows this has to parse down to the campaign
+ * itself — and the exact test still happens in JS, because a name can appear
+ * in another key. The cap then counts rows of THIS campaign rather than of
+ * every attributed lead in the table, which is what made the "(3 of your 5
+ * leads)" count go quietly wrong past the five hundredth attributed lead.
+ */
 export function campaignLeadRows(campaign: string): { reference: string; phone: string | null; browserCountry: string | null; attribution: Attribution | null }[] {
   const name = clean(campaign, 100);
   if (!name) return [];
   const db = enquiriesDb();
   const hasHint = columnsPresent(db, "leads", ["browser_country"]).length > 0;
+  const like = `%${name.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
   const rows = db
     .prepare(
       `SELECT reference, phone, attribution${hasHint ? ", browser_country" : ""} FROM leads
-       WHERE attribution IS NOT NULL ORDER BY id DESC LIMIT 500`,
+       WHERE attribution IS NOT NULL AND attribution LIKE ? ESCAPE '\\' ORDER BY id DESC LIMIT 2000`,
     )
-    .all() as { reference: string; phone: string | null; attribution: string | null; browser_country?: string | null }[];
+    .all(like) as { reference: string; phone: string | null; attribution: string | null; browser_country?: string | null }[];
   return rows
     .map((r) => ({
       reference: r.reference,

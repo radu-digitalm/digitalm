@@ -4,9 +4,9 @@
 //
 // Three rules from the spec run through this file:
 //  1. The page never contradicts the e-mail: the place comes from leadPlace(),
-//     the number from checkPostedPhone(), the service names from LINE_LABEL,
-//     the price band from PRICE_FIT and the answer labels from the same
-//     question tables the enquiry route uses.
+//     the number from checkPostedPhone(), and the service names, the price
+//     band and every answer label come from lib/diagnostic/answers.ts — the
+//     one copy of those tables, which the lead e-mail reads too.
 //  2. A column is not a fact. `leads.country` is the key hashPhone() normalises
 //     with; it is never evidence and never reaches leadPlace(). leadWhere()'s
 //     type makes passing it impossible.
@@ -14,7 +14,7 @@
 //
 // Pure apart from the two helper modules it reads (mail.ts, phone.ts): no DB,
 // no React, relative imports with .ts so `node --test` loads it.
-import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "../../content/diagnostic.ts";
+import { SALE_FACT_IDS, answerEntries, heardAbout, ownWords, priceFitFor, proposedLabel, saleFacts } from "../diagnostic/answers.ts";
 import { checkPostedPhone, countryFor, countryFromE164 } from "../phone.ts";
 import { leadPlace, splitReplyDraft } from "../mail.ts";
 import { attributionLabel, type Attribution } from "../attribution.ts";
@@ -24,138 +24,14 @@ import type { Activity, Lead, LeadKind, LeadStage } from "../crm/types.ts";
 import type { EnquirySummary, ProspectSummary } from "./leads.ts";
 import { DATE_RE, KIND_LABELS, STAGE_LABELS, STAGE_TONE, dueWords, fmtDate, fmtDateTime, leadTitle, parisToday, type Tone } from "./stages.ts";
 
-// ---- shared labels (the e-mail's words, verbatim) --------------------------------
-
-/** Plain names for the service lines — the same table the lead e-mail prints. */
-export const LINE_LABEL: Record<string, string> = {
-  AGENT: "AI assistant",
-  AUTO: "Process automation",
-  WEB: "Website / e-commerce",
-  CRM: "Customer follow-up (CRM)",
-  SEC: "E-commerce security audit",
-};
-
-/** What to quote against the band they chose (the e-mail's line, word for word). */
-export const PRICE_FIT: Record<string, string> = {
-  "<1500": "under €1,500 — quote €800-1,500, never the €500 entry price",
-  "1500-3500": "€1,500-3,500 — quote €2,000-3,500",
-  "3500-7000": "€3,500-7,000 — quote €4,000-6,000",
-  "7000+": "€7,000+ — quote from €7,000 up",
-  unsure: "not decided — quote the standard €1,500-3,500 range",
-};
-export const STANDARD_PRICE = "not stated — quote the standard €1,500-3,500 range";
-
-export function priceFitFor(budgetId: string | null | undefined): string {
-  const id = String(budgetId ?? "").trim();
-  return PRICE_FIT[id] ?? STANDARD_PRICE;
-}
-
-/** "AUTO+CRM" → "Process automation + Customer follow-up (CRM)". */
-export function proposedLabel(proposed: string | null | undefined): string {
-  const parts = String(proposed ?? "")
-    .split("+")
-    .map((p) => p.trim())
-    .filter((p) => p && p !== "-");
-  return parts.map((p) => LINE_LABEL[p] ?? p).join(" + ");
-}
-
-// ---- the check-up answers --------------------------------------------------------
-
-const ALL_QUESTIONS: Question[] = [...STEP1, ROUTER, ...Object.values(BRANCHES).flat(), TOOLS, MAGIC, ...STEP5, ...CONTACT];
-const BY_ID = new Map(ALL_QUESTIONS.map((q) => [q.id, q]));
-
-function labelFor(q: Question, v: string): string {
-  return q.options?.find((o) => o.id === v)?.en ?? v;
-}
-
-/** The contact fields the page reads off the lead row instead of the answers. */
-const SKIP_IDS = ["firstName", "email", "company", "phone", "magic"];
-
-export interface AnswerEntry {
-  id: string;
-  label: string;
-  value: string;
-  /** Show it under "What they said": the visitor wrote this sentence. */
-  freeText: boolean;
-  /** They typed the characters (a URL, an "other" box) rather than tapping a chip. */
-  typed: boolean;
-}
-
-/** Every stored answer with its English label — the enquiry route's loop, unchanged. */
-export function answerEntries(answers: Record<string, unknown>): AnswerEntry[] {
-  const entries: AnswerEntry[] = [];
-  for (const [id, v] of Object.entries(answers)) {
-    if (SKIP_IDS.includes(id)) continue;
-    const q = BY_ID.get(id.replace(/_other$/, ""));
-    if (!q) continue;
-    if (id.endsWith("_other")) {
-      entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true, typed: true });
-      continue;
-    }
-    const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
-    entries.push({ id, label: q.en, value: vals, freeText: false, typed: !q.options?.length });
-  }
-  return entries;
-}
-
-/** The address, from the three questions that can carry one. */
-export function websiteOf(answers: Record<string, unknown>): string {
-  return (
-    [answers.site, answers.C_url, answers.E_url]
-      .map((v) => String(v ?? "").trim())
-      .find((v) => v !== "") ?? ""
-  ).slice(0, 300);
-}
-
-/**
- * The eight facts that decide the sale, in the e-mail's order with the e-mail's
- * labels. Changing a word here changes the e-mail too (leadView.test.ts asserts
- * the two match), which is the point.
- */
-export function saleFacts(answers: Record<string, unknown>): { label: string; value: string }[] {
-  const entries = answerEntries(answers);
-  const answerOf = (id: string): string => entries.find((e) => e.id === id)?.value ?? "";
-  return [
-    { label: "What they do", value: [answerOf("activity"), answerOf("activity_other")].filter(Boolean).join(" — ") || "not stated" },
-    { label: "Size", value: answerOf("team") || "not stated" },
-    { label: "Sells online", value: answerOf("sellsOnline") || "not stated" },
-    { label: "Budget", value: answerOf("budget") || "not stated" },
-    { label: "Wants to start", value: answerOf("start") || "not stated" },
-    { label: "Who decides", value: answerOf("decision") || "not stated" },
-    { label: "Tools today", value: answerOf("tools") || "none picked" },
-    { label: "Website", value: websiteOf(answers) || "not given" },
-  ];
-}
-
-const SALE_FACT_IDS = ["activity", "activity_other", "team", "sellsOnline", "budget", "start", "decision", "tools", "site", "C_url", "E_url"];
-
-/** Their own sentences: the magic wand first, then every free-text answer. */
-export function ownWords(answers: Record<string, unknown>): { label: string; text: string }[] {
-  const magic = String(answers.magic ?? "").trim();
-  return [
-    ...(magic ? [{ label: "The chore they want gone", text: magic }] : []),
-    ...answerEntries(answers)
-      // "How did you hear about us (other)" is not something they want gone:
-      // it has its own sentence in Details, next to the ad click it checks.
-      .filter((e) => e.freeText && e.id !== "source_other" && e.value.trim() !== "")
-      .map((e) => ({ label: e.label, text: e.value })),
-  ];
-}
-
-/** How they said they heard about us, as an id + its English label. */
-export function heardAbout(answers: Record<string, unknown>): { id: string; label: string; other: string | null } | null {
-  const id = String(answers.source ?? "").trim();
-  if (!id) return null;
-  const q = BY_ID.get("source");
-  const other = String(answers.source_other ?? "").trim() || null;
-  return { id, label: q ? labelFor(q, id) : id, other };
-}
-
 // ---- the number ------------------------------------------------------------------
 
 export type PhoneState =
   | { kind: "dialable"; e164: string; display: string; href: string; note: null; repair: null; repairNote: null }
-  | { kind: "unusable"; stored: string; note: string; repair: string | null; repairNote: string | null }
+  // `repair` is what gets written (E.164); `repairDisplay` is the same number
+  // spelled the way the button offers it, so the note left on the timeline
+  // reads "+1 418 717 2114" and not the digits the column stores.
+  | { kind: "unusable"; stored: string; note: string; repair: string | null; repairDisplay: string | null; repairNote: string | null }
   | { kind: "none"; note: string };
 
 /** "+18732557953" → "+1 873 255 7953"; "+33780030320" → "+33 7 80 03 03 20". */
@@ -197,16 +73,17 @@ export function phoneState(phone: string | null | undefined): PhoneState {
     return { kind: "dialable", e164, display, href: `tel:${e164}`, note: null, repair: null, repairNote: null };
   }
   const repair = nanpCandidate(stored);
+  const repairDisplay = repair ? prettyPhone(repair) : null;
   let repairNote: string | null = null;
   if (repair) {
     const area = repair.slice(2, 5);
     const place = leadPlace({ phone: repair });
     const where = place ? place.split(",")[0]!.trim() : null;
     repairNote = where
-      ? `${area} is ${where} — set this number to ${prettyPhone(repair)}?`
-      : `set this number to ${prettyPhone(repair)}?`;
+      ? `${area} is ${where} — set this number to ${repairDisplay}?`
+      : `set this number to ${repairDisplay}?`;
   }
-  return { kind: "unusable", stored, note: "cannot be dialled as stored — ask for it in your reply", repair, repairNote };
+  return { kind: "unusable", stored, note: "cannot be dialled as stored — ask for it in your reply", repair, repairDisplay, repairNote };
 }
 
 // ---- where they are --------------------------------------------------------------
@@ -495,6 +372,12 @@ const DATA_SOURCE_WORDS: Record<string, string> = {
 
 const LEGAL_BASIS_WORDS: Record<string, string> = { request: "Their request", legitimate_interest: "Legitimate interest" };
 
+/**
+ * How a lead arrived, as the middle of a sentence ("came from the contact
+ * form"). KIND_LABELS holds the same seven kinds as column headings ("Contact
+ * form", "Messenger"); lower-casing those mid-sentence would print "came from
+ * messenger", so the badge reads its words here and Details prints the label.
+ */
 const KIND_ORIGIN: Record<string, string> = {
   diagnostic: "the check-up",
   booking: "the booking form",
@@ -569,7 +452,6 @@ export interface LeadView {
   title: string;
   name: string | null;
   company: string | null;
-  kindLabel: string;
   stage: LeadStage;
   stageLabel: string;
   stageTone: Tone;
@@ -809,6 +691,7 @@ export function buildLeadView(input: LeadViewInput): LeadView {
   details.push({
     title: "The record",
     rows: [
+      { label: "How it arrived", value: KIND_LABELS[lead.kind] },
       { label: "Language", value: lead.locale === "fr" ? "French" : "English" },
       { label: "Legal basis", value: LEGAL_BASIS_WORDS[lead.legalBasis] ?? "Their request" },
       { label: "Data from", value: DATA_SOURCE_WORDS[lead.dataSource] ?? "a form on the site" },
@@ -849,7 +732,6 @@ export function buildLeadView(input: LeadViewInput): LeadView {
     title: lead.name || lead.company ? leadTitle(lead) : `Unnamed lead · ${lead.reference}`,
     name: lead.name,
     company: lead.company,
-    kindLabel: KIND_LABELS[lead.kind],
     stage: lead.stage,
     stageLabel: STAGE_LABELS[lead.stage],
     stageTone: STAGE_TONE[lead.stage],
