@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guardAdminPost, isResponse } from "@/lib/crm/auth";
+import { enquiriesDb } from "@/lib/enquiries";
 import { addActivity, getLead, markReplied, recordBounce, updateLead } from "@/lib/inbox/leads";
 import { SEND_REFERENCE_RE, activitySummary, callLogSummary, isCallLogOutcome } from "@/lib/inbox/stages";
 
@@ -32,7 +33,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!Number.isInteger(id) || id <= 0) return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400 });
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    // `null` and `[…]` parse, and neither has keys: caught here, because
+    // `body.text` on null throws and a 500 with an empty body is a toast with
+    // nothing in it.
+    const parsed: unknown = await req.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("bad_request");
+    body = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
@@ -55,18 +61,25 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       // because he says so. `text` is the line for the timeline, subject and
       // all ("Reply sent by hand — Votre check-up numérique (DM-C4DQ3)"); the
       // page builds it, because only the page knows the subject.
-      const activity = addActivity({
-        leadId: id,
-        prospectId: lead.prospectId,
-        kind: "email_out",
-        channel: "email",
-        actor: "admin",
-        summary: activitySummary(text || "Reply sent by hand"),
-      });
-      // A lead that was still new has now been contacted; anything further
-      // along stays where it is (updateLead writes the stage_change activity).
-      const updated = lead.stage === "new" ? updateLead(id, { stage: "contacted" }) : lead;
-      return NextResponse.json({ ok: true, activity, lead: updated });
+      // One transaction around both writes (better-sqlite3 nests them as
+      // savepoints): the row and the stage land together, or neither does —
+      // an "Email sent" line on a lead still reading New is a lie the page
+      // would then show for good.
+      const done = enquiriesDb().transaction(() => {
+        const activity = addActivity({
+          leadId: id,
+          prospectId: lead.prospectId,
+          kind: "email_out",
+          channel: "email",
+          actor: "admin",
+          summary: activitySummary(text || "Reply sent by hand"),
+        });
+        // A lead that was still new has now been contacted; anything further
+        // along stays where it is (updateLead writes the stage_change activity).
+        const updated = lead.stage === "new" ? updateLead(id, { stage: "contacted" }) : lead;
+        return { activity, updated };
+      })();
+      return NextResponse.json({ ok: true, activity: done.activity, lead: done.updated });
     }
     case "call": {
       if (!isCallLogOutcome(body.outcome)) return NextResponse.json({ ok: false, error: "outcome" }, { status: 422 });

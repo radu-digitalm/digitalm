@@ -6,6 +6,11 @@ import { FORBIDDEN_TOKENS } from "../../components/admin/wording.ts";
 import {
   ACTIVITY_SUMMARY_MAX,
   AUDIT_CAMPAIGN_RE,
+  LEAD_ERROR_FALLBACK,
+  LeadWordsError,
+  activityPayloadLine,
+  stopPartlyDone,
+  stopPartlyDoneWords,
   CALL_OUTCOMES,
   CALL_OUTCOME_LABELS,
   CLOSED_STAGES,
@@ -179,7 +184,7 @@ test("nextMoveLabel: the button names the move, and never appears on a closed le
 });
 
 test("call outcomes: five values, a label each, nothing else accepted", () => {
-  assert.deepEqual(CALL_OUTCOMES, ["no_answer", "answered", "callback", "refused", "wrong_number"]);
+  assert.deepEqual(CALL_OUTCOMES, ["no_answer", "answered", "refused", "callback", "wrong_number"]);
   for (const o of CALL_OUTCOMES) {
     assert.equal(typeof CALL_OUTCOME_LABELS[o], "string");
     assert.ok(CALL_OUTCOME_LABELS[o].length > 0, o);
@@ -233,16 +238,23 @@ test("callLogSummary: a long note is cut here, not silently by the store", () =>
   assert.ok(summary.endsWith("…"));
 });
 
-test("leadErrorWords: a sentence for every code the two lead routes answer with", () => {
-  // Read the routes rather than trusting a hand-kept list: a new refusal that
+test("leadErrorWords: a sentence for every code the lead page's three routes answer with", () => {
+  // Read the sources rather than trusting a hand-kept list: a new refusal that
   // nobody gave words to would otherwise reach the screen as its code.
-  const routes = ["../../app/api/admin/leads/[id]/route.ts", "../../app/api/admin/leads/[id]/activity/route.ts"];
+  const files = [
+    "../../app/api/admin/leads/[id]/route.ts",
+    "../../app/api/admin/leads/[id]/activity/route.ts",
+    "../../app/api/admin/prospects/[id]/manual-send/route.ts",
+    "../outreach/optout.ts", // Mark STOP posts to /api/admin/optouts, which answers with these
+    "../outreach/send.ts", // "Sent from Gmail" prepares and records through these
+  ];
   const codes = new Set<string>();
-  for (const rel of routes) {
+  for (const rel of files) {
     const src = readFileSync(join(import.meta.dirname, rel), "utf8");
     for (const m of src.matchAll(/error:\s*"([a-z_]+)"/g)) codes.add(m[1]);
+    for (const m of src.matchAll(/(?:OptoutError|SendError)\("([a-z_]+)"/g)) codes.add(m[1]);
   }
-  assert.ok(codes.size >= 10, `expected the routes' codes, found ${codes.size}`);
+  assert.ok(codes.size >= 25, `expected the routes' codes, found ${codes.size}`);
   for (const code of codes) {
     assert.ok(LEAD_ERROR_WORDS[code], `no words for "${code}"`);
     assert.equal(leadErrorWords(new Error(code)), LEAD_ERROR_WORDS[code]);
@@ -250,14 +262,80 @@ test("leadErrorWords: a sentence for every code the two lead routes answer with"
 });
 
 test("leadErrorWords: never the code, never adminFetch's status fallback", () => {
-  assert.equal(leadErrorWords(new Error("http_500")), "It did not go through. Try again.");
-  assert.equal(leadErrorWords(new Error("something_new")), "It did not go through. Try again.");
-  assert.equal(leadErrorWords(undefined), "It did not go through. Try again.");
+  assert.equal(leadErrorWords(new Error("http_500")), LEAD_ERROR_FALLBACK);
+  assert.equal(leadErrorWords(new Error("something_new")), LEAD_ERROR_FALLBACK);
+  assert.equal(leadErrorWords(undefined), LEAD_ERROR_FALLBACK);
   assert.equal(leadErrorWords("send_not_found"), "No send with that reference.");
+  // A raw server sentence is not passed through either: that is how a word the
+  // admin bans would get on the screen.
+  assert.equal(leadErrorWords(new Error("No valid business email address: call, or add a verified address.")), LEAD_ERROR_FALLBACK);
   // §7: none of these sentences may carry a token the admin bans — the
   // snake_case rule is exactly what "Bounce recorded failed: send_not_found"
   // broke.
   for (const [code, words] of Object.entries(LEAD_ERROR_WORDS)) {
     for (const re of FORBIDDEN_TOKENS) assert.doesNotMatch(words, re, `${code}: "${words}"`);
+  }
+});
+
+test("leadErrorWords: an inherited name is not a sentence", () => {
+  // A plain object literal answers "toString" with a function, and `??` does
+  // not catch it: the toast would read "function toString() { [native code] }".
+  for (const name of ["toString", "constructor", "valueOf", "hasOwnProperty", "__proto__"]) {
+    assert.equal(leadErrorWords(new Error(name)), LEAD_ERROR_FALLBACK, name);
+  }
+});
+
+test("leadErrorWords: the manual-send refusal carries its code in the body", () => {
+  // That route answers { error: "<sentence>", code: "refused" } — the message
+  // is not a code, so the words come from the body's code.
+  const e = Object.assign(new Error("No in-app email for this country: call or write by hand."), {
+    body: { ok: false, error: "No in-app email for this country: call or write by hand.", code: "refused" },
+  });
+  assert.equal(leadErrorWords(e), LEAD_ERROR_WORDS.refused);
+});
+
+test("stopPartlyDone: both halves in words, the code in neither", () => {
+  const words = leadErrorWords(stopPartlyDone(new Error("lead_without_contact")));
+  assert.match(words, /^The stage is now STOP\./);
+  assert.ok(words.endsWith(LEAD_ERROR_WORDS.lead_without_contact), words);
+  for (const re of FORBIDDEN_TOKENS) assert.doesNotMatch(words, re, words);
+  // An unknown reason still reads as a sentence, never as a code.
+  const unknown = leadErrorWords(stopPartlyDone(new Error("brand_new_code")));
+  assert.ok(unknown.endsWith(LEAD_ERROR_FALLBACK), unknown);
+  assert.doesNotMatch(unknown, /brand_new_code/);
+  // A sentence we composed is handed back whole, not read as a code.
+  assert.equal(leadErrorWords(new LeadWordsError("The list is now clear.")), "The list is now clear.");
+  // The words alone, for a caller that reports a half-done write by returning
+  // rather than throwing (the page does).
+  assert.equal(stopPartlyDoneWords(new Error("lead_without_contact")), words);
+  for (const re of FORBIDDEN_TOKENS) assert.doesNotMatch(stopPartlyDoneWords(new Error("csrf")), re);
+});
+
+test("activityPayloadLine: the stored codes read as words", () => {
+  assert.equal(activityPayloadLine("outcome", "no_answer"), "Outcome: No answer");
+  assert.equal(activityPayloadLine("outcome", "wrong_number"), "Outcome: Wrong number");
+  assert.equal(activityPayloadLine("from", "replied"), "From: Replied");
+  assert.equal(activityPayloadLine("to", "no_response"), "To: No response");
+  assert.equal(activityPayloadLine("kind", "booking"), "Kind: Booking");
+  assert.equal(activityPayloadLine("send_reference", "SN-ABCDE"), "Send reference: SN-ABCDE");
+  assert.equal(activityPayloadLine("attempt", 2), "Attempt: 2");
+  // An unknown stored token still loses its underscores.
+  assert.equal(activityPayloadLine("some_key", "some_value"), "Some key: Some value");
+  // Nothing worth a line.
+  assert.equal(activityPayloadLine("ipHash", "abc123"), null);
+  assert.equal(activityPayloadLine("note", null), null);
+  assert.equal(activityPayloadLine("note", ""), null);
+  assert.equal(activityPayloadLine("note", "   "), null);
+  assert.equal(activityPayloadLine("refusals", ["a"]), null);
+  assert.equal(activityPayloadLine("note", undefined), null);
+  // No snake_case reaches the screen through this helper.
+  for (const [k, v] of [
+    ["outcome", "no_answer"],
+    ["from", "no_response"],
+    ["to", "stop"],
+    ["some_key", "some_value"],
+  ] as const) {
+    const line = activityPayloadLine(k, v)!;
+    assert.doesNotMatch(line, /\b[a-z]+_[a-z_]+\b/, line);
   }
 });

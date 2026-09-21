@@ -33,7 +33,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (id === null) return NextResponse.json({ ok: false, error: "bad_id" }, { status: 400 });
   let body: Record<string, unknown>;
   try {
-    body = await req.json();
+    // `null` and `[…]` are valid JSON and neither has keys: read them here,
+    // not at `"stage" in body` (which throws, and a 500 with an empty body is
+    // a toast with nothing in it).
+    const parsed: unknown = await req.json();
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) throw new Error("bad_request");
+    body = parsed as Record<string, unknown>;
   } catch {
     return NextResponse.json({ ok: false, error: "bad_request" }, { status: 400 });
   }
