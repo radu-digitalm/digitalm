@@ -1,15 +1,22 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { FORBIDDEN_TOKENS } from "../../components/admin/wording.ts";
 import {
+  ACTIVITY_SUMMARY_MAX,
   AUDIT_CAMPAIGN_RE,
   CALL_OUTCOMES,
   CALL_OUTCOME_LABELS,
   CLOSED_STAGES,
   FORWARD_STAGES,
+  LEAD_ERROR_WORDS,
   LEAD_STAGES,
   OPEN_STAGES,
+  activitySummary,
   addDays,
   callLogSummary,
+  leadErrorWords,
   dueWords,
   isCallLogOutcome,
   nextForwardStage,
@@ -206,4 +213,51 @@ test("parisToday: the civil date next_action_at is stored in", () => {
   assert.equal(parisToday(new Date("2026-09-20T23:30:00Z")), "2026-09-21");
   assert.equal(parisToday(new Date("2026-09-21T10:00:00Z")), "2026-09-21");
   assert.match(parisToday(), /^\d{4}-\d{2}-\d{2}$/);
+});
+
+test("activitySummary: kept whole under the store's 500, ellipsis over it", () => {
+  assert.equal(activitySummary("  Called back, wants a quote  "), "Called back, wants a quote");
+  const short = "x".repeat(ACTIVITY_SUMMARY_MAX);
+  assert.equal(activitySummary(short), short);
+  const long = activitySummary("y".repeat(ACTIVITY_SUMMARY_MAX + 200));
+  assert.equal(long.length, ACTIVITY_SUMMARY_MAX);
+  assert.ok(long.endsWith("…"));
+  // The store slices at 500 without saying so; nothing may reach it longer.
+  assert.ok(activitySummary("z".repeat(4000)).length <= ACTIVITY_SUMMARY_MAX);
+});
+
+test("callLogSummary: a long note is cut here, not silently by the store", () => {
+  const summary = callLogSummary("answered", "w".repeat(600));
+  assert.equal(summary.length, ACTIVITY_SUMMARY_MAX);
+  assert.ok(summary.startsWith("Call — Answered · "));
+  assert.ok(summary.endsWith("…"));
+});
+
+test("leadErrorWords: a sentence for every code the two lead routes answer with", () => {
+  // Read the routes rather than trusting a hand-kept list: a new refusal that
+  // nobody gave words to would otherwise reach the screen as its code.
+  const routes = ["../../app/api/admin/leads/[id]/route.ts", "../../app/api/admin/leads/[id]/activity/route.ts"];
+  const codes = new Set<string>();
+  for (const rel of routes) {
+    const src = readFileSync(join(import.meta.dirname, rel), "utf8");
+    for (const m of src.matchAll(/error:\s*"([a-z_]+)"/g)) codes.add(m[1]);
+  }
+  assert.ok(codes.size >= 10, `expected the routes' codes, found ${codes.size}`);
+  for (const code of codes) {
+    assert.ok(LEAD_ERROR_WORDS[code], `no words for "${code}"`);
+    assert.equal(leadErrorWords(new Error(code)), LEAD_ERROR_WORDS[code]);
+  }
+});
+
+test("leadErrorWords: never the code, never adminFetch's status fallback", () => {
+  assert.equal(leadErrorWords(new Error("http_500")), "It did not go through. Try again.");
+  assert.equal(leadErrorWords(new Error("something_new")), "It did not go through. Try again.");
+  assert.equal(leadErrorWords(undefined), "It did not go through. Try again.");
+  assert.equal(leadErrorWords("send_not_found"), "No send with that reference.");
+  // §7: none of these sentences may carry a token the admin bans — the
+  // snake_case rule is exactly what "Bounce recorded failed: send_not_found"
+  // broke.
+  for (const [code, words] of Object.entries(LEAD_ERROR_WORDS)) {
+    for (const re of FORBIDDEN_TOKENS) assert.doesNotMatch(words, re, `${code}: "${words}"`);
+  }
 });

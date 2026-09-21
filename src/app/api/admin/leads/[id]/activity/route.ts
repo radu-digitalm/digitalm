@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { guardAdminPost, isResponse } from "@/lib/crm/auth";
 import { addActivity, getLead, markReplied, recordBounce, updateLead } from "@/lib/inbox/leads";
-import { SEND_REFERENCE_RE, callLogSummary, isCallLogOutcome } from "@/lib/inbox/stages";
+import { SEND_REFERENCE_RE, activitySummary, callLogSummary, isCallLogOutcome } from "@/lib/inbox/stages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,7 +17,12 @@ export const dynamic = "force-dynamic";
  * The prospect routes (/api/admin/prospects/[id]/{call,manual-send}) keep the
  * outreach rules — calling hours, attempts, screening — for cold calls; this
  * route records what happened on a lead that came to us.
- * 404 on an unknown lead, 422 on a body this cannot read.
+ *
+ * 404 on an unknown lead, 400 on a body or a kind this cannot read, 422 on a
+ * value it can read and cannot use. Every one of those codes has a sentence in
+ * LEAD_ERROR_WORDS (lib/inbox/stages.ts): the code is for the log, and the
+ * caller shows the sentence, because a route code on Radu's screen is a banned
+ * token (components/admin/wording.ts §7).
  */
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const guard = await guardAdminPost(req);
@@ -38,7 +43,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   switch (body.kind) {
     case "note": {
       if (!text) return NextResponse.json({ ok: false, error: "text" }, { status: 422 });
-      const activity = addActivity({ leadId: id, prospectId: lead.prospectId, kind: "note", summary: text, actor: "admin" });
+      const activity = addActivity({ leadId: id, prospectId: lead.prospectId, kind: "note", summary: activitySummary(text), actor: "admin" });
       return NextResponse.json({ ok: true, activity });
     }
     case "mark_replied": {
@@ -56,7 +61,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         kind: "email_out",
         channel: "email",
         actor: "admin",
-        summary: text || "Reply sent by hand",
+        summary: activitySummary(text || "Reply sent by hand"),
       });
       // A lead that was still new has now been contacted; anything further
       // along stays where it is (updateLead writes the stage_change activity).

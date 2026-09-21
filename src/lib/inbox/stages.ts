@@ -103,6 +103,15 @@ export function stageAfterReply(stage: LeadStage): LeadStage {
  * The stages a lead walks through in order, drawn as the path on the lead page.
  * Lost, No response and STOP are off the path: they are reached through the
  * "Change stage" select, never by the one-tap button.
+ *
+ * Six, not seven: nine stages less lost, no_response and stop. (The spec's
+ * "seven forward stages" is an arithmetic slip — there is no seventh.)
+ *
+ * This list, nextForwardStage, nextMoveLabel, the two call-outcome tables,
+ * parisToday, dueWords, addDays, activitySummary and leadErrorWords are the
+ * lead page's rules. LeadDetail.tsx keeps private copies of the first three
+ * today; see the blockers on this unit — a second copy is how the +2 days chip
+ * came to compute its date in UTC.
  */
 export const FORWARD_STAGES: readonly LeadStage[] = ["new", "contacted", "replied", "meeting", "proposal", "won"];
 
@@ -154,7 +163,61 @@ export function isCallLogOutcome(x: unknown): x is CallLogOutcome {
 /** Timeline summary of a logged call: "Call — No answer · left a message". */
 export function callLogSummary(outcome: CallLogOutcome, note?: string | null): string {
   const text = (note ?? "").trim();
-  return `Call — ${CALL_OUTCOME_LABELS[outcome]}${text ? ` · ${text}` : ""}`;
+  return activitySummary(`Call — ${CALL_OUTCOME_LABELS[outcome]}${text ? ` · ${text}` : ""}`);
+}
+
+// ---- what a timeline row can hold ---------------------------------------------
+
+/** activities.summary is stored at 500 characters (insertActivity slices it). */
+export const ACTIVITY_SUMMARY_MAX = 500;
+
+/**
+ * A summary the store will keep whole. The routes build the line, the store
+ * cuts it at 500 without saying so; cutting it here instead means a long note
+ * ends in an ellipsis rather than mid-word, and the row Radu reads back is the
+ * row the route decided to write.
+ */
+export function activitySummary(text: string): string {
+  const s = text.trim();
+  return s.length <= ACTIVITY_SUMMARY_MAX ? s : `${s.slice(0, ACTIVITY_SUMMARY_MAX - 1).trimEnd()}…`;
+}
+
+// ---- failures in words --------------------------------------------------------
+
+/**
+ * Every code the two lead routes (/api/admin/leads/[id] and .../activity) can
+ * answer with, in words. The codes stay short so the log stays greppable, and
+ * none of them belongs on a screen: `\b[a-z]+_[a-z_]+\b` and `http_` are both
+ * banned tokens in the admin (components/admin/wording.ts), and
+ * "Bounce recorded failed: send_not_found" is exactly what that ban exists to
+ * stop. Anything that posts to those routes reads its toast from here.
+ */
+export const LEAD_ERROR_WORDS: Record<string, string> = {
+  bad_id: "This lead is no longer in the database — reload the page.",
+  not_found: "This lead is no longer in the database — reload the page.",
+  bad_request: "The page sent something the server could not read.",
+  bad_merge: "Those two leads cannot be folded into one.",
+  stage: "That is not one of the nine stages.",
+  next_action_at: "That date could not be read.",
+  email: "That address does not look right.",
+  empty: "Nothing to save.",
+  kind: "This page asked for something the server does not do.",
+  text: "Type something first.",
+  outcome: "Pick what happened on the call first.",
+  send_reference: "A send reference looks like SN-ABCDE.",
+  send_not_found: "No send with that reference.",
+  unauthorized: "The session has expired — sign in again.",
+  csrf: "The session check failed — reload the page.",
+  server_error: "The server had a problem. Try again in a minute.",
+};
+
+/**
+ * The sentence for whatever adminFetch threw — never the code itself, and
+ * never the `http_<status>` it falls back to for a body it could not read.
+ */
+export function leadErrorWords(e: unknown): string {
+  const code = e instanceof Error ? e.message : typeof e === "string" ? e : "";
+  return LEAD_ERROR_WORDS[code] ?? "It did not go through. Try again.";
 }
 
 /**
