@@ -51,7 +51,8 @@ export function proposedLabel(proposed: string | null | undefined): string {
 const ALL_QUESTIONS: Question[] = [...STEP1, ROUTER, ...Object.values(BRANCHES).flat(), TOOLS, MAGIC, ...STEP5, ...CONTACT];
 const BY_ID = new Map(ALL_QUESTIONS.map((q) => [q.id, q]));
 
-function labelFor(q: Question, v: string): string {
+/** The option's English label, or the raw id when the option is gone. */
+export function labelFor(q: Question, v: string): string {
   return q.options?.find((o) => o.id === v)?.en ?? v;
 }
 

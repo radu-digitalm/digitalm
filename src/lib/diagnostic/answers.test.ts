@@ -18,27 +18,25 @@ const MICHEL_ANSWERS = {
 
 const ROUTE = readFileSync(join(import.meta.dirname, "../../app/api/enquiry/route.ts"), "utf8");
 
-/** The `KEY: "value"` pairs of one `const NAME: … = { … };` table in a source file. */
-function tableIn(source: string, name: string): Record<string, string> {
-  const start = source.indexOf(`const ${name}`);
-  assert.ok(start >= 0, `${name} is not in the enquiry route any more`);
-  const block = source.slice(start, source.indexOf("};", start));
-  const out: Record<string, string> = {};
-  for (const m of block.matchAll(/^\s*"?([A-Za-z0-9<>+_-]+)"?:\s*"([^"]*)",?\s*$/gm)) out[m[1]!] = m[2]!;
-  return out;
-}
-
 // ---- the page may never contradict the e-mail -------------------------------------
 
 test("the service names and the price bands are one table, not two", () => {
   // /api/enquiry writes the lead e-mail Radu reads at 7am; this module writes
   // the page he opens afterwards. The two used to hold byte-identical private
   // copies of these tables and nothing compared them, so the day one was
-  // edited the page would have quoted a price the e-mail did not.
-  assert.deepEqual(tableIn(ROUTE, "LINE_LABEL"), LINE_LABEL);
-  assert.deepEqual(tableIn(ROUTE, "PRICE_FIT"), PRICE_FIT);
-  const standard = /const STANDARD_PRICE = "([^"]+)"/.exec(ROUTE);
-  assert.equal(standard?.[1], STANDARD_PRICE);
+  // edited the page would have quoted a price the e-mail did not. The route
+  // now imports them, and this is what stops a private copy coming back.
+  assert.match(ROUTE, /import \{[^}]*\bLINE_LABEL\b[^}]*\} from "@\/lib\/diagnostic\/answers"/);
+  for (const name of ["LINE_LABEL", "PRICE_FIT", "STANDARD_PRICE"]) {
+    assert.equal(ROUTE.includes(`const ${name}`), false, `${name} has a private copy in the enquiry route again`);
+  }
+  // And the tables themselves still say what the e-mail printed.
+  assert.equal(LINE_LABEL.AUTO, "Process automation");
+  assert.equal(LINE_LABEL.CRM, "Customer follow-up (CRM)");
+  assert.equal(PRICE_FIT["1500-3500"], "€1,500-3,500 — quote €2,000-3,500");
+  assert.equal(STANDARD_PRICE, "not stated — quote the standard €1,500-3,500 range");
+  assert.equal(priceFitFor("unsure"), "not decided — quote the standard €1,500-3,500 range");
+  assert.equal(priceFitFor(null), STANDARD_PRICE);
 });
 
 test("saleFacts keeps the eight labels the lead e-mail prints, in order", () => {

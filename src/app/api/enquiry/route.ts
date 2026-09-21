@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { sendMail, mailConfigured, renderClientEmail, renderLeadNotification, splitReplyDraft, leadPlace, dialable } from "@/lib/mail";
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
-import { score, type ServiceLine } from "@/lib/diagnosticScoring";
+import { score } from "@/lib/diagnosticScoring";
 import { triageEnquiry, toAscii } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
@@ -11,6 +11,7 @@ import { readAttribution, attributionLabel, attributionSource } from "@/lib/attr
 import { repairPostedPhone } from "@/lib/phone";
 import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
+import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, labelFor } from "@/lib/diagnostic/answers";
 // @@crm:inbox
 import { leadFromEnquiry } from "@/lib/inbox/hooks";
 
@@ -24,27 +25,10 @@ const ALL_QUESTIONS: Question[] = [
 ];
 const BY_ID = new Map(ALL_QUESTIONS.map((q) => [q.id, q]));
 
-// Plain names for the service lines: Radu reads the email on a phone, and
-// "AUTO+CRM" is not what he wants to see at 7am.
-const LINE_LABEL: Record<ServiceLine, string> = {
-  AGENT: "AI assistant",
-  AUTO: "Process automation",
-  WEB: "Website / e-commerce",
-  CRM: "Customer follow-up (CRM)",
-  SEC: "E-commerce security audit",
-};
-
-// What to quote against the band they chose. The model gets the same rule in
-// its prompt; this line is what Radu reads when the model did not answer at
-// all, and it is why nobody gets offered the floor price of the grid again.
-const PRICE_FIT: Record<string, string> = {
-  "<1500": "under €1,500 — quote €800-1,500, never the €500 entry price",
-  "1500-3500": "€1,500-3,500 — quote €2,000-3,500",
-  "3500-7000": "€3,500-7,000 — quote €4,000-6,000",
-  "7000+": "€7,000+ — quote from €7,000 up",
-  unsure: "not decided — quote the standard €1,500-3,500 range",
-};
-const STANDARD_PRICE = "not stated — quote the standard €1,500-3,500 range";
+// The service names, the price bands and the option labels live in
+// lib/diagnostic/answers.ts. This route writes the lead e-mail and the lead
+// page reads the same module, so the page can never quote a price the e-mail
+// did not (docs/lead-page-spec.md §12).
 
 // The same bands in plain ASCII, for the model only. The label the visitor
 // picked ("€3,500–7,000") carries a euro sign and an en dash, and typographic
@@ -63,10 +47,6 @@ const BUDGET_FOR_MODEL: Record<string, string> = {
 // length, so one talkative visitor could cost the whole speed-to-lead alert.
 const TG_MAGIC_MAX = 400;
 const TG_MAX = 3_900;
-
-function labelFor(q: Question, v: string): string {
-  return q.options?.find((o) => o.id === v)?.en ?? v;
-}
 
 /** The first value that is a two-letter country code, upper-cased; null when none is. */
 function readCountryHint(...values: unknown[]): string | null {

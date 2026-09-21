@@ -13,8 +13,10 @@ import { hashEmail, hashPhone } from "@/lib/crm/classify";
 import { attributionLabel, type Attribution } from "@/lib/attribution";
 import type { Activity, ActivityKind, Lead, LeadKind, LeadStage } from "@/lib/crm/types";
 import {
+  ACTIVITY_SUMMARY_MAX,
   AUDIT_CAMPAIGN_RE,
   CLOSED_STAGES,
+  activitySummary,
   KIND_LABELS,
   STAGE_LABELS,
   isLeadKind,
@@ -758,7 +760,7 @@ export function markReplied(id: number, note?: string | null): Lead | null {
       prospectId: lead.prospectId,
       kind: "email_in",
       channel: "email",
-      summary: clean(note, 300) ?? "Reply received",
+      summary: activitySummary(clean(note, ACTIVITY_SUMMARY_MAX) ?? "Reply received"),
       actor: "prospect",
     });
     applyStage(db, id, stageAfterReply(lead.stage), "admin");

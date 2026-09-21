@@ -16,7 +16,7 @@
 // no React, relative imports with .ts so `node --test` loads it.
 import { SALE_FACT_IDS, answerEntries, heardAbout, ownWords, priceFitFor, proposedLabel, saleFacts } from "../diagnostic/answers.ts";
 import { checkPostedPhone, countryFor, countryFromE164 } from "../phone.ts";
-import { leadPlace, splitReplyDraft } from "../mail.ts";
+import { leadPlace, mailtoAddress, replyLink, splitReplyDraft, type Prefill } from "../mail.ts";
 import { attributionLabel, type Attribution } from "../attribution.ts";
 import { safeHttpUrl } from "../crm/classify.ts";
 import { sqlToMs } from "../crm/time.ts";
@@ -328,26 +328,11 @@ export function campaignRollup(campaign: string, rows: CampaignLeadRow[]): strin
 
 // ---- the ready reply -------------------------------------------------------------
 
-function mailtoAddress(to: string): string {
-  return encodeURIComponent(String(to).trim()).replace(/%40/g, "@");
-}
-
-/** The e-mail's own builder, copied while mail.ts keeps it private (see blockers). */
-function mailtoLink(to: string, subject: string, body?: string, maxLength = 6000): string {
-  const head = `mailto:${mailtoAddress(to)}?subject=${encodeURIComponent(subject)}`;
-  if (!body) return head;
-  const full = `${head}&body=${encodeURIComponent(body)}`;
-  return full.length <= maxLength ? full : head;
-}
-
-export type Prefill = "full" | "long" | "none";
-
-export function replyMailto(to: string, reply: { subject: string; body: string }, maxLength = 6000): { href: string; prefill: Prefill } {
-  const body = reply.body.trim();
-  if (!body) return { href: mailtoLink(to, reply.subject, undefined, maxLength), prefill: "none" };
-  const href = mailtoLink(to, reply.subject, body, maxLength);
-  return { href, prefill: href.includes("&body=") ? "full" : "long" };
-}
+// The link the page opens is the link the lead e-mail offers: one builder,
+// exported from mail.ts, called here with the same 6,000-character ceiling the
+// HTML e-mail uses. A second copy is how a page comes to open half a reply.
+export { replyLink as replyMailto };
+export type { Prefill };
 
 /** The three labels the e-mail uses, so the button never promises what it cannot do. */
 export function sendLabel(prefill: Prefill): string {
@@ -594,7 +579,7 @@ export function buildLeadView(input: LeadViewInput): LeadView {
   let reply: LeadView["reply"] = null;
   if (enquiry?.replyDraft) {
     const split = splitReplyDraft(enquiry.replyDraft, checkupSubject);
-    const link = lead.email ? replyMailto(lead.email, split) : { href: "", prefill: "none" as Prefill };
+    const link = lead.email ? replyLink(lead.email, split) : { href: "", prefill: "none" as Prefill };
     reply = {
       subject: split.subject,
       body: split.body,

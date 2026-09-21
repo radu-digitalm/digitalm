@@ -125,7 +125,7 @@ export function SiteFooter({ locale }: { locale: Locale }) {
         </div>
       ) : null}
 
-      <div className="container-x flex flex-col gap-2 border-t border-white/[0.07] py-6 text-xs text-fg-faint md:flex-row md:items-center md:justify-between">
+      <div className="container-x flex flex-col gap-2 border-t border-white/[0.07] py-6 pb-20 text-xs text-fg-faint sm:pb-6 md:flex-row md:items-center md:justify-between">
         <p>© {YEAR} {c.footer.rights}</p>
         <p>{c.footer.note}</p>
       </div>
