@@ -58,6 +58,9 @@ type LeadRow = {
   replied_at: string | null;
   closed_at: string | null;
   close_reason: string | null;
+  ip: string | null;
+  browser_country?: string | null;
+  browser_tz?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -74,10 +77,52 @@ type ActivityRow = {
   created_at: string;
 };
 
+// `ip` is written on every row and was unreachable: no SELECT listed it, so the
+// lead page could not show where the click came from. It is a real column, so
+// it sits in the base list.
 const LEAD_COLUMNS =
-  "id, reference, kind, stage, name, company, email, email_hash, phone, phone_hash, locale, country, source_label, source_utm, attribution, enquiry_reference, prospect_id, legal_basis, data_source, notice_sent_at, next_action, next_action_at, note, last_activity_at, replied_at, closed_at, close_reason, created_at, updated_at";
+  "id, reference, kind, stage, name, company, email, email_hash, phone, phone_hash, locale, country, source_label, source_utm, attribution, enquiry_reference, prospect_id, legal_basis, data_source, notice_sent_at, next_action, next_action_at, note, last_activity_at, replied_at, closed_at, close_reason, ip, created_at, updated_at";
 
-function rowToLead(r: LeadRow): Lead {
+// Columns added by a later schema pass (the browser's own hints). A database
+// that predates them must still open, so every statement asks the table what it
+// has rather than assuming. Missing ones read null and the page says so.
+const OPTIONAL_LEAD_COLUMNS = ["browser_country", "browser_tz"];
+const OPTIONAL_ENQUIRY_COLUMNS = ["call_questions", "unknowns", "no_fit", "browser_country", "browser_tz"];
+const presentColumns = new WeakMap<object, Map<string, string[]>>();
+
+function columnsPresent(db: Db, table: string, wanted: string[]): string[] {
+  let byTable = presentColumns.get(db as unknown as object);
+  if (!byTable) {
+    byTable = new Map();
+    presentColumns.set(db as unknown as object, byTable);
+  }
+  const hit = byTable.get(table);
+  if (hit) return hit.filter((c) => wanted.includes(c));
+  const have = (db.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[]).map((r) => r.name);
+  byTable.set(table, have);
+  return have.filter((c) => wanted.includes(c));
+}
+
+/** The SELECT list for a lead row, with whichever optional columns exist. */
+function leadColumns(db: Db): string {
+  const extra = columnsPresent(db, "leads", OPTIONAL_LEAD_COLUMNS);
+  return extra.length ? `${LEAD_COLUMNS}, ${extra.join(", ")}` : LEAD_COLUMNS;
+}
+
+/**
+ * A lead row as the store reads it: the shared `Lead` contract plus the three
+ * columns only this module and the lead page use. `Lead` itself is not widened
+ * because it is another unit's file (see the blockers in the unit report).
+ */
+export interface LeadRecord extends Lead {
+  /** Written on every inbound row, nulled by the purge at 12 months. */
+  ip: string | null;
+  /** What the visitor's own browser reported. The only value allowed to name a country. */
+  browserCountry: string | null;
+  browserTz: string | null;
+}
+
+function rowToLead(r: LeadRow): LeadRecord {
   return {
     id: r.id,
     reference: r.reference,
@@ -106,6 +151,9 @@ function rowToLead(r: LeadRow): Lead {
     repliedAt: r.replied_at,
     closedAt: r.closed_at,
     closeReason: r.close_reason,
+    ip: r.ip ?? null,
+    browserCountry: r.browser_country ?? null,
+    browserTz: r.browser_tz ?? null,
     createdAt: r.created_at,
     updatedAt: r.updated_at,
   };
@@ -125,8 +173,8 @@ function rowToActivity(r: ActivityRow): Activity {
   };
 }
 
-function readLead(db: Db, id: number): Lead | null {
-  const row = db.prepare(`SELECT ${LEAD_COLUMNS} FROM leads WHERE id = ?`).get(id) as LeadRow | undefined;
+function readLead(db: Db, id: number): LeadRecord | null {
+  const row = db.prepare(`SELECT ${leadColumns(db)} FROM leads WHERE id = ?`).get(id) as LeadRow | undefined;
   return row ? rowToLead(row) : null;
 }
 
@@ -258,6 +306,10 @@ export interface LeadInput {
   nextActionAt?: string | null;
   note?: string | null;
   ip?: string | null;
+  /** ISO 3166-1 alpha-2 the visitor's own browser reported (time zone, then languages). */
+  browserCountry?: string | null;
+  /** The visitor's IANA time zone, for their local hour. */
+  browserTz?: string | null;
   /** SQL timestamp; the backfill passes the enquiry's own created_at. */
   createdAt?: string;
 }
@@ -278,7 +330,7 @@ function findMergeTarget(db: Db, emailHash: string | null, phoneHash: string | n
   const value = emailHash ?? phoneHash;
   if (!column || !value) return null;
   const rows = db
-    .prepare(`SELECT ${LEAD_COLUMNS} FROM leads WHERE ${column} = ? AND stage NOT IN (${CLOSED_LIST}) ORDER BY created_at DESC LIMIT 10`)
+    .prepare(`SELECT ${leadColumns(db)} FROM leads WHERE ${column} = ? AND stage NOT IN (${CLOSED_LIST}) ORDER BY created_at DESC LIMIT 10`)
     .all(value) as LeadRow[];
   return rows.find((r) => withinMergeWindow(r.created_at, createdAt)) ?? null;
 }
@@ -290,7 +342,7 @@ function findMergeTarget(db: Db, emailHash: string | null, phoneHash: string | n
  * fields filled, an outreach lead that was only `contacted` moves to
  * `replied` when the person writes in.
  */
-export function insertLead(input: LeadInput): { lead: Lead; merged: boolean } {
+export function insertLead(input: LeadInput): { lead: LeadRecord; merged: boolean } {
   const db = enquiriesDb();
   const now = sqlNow();
   const createdAt = input.createdAt ?? now;
@@ -310,6 +362,8 @@ export function insertLead(input: LeadInput): { lead: Lead; merged: boolean } {
   const attribution = input.attribution && Object.keys(input.attribution).length ? JSON.stringify(input.attribution) : null;
   const enquiryReference = clean(input.enquiryReference, 20);
   const prospectId = input.prospectId ?? null;
+  const browserCountry = clean(input.browserCountry, 2)?.toUpperCase() ?? null;
+  const browserTz = clean(input.browserTz, 64);
 
   return db.transaction(() => {
     const existing = findMergeTarget(db, emailHash, phoneHash, createdAt);
@@ -357,17 +411,22 @@ export function insertLead(input: LeadInput): { lead: Lead; merged: boolean } {
     }
 
     const reference = newReference("LD", db);
+    // The browser hints are stored only where the schema already carries them,
+    // so an older database keeps working and simply reads them back as null.
+    const extraColumns = columnsPresent(db, "leads", OPTIONAL_LEAD_COLUMNS);
+    const extraValues = extraColumns.map((c) => (c === "browser_country" ? browserCountry : browserTz));
     const info = db
       .prepare(
         `INSERT INTO leads (reference, kind, stage, name, company, email, email_hash, phone, phone_hash, locale, country,
            source_label, source_utm, attribution, enquiry_reference, prospect_id, legal_basis, data_source, notice_sent_at,
-           next_action, next_action_at, note, last_activity_at, ip, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           next_action, next_action_at, note, last_activity_at, ip, created_at, updated_at${extraColumns.length ? `, ${extraColumns.join(", ")}` : ""})
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${extraColumns.map(() => ", ?").join("")})`,
       )
       .run(
         reference, input.kind, input.stage ?? "new", name, company, email, emailHash, phone, phoneHash, locale, country,
         sourceLabel, sourceUtm, attribution, enquiryReference, prospectId, input.legalBasis ?? "request", input.dataSource ?? "form",
         input.noticeSentAt ?? null, nextAction, nextActionAt, note, createdAt, clean(input.ip, 64), createdAt, now,
+        ...extraValues,
       );
     const id = Number(info.lastInsertRowid);
     insertActivity(db, {
@@ -386,12 +445,13 @@ export function insertLead(input: LeadInput): { lead: Lead; merged: boolean } {
 
 // ---- reads ----------------------------------------------------------------------
 
-export function getLead(id: number): Lead | null {
+export function getLead(id: number): LeadRecord | null {
   return readLead(enquiriesDb(), id);
 }
 
-export function getLeadByReference(reference: string): Lead | null {
-  const row = enquiriesDb().prepare(`SELECT ${LEAD_COLUMNS} FROM leads WHERE reference = ?`).get(reference) as LeadRow | undefined;
+export function getLeadByReference(reference: string): LeadRecord | null {
+  const db = enquiriesDb();
+  const row = db.prepare(`SELECT ${leadColumns(db)} FROM leads WHERE reference = ?`).get(reference) as LeadRow | undefined;
   return row ? rowToLead(row) : null;
 }
 
@@ -442,7 +502,7 @@ export function listLeads(query: LeadListQuery = {}): { rows: Lead[]; total: num
   const offset = Math.max(0, query.offset ?? 0);
   const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
   const total = (db.prepare(`SELECT COUNT(*) AS n FROM leads ${whereSql}`).get(...params) as { n: number }).n;
-  const rows = db.prepare(`SELECT ${LEAD_COLUMNS} FROM leads ${whereSql} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, limit, offset) as LeadRow[];
+  const rows = db.prepare(`SELECT ${leadColumns(db)} FROM leads ${whereSql} ORDER BY ${order} LIMIT ? OFFSET ?`).all(...params, limit, offset) as LeadRow[];
   return { rows: rows.map(rowToLead), total };
 }
 
@@ -462,6 +522,8 @@ export interface ProspectSummary {
   website: string | null;
   latestAuditReference: string | null;
   latestScore: number | null;
+  /** The public report's token, so the lead page can link straight to /r/<token>. */
+  latestReportToken: string | null;
   optedOutAt: string | null;
 }
 
@@ -469,14 +531,19 @@ export function getProspectSummary(prospectId: number): ProspectSummary | null {
   const row = enquiriesDb()
     .prepare(
       `SELECT p.id, p.reference, p.name, p.country, p.website, p.latest_score AS latestScore, p.opted_out_at AS optedOutAt,
-              (SELECT a.reference FROM audits a WHERE a.id = p.latest_audit_id) AS latestAuditReference
+              (SELECT a.reference FROM audits a WHERE a.id = p.latest_audit_id) AS latestAuditReference,
+              (SELECT a.report_token FROM audits a WHERE a.id = p.latest_audit_id) AS latestReportToken
        FROM prospects p WHERE p.id = ?`,
     )
     .get(prospectId) as ProspectSummary | undefined;
   return row ?? null;
 }
 
-/** The diagnostic behind a lead: grade, packages, the triage draft (read-only). */
+/**
+ * The check-up behind a lead (read-only). It carries the `answers` column now:
+ * the lead page used to query nine columns and skip the one where everything
+ * the customer actually said lives.
+ */
 export interface EnquirySummary {
   reference: string;
   grade: string;
@@ -487,17 +554,112 @@ export interface EnquirySummary {
   noteForRadu: string | null;
   mailStatus: string | null;
   createdAt: string;
+  /** Parsed answers, or null when the column is empty or could not be read. */
+  answers: Record<string, unknown> | null;
+  /** True when the stored JSON would not parse — the page says so instead of failing. */
+  answersBroken: boolean;
+  scores: Record<string, number> | null;
+  flagged: boolean;
+  ip: string | null;
+  source: string | null;
+  callQuestions: string[] | null;
+  unknowns: string | null;
+  noFit: string | null;
+  browserCountry: string | null;
+  browserTz: string | null;
+}
+
+type EnquirySummaryRow = {
+  reference: string;
+  grade: string;
+  proposed: string;
+  urgent: number;
+  subjectSummary: string | null;
+  replyDraft: string | null;
+  noteForRadu: string | null;
+  mailStatus: string | null;
+  createdAt: string;
+  answers: string | null;
+  scores: string | null;
+  flagged: number | null;
+  ip: string | null;
+  source: string | null;
+  call_questions?: string | null;
+  unknowns?: string | null;
+  no_fit?: string | null;
+  browser_country?: string | null;
+  browser_tz?: string | null;
+};
+
+function parseAnswersColumn(raw: string | null): { answers: Record<string, unknown> | null; broken: boolean } {
+  if (!raw || !raw.trim()) return { answers: null, broken: false };
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return { answers: null, broken: true };
+    return { answers: parsed as Record<string, unknown>, broken: false };
+  } catch {
+    return { answers: null, broken: true };
+  }
 }
 
 export function getEnquirySummary(reference: string): EnquirySummary | null {
-  const row = enquiriesDb()
+  const db = enquiriesDb();
+  const extra = columnsPresent(db, "enquiries", OPTIONAL_ENQUIRY_COLUMNS);
+  const row = db
     .prepare(
       `SELECT reference, grade, proposed, urgent, subject_summary AS subjectSummary, reply_draft AS replyDraft,
-              note_for_radu AS noteForRadu, mail_status AS mailStatus, created_at AS createdAt
+              note_for_radu AS noteForRadu, mail_status AS mailStatus, created_at AS createdAt,
+              answers, scores, flagged, ip, source${extra.length ? `, ${extra.join(", ")}` : ""}
        FROM enquiries WHERE reference = ?`,
     )
-    .get(reference) as (Omit<EnquirySummary, "urgent"> & { urgent: number }) | undefined;
-  return row ? { ...row, urgent: row.urgent === 1 } : null;
+    .get(reference) as EnquirySummaryRow | undefined;
+  if (!row) return null;
+  const { answers, broken } = parseAnswersColumn(row.answers);
+  const questions = parseJson<unknown>(row.call_questions ?? null, null);
+  return {
+    reference: row.reference,
+    grade: row.grade,
+    proposed: row.proposed,
+    urgent: row.urgent === 1,
+    subjectSummary: row.subjectSummary,
+    replyDraft: row.replyDraft,
+    noteForRadu: row.noteForRadu,
+    mailStatus: row.mailStatus,
+    createdAt: row.createdAt,
+    answers,
+    answersBroken: broken,
+    scores: parseJson<Record<string, number> | null>(row.scores, null),
+    flagged: row.flagged === 1,
+    ip: row.ip,
+    source: row.source,
+    callQuestions: Array.isArray(questions) ? questions.map((q) => String(q)).filter((q) => q.trim() !== "") : null,
+    unknowns: row.unknowns ?? null,
+    noFit: row.no_fit ?? null,
+    browserCountry: row.browser_country ?? null,
+    browserTz: row.browser_tz ?? null,
+  };
+}
+
+/** Every lead on one campaign, for the lead page's roll-up line and ad count. */
+export function campaignLeadRows(campaign: string): { reference: string; phone: string | null; browserCountry: string | null; attribution: Attribution | null }[] {
+  const name = clean(campaign, 100);
+  if (!name) return [];
+  const db = enquiriesDb();
+  const hasHint = columnsPresent(db, "leads", ["browser_country"]).length > 0;
+  const rows = db
+    .prepare(
+      `SELECT reference, phone, attribution${hasHint ? ", browser_country" : ""} FROM leads
+       WHERE attribution IS NOT NULL ORDER BY id DESC LIMIT 500`,
+    )
+    .all() as { reference: string; phone: string | null; attribution: string | null; browser_country?: string | null }[];
+  return rows
+    .map((r) => ({
+      reference: r.reference,
+      phone: r.phone,
+      browserCountry: r.browser_country ?? null,
+      attribution: parseJson<Attribution | null>(r.attribution, null),
+    }))
+    .filter((r) => (r.attribution?.utm_campaign ?? "") === name);
 }
 
 // ---- updates --------------------------------------------------------------------
@@ -629,8 +791,8 @@ export function mergeLeads(sourceId: number, targetId: number): Lead | null {
   if (sourceId === targetId) return getLead(targetId);
   const db = enquiriesDb();
   return db.transaction(() => {
-    const source = db.prepare(`SELECT ${LEAD_COLUMNS} FROM leads WHERE id = ?`).get(sourceId) as LeadRow | undefined;
-    const target = db.prepare(`SELECT ${LEAD_COLUMNS} FROM leads WHERE id = ?`).get(targetId) as LeadRow | undefined;
+    const source = db.prepare(`SELECT ${leadColumns(db)} FROM leads WHERE id = ?`).get(sourceId) as LeadRow | undefined;
+    const target = db.prepare(`SELECT ${leadColumns(db)} FROM leads WHERE id = ?`).get(targetId) as LeadRow | undefined;
     if (!source || !target) return null;
     const now = sqlNow();
     db.prepare(
