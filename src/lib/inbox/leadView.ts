@@ -19,10 +19,10 @@ import { checkPostedPhone, countryFor, countryFromE164 } from "../phone.ts";
 import { leadPlace, splitReplyDraft } from "../mail.ts";
 import { attributionLabel, type Attribution } from "../attribution.ts";
 import { safeHttpUrl } from "../crm/classify.ts";
-import { sqlToMs, zonedDateString } from "../crm/time.ts";
+import { sqlToMs } from "../crm/time.ts";
 import type { Activity, Lead, LeadKind, LeadStage } from "../crm/types.ts";
 import type { EnquirySummary, ProspectSummary } from "./leads.ts";
-import { KIND_LABELS, STAGE_LABELS, STAGE_TONE, daysUntil, fmtDate, fmtDateTime, leadTitle, type Tone } from "./stages.ts";
+import { DATE_RE, KIND_LABELS, STAGE_LABELS, STAGE_TONE, dueWords, fmtDate, fmtDateTime, leadTitle, parisToday, type Tone } from "./stages.ts";
 
 // ---- shared labels (the e-mail's words, verbatim) --------------------------------
 
@@ -211,12 +211,17 @@ export function phoneState(phone: string | null | undefined): PhoneState {
 
 // ---- where they are --------------------------------------------------------------
 
-/** The dial code as Radu would read it: "+33", or "+1 873" when the area code names the place. */
-function dialWords(e164: string): string {
+/**
+ * The dial code as Radu would read it: "+33", or "+1 873" when the area code
+ * names the place. Null when the code is not one of the countries phone.ts
+ * carries — the old fallback sliced the first two digits and printed "+22" for
+ * a Senegalese "+221" number, a dial code that names the wrong country.
+ */
+function dialWords(e164: string): string | null {
   const iso = countryFromE164(e164);
   const dial = iso ? (countryFor(iso)?.dial ?? null) : null;
   if (dial === "+1" && /^\+1\d{10}$/.test(e164)) return `+1 ${e164.slice(2, 5)}`;
-  return dial ?? `+${e164.replace(/^\+/, "").slice(0, 2)}`;
+  return dial;
 }
 
 /**
@@ -237,10 +242,34 @@ export interface WhereResult {
   known: boolean;
 }
 
+let regionNames: Intl.DisplayNames | null = null;
+const NOT_A_COUNTRY = new Set(["ZZ", "QO", "EU", "UN"]);
+
+/**
+ * A country's name in English, never its two-letter code. phone.ts carries 32
+ * countries — its words win, so "AE" reads "UAE" here exactly as it does in the
+ * picker — and everywhere else the browser's own region table names it, so a
+ * visitor from Senegal reads "Senegal" and not "SN". A code no table knows is
+ * not a fact, so it comes back null and the page falls through to the next
+ * piece of evidence.
+ */
 function countryName(iso: string | null | undefined): string | null {
   const code = String(iso ?? "").trim().toUpperCase();
   if (!/^[A-Z]{2}$/.test(code)) return null;
-  return countryFor(code)?.name ?? code;
+  const known = countryFor(code)?.name;
+  if (known) return known;
+  // ZZ and QO are CLDR's own words for "we do not know" and "somewhere in the
+  // ocean"; neither is a place to send Radu.
+  if (NOT_A_COUNTRY.has(code)) return null;
+  try {
+    // fallback "none" so an invented code comes back undefined instead of
+    // echoing itself, which is how the code reached the screen.
+    regionNames ??= new Intl.DisplayNames(["en"], { type: "region", fallback: "none" });
+    const name = regionNames.of(code);
+    return name && name.toUpperCase() !== code ? name : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Where this lead is, and why, in the same breath. Never a bare country code. */
@@ -249,12 +278,30 @@ export function leadWhere(e: WhereEvidence): WhereResult {
   const hint = countryName(e.browserCountry);
   if (state.kind === "dialable") {
     const place = leadPlace({ phone: state.e164 });
-    const reason = `from the ${dialWords(state.e164)} number`;
+    const dial = dialWords(state.e164);
     if (place) {
       const disagrees = hint && !place.toLowerCase().includes(hint.toLowerCase());
-      return { text: place, reason, second: disagrees ? `their browser said ${hint}` : null, known: true };
+      return {
+        text: place,
+        reason: dial ? `from the ${dial} number` : "from the number they gave",
+        second: disagrees ? `their browser said ${hint}` : null,
+        known: true,
+      };
     }
+    // The number dials — the Call cell beside this one is a working tel: link —
+    // but its country code is outside the list phone.ts carries, so nothing on
+    // the row may name a country. Saying "no usable number" here would deny
+    // what the cell 40 px to the left just proved.
+    if (!hint) {
+      return { text: "Not known", reason: "the number dials, but its country code is not one we know", second: null, known: false };
+    }
+    return { text: hint, reason: "from what their browser reported", second: "the number does not say which country", known: true };
   }
+  // §6's order of trust: the number first, then the browser's own hint. A hint
+  // beats digits that cannot be dialled — it is evidence and they are not —
+  // and the second line says the digits were no help, so the two cells agree.
+  // (§6's closing paragraph reads "Not proven" here; that is the case below,
+  // where there is no hint either. Flagged for the integrator.)
   if (hint) {
     return {
       text: hint,
@@ -464,6 +511,16 @@ const MAIL_STATUS_WORDS: Record<string, string> = {
   skipped: "no triage e-mail was sent",
 };
 
+/**
+ * A YYYY-MM-DD that is a real day. /api/admin/leads/[id] checks the shape and
+ * nothing else, so "2026-13-45" is stored happily; every date helper turns it
+ * into NaN, and NaN reaches the screen as words or throws inside a click.
+ */
+export function readableDate(value: string | null | undefined): boolean {
+  const v = String(value ?? "").trim();
+  return DATE_RE.test(v) && Number.isFinite(Date.parse(`${v}T12:00:00Z`));
+}
+
 /** "arrived 4 days ago" / "arrived 14 h ago". */
 export function arrivedAgo(createdAt: string, now: Date): string {
   const ms = sqlToMs(createdAt);
@@ -532,11 +589,13 @@ export interface LeadView {
     empty: string | null;
     inbound: { label: string; text: string } | null;
   };
-  facts: { rows: { label: string; value: string; href: string | null }[] | null; note: string | null };
+  /** A check-up row was found. Without one, §10: the facts, propose, reply and ask blocks do not render. */
+  checkup: boolean;
+  facts: { rows: { label: string; value: string; href: string | null }[] | null; note: string | null } | null;
   propose: { lines: string | null; price: string | null; why: string | null; noFit: string | null; note: string | null } | null;
   reply: { subject: string; body: string; href: string; label: string; note: string | null } | null;
   ask: { questions: string[]; unknowns: string | null } | null;
-  upcoming: { action: string; date: string | null; dateLabel: string | null; when: string | null; overdue: boolean } | null;
+  upcoming: { action: string; date: string | null; when: string | null; overdue: boolean } | null;
   related: RelatedRow[];
   details: DetailSection[];
   origin: { sentence: string | null; heard: string | null; rollup: string | null };
@@ -594,7 +653,16 @@ export function buildLeadView(input: LeadViewInput): LeadView {
   // ---- reach
   const phone = phoneState(lead.phone);
   const where = leadWhere({ phone: lead.phone, browserCountry: lead.browserCountry ?? enquiry?.browserCountry ?? null });
-  const emailNote = lead.email ? null : phone.kind === "none" ? "no address and no number on file" : "no address on file — call them";
+  // "call them" only when there is a number that dials: the cell beside this
+  // one already says the stored digits cannot be used, and two cells must not
+  // send Radu in opposite directions.
+  const emailNote = lead.email
+    ? null
+    : phone.kind === "none"
+      ? "no address and no number on file"
+      : phone.kind === "unusable"
+        ? "no address on file — and the number cannot be dialled"
+        : "no address on file — call them";
 
   // ---- their own words
   const quotes = answers ? ownWords(answers) : [];
@@ -610,21 +678,22 @@ export function buildLeadView(input: LeadViewInput): LeadView {
       : null;
 
   // ---- the facts
+  //
+  // §10: with no check-up behind the lead there is nothing to print here, so
+  // the block does not render at all — the highlight strip and Related already
+  // say where the lead came from and that its check-up is gone. `facts: null`
+  // is that instruction to the component.
   let factRows: { label: string; value: string; href: string | null }[] | null = null;
   let factNote: string | null = null;
-  if (!enquiry)
-    factNote = lead.enquiryReference
-      ? `The check-up ${lead.enquiryReference} is no longer in the database, so its answers are gone.`
-      : lead.kind === "diagnostic"
-        ? "No check-up is stored for this lead."
-        : `No check-up behind this lead — it came from ${KIND_ORIGIN[lead.kind] ?? "somewhere else"}.`;
-  else if (answersBroken || !answers) factNote = "The saved answers could not be read — the check-up reference below still opens the record.";
-  else
-    factRows = saleFacts(answers).map((f) => ({
-      label: f.label,
-      value: f.value,
-      href: f.label === "Website" ? safeHttpUrl(f.value) : null,
-    }));
+  if (enquiry) {
+    if (answersBroken || !answers) factNote = "The saved answers could not be read — the check-up reference below still opens the record.";
+    else
+      factRows = saleFacts(answers).map((f) => ({
+        label: f.label,
+        value: f.value,
+        href: f.label === "Website" ? safeHttpUrl(f.value) : null,
+      }));
+  }
 
   // ---- what to propose
   const propose = enquiry
@@ -660,28 +729,23 @@ export function buildLeadView(input: LeadViewInput): LeadView {
       : null;
 
   // ---- upcoming
+  //
+  // dueWords() is the one place the follow-up date is turned into words, so the
+  // chips, the Today page and this line cannot drift apart. A stored date that
+  // passes DATE_RE but is not a real day ("2026-13-45" — the route only checks
+  // the shape) is read as unusable: it printed "NaN days ago" and made the
+  // +2 days chip throw inside the click handler, writing nothing and saying
+  // nothing.
   let upcoming: LeadView["upcoming"] = null;
   if (lead.nextAction || lead.nextActionAt) {
-    const today = zonedDateString("Europe/Paris", now);
-    const days = lead.nextActionAt ? daysUntil(lead.nextActionAt, today) : null;
-    const when =
-      days === null
-        ? null
-        : days === 0
-          ? "today"
-          : days === 1
-            ? "tomorrow"
-            : days > 1
-              ? `in ${days} days`
-              : days === -1
-                ? "yesterday, 1 day ago"
-                : `${Math.abs(days)} days ago`;
+    const stored = lead.nextActionAt;
+    const usable = !!stored && readableDate(stored);
+    const due = usable ? dueWords(stored, parisToday(now)) : null;
     upcoming = {
       action: lead.nextAction ?? "Follow up",
-      date: lead.nextActionAt,
-      dateLabel: lead.nextActionAt ? fmtDate(lead.nextActionAt) : null,
-      when,
-      overdue: days !== null && days < 0,
+      date: usable ? stored : null,
+      when: due ? due.text : stored ? "the date saved for this step cannot be read" : null,
+      overdue: due ? due.overdue : false,
     };
   }
 
@@ -801,7 +865,8 @@ export function buildLeadView(input: LeadViewInput): LeadView {
       whereSecond: where.second,
     },
     words: { quotes, empty: wordsEmpty, inbound },
-    facts: { rows: factRows, note: factNote },
+    checkup: !!enquiry,
+    facts: enquiry ? { rows: factRows, note: factNote } : null,
     propose,
     reply,
     ask,

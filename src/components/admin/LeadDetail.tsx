@@ -22,7 +22,7 @@ import { useState } from "react";
 import { OUTREACH_MODULE } from "@/lib/crm/features";
 import type { Activity, LeadStage } from "@/lib/crm/types";
 import type { DetailSection, LeadView, PhoneState } from "@/lib/inbox/leadView";
-import { STAGE_LABELS } from "@/lib/inbox/stages";
+import { CALL_OUTCOMES, CALL_OUTCOME_LABELS, DATE_RE, FORWARD_STAGES, STAGE_LABELS, addDays, nextForwardStage, nextMoveLabel, parisToday } from "@/lib/inbox/stages";
 import { Badge } from "./Badge";
 import { Button, buttonClass } from "./Button";
 import { ConfirmButton } from "./ConfirmButton";
@@ -34,25 +34,10 @@ import { Timeline } from "./Timeline";
 import { adminFetch } from "./adminFetch";
 import { useToast } from "./Toast";
 
-// The forward path. Lost, no response and STOP are off it and reached through
-// "Change stage". (U2 exports the same list from stages.ts; see the blockers.)
-const FORWARD_STAGES: LeadStage[] = ["new", "contacted", "replied", "meeting", "proposal", "won"];
-
-const NEXT_MOVE: Partial<Record<LeadStage, { stage: LeadStage; label: string }>> = {
-  new: { stage: "contacted", label: "Mark contacted" },
-  contacted: { stage: "replied", label: "They replied" },
-  replied: { stage: "meeting", label: "Mark meeting" },
-  meeting: { stage: "proposal", label: "Mark proposal" },
-  proposal: { stage: "won", label: "Mark won" },
-};
-
-const OUTCOMES = [
-  { value: "answered", label: "Answered" },
-  { value: "no_answer", label: "No answer" },
-  { value: "callback", label: "Call back later" },
-  { value: "refused", label: "Refused — do not call again" },
-  { value: "wrong_number", label: "Wrong number" },
-];
+// The forward path, the words on its one button, the five call outcomes and the
+// follow-up date arithmetic all live in stages.ts, which the routes read too.
+// This file keeps no copy of any of them: a second copy is how the "+2 days"
+// chip came to compute its date in UTC while the page read it in Paris.
 
 const HEADING = "text-[15px] uppercase tracking-wide text-fg-faint";
 
@@ -83,14 +68,21 @@ function useAction() {
   return { busy, run, toast, router };
 }
 
-/** Scroll a block into view and put the cursor in its first control. */
-function jump(id: string) {
+/**
+ * Scroll a block into view and put the cursor in the control that block is for
+ * — named, because the first focusable element in "Upcoming" is the "+2 days"
+ * chip and a quick action called "Set next step" that lands on "+2 days" has
+ * not done what it said.
+ */
+function jump(id: string, focusId?: string) {
   if (typeof document === "undefined") return;
   const el = document.getElementById(id);
   if (!el) return;
   el.scrollIntoView({ behavior: "smooth", block: "start" });
-  const focusable = el.querySelector<HTMLElement>("textarea, input, select, button, a[href]");
-  window.setTimeout(() => focusable?.focus({ preventScroll: true }), 300);
+  window.setTimeout(() => {
+    const target = (focusId && document.getElementById(focusId)) || el.querySelector<HTMLElement>("textarea, input, select, button, a[href]");
+    target?.focus({ preventScroll: true });
+  }, 300);
 }
 
 function Section({ id, title, children, className = "" }: { id: string; title: string; children: React.ReactNode; className?: string }) {
@@ -130,6 +122,7 @@ function InlineFact({
   label,
   value,
   placeholder,
+  addLabel,
   children,
 }: {
   leadId: number;
@@ -137,6 +130,8 @@ function InlineFact({
   label: string;
   value: string | null;
   placeholder?: string;
+  /** What the link says when there is nothing stored — §10 wants no "not given" row. */
+  addLabel?: string;
   children?: React.ReactNode;
 }) {
   const { busy, run } = useAction();
@@ -144,9 +139,10 @@ function InlineFact({
   const [draft, setDraft] = useState(value ?? "");
 
   if (!editing) {
+    const empty = !value || !value.trim();
     return (
       <span className="inline-flex max-w-full flex-wrap items-center gap-2">
-        {children ?? <span className="text-[16px] text-fg-heading">{value}</span>}
+        {empty ? null : (children ?? <span className="min-w-0 break-words text-[16px] text-fg-heading">{value}</span>)}
         <button
           type="button"
           onClick={() => {
@@ -154,9 +150,9 @@ function InlineFact({
             setEditing(true);
           }}
           className="text-[15px] text-fg-faint underline decoration-dotted hover:text-fg-heading"
-          aria-label={`Change ${label.toLowerCase()}`}
+          aria-label={`${empty ? "Add" : "Change"} ${label.toLowerCase()}`}
         >
-          change
+          {empty ? addLabel ?? `add ${label.toLowerCase()}` : "change"}
         </button>
       </span>
     );
@@ -227,7 +223,9 @@ function CallCell({ leadId, phone, stopped }: { leadId: number; phone: PhoneStat
 
 function StagePath({ leadId, stage, stopped, stopNote }: { leadId: number; stage: LeadStage; stopped: boolean; stopNote: string | null }) {
   const { busy, run } = useAction();
-  const move = stopped ? undefined : NEXT_MOVE[stage];
+  const to = stopped ? null : nextForwardStage(stage);
+  const moveLabel = stopped ? null : nextMoveLabel(stage);
+  const move = to && moveLabel ? { stage: to, label: moveLabel } : null;
   const index = FORWARD_STAGES.indexOf(stage);
 
   async function go(to: LeadStage) {
@@ -269,14 +267,42 @@ function StagePath({ leadId, stage, stopped, stopNote }: { leadId: number; stage
   );
 }
 
-function QuickActions({ leadId, phone, email, stopped }: { leadId: number; phone: PhoneState; email: string | null; stopped: boolean }) {
+function QuickActions({
+  phone,
+  email,
+  emailHref,
+  hasReplyBlock,
+  stopped,
+  onSetNextStep,
+}: {
+  phone: PhoneState;
+  email: string | null;
+  emailHref: string | null;
+  /** A check-up sits behind the lead, so there is a ready reply to scroll to. */
+  hasReplyBlock: boolean;
+  stopped: boolean;
+  onSetNextStep: () => void;
+}) {
   const cellClass = "flex min-h-[44px] items-center justify-center rounded-lg border border-line bg-surface-2/40 px-3 py-2 text-center text-[16px] text-fg-heading hover:border-line-strong disabled:cursor-not-allowed disabled:opacity-60";
   const stopReason = "Asked not to be contacted — every way of reaching them is switched off here.";
+  const noAddress = "No address on file — call them.";
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-      <button type="button" className={cellClass} onClick={() => jump("reply")} disabled={stopped || !email} title={stopped ? stopReason : email ? undefined : "No address on file — call them."}>
-        Write reply
-      </button>
+      {hasReplyBlock ? (
+        <button type="button" className={cellClass} onClick={() => jump("reply")} disabled={stopped || !email} title={stopped ? stopReason : email ? undefined : noAddress}>
+          Write reply
+        </button>
+      ) : emailHref && !stopped ? (
+        // A lead with no check-up has no ready reply to scroll to, so the cell
+        // opens the e-mail itself rather than doing nothing.
+        <a href={emailHref} className={cellClass}>
+          Write reply
+        </a>
+      ) : (
+        <button type="button" className={cellClass} disabled title={stopped ? stopReason : noAddress}>
+          Write reply
+        </button>
+      )}
       {phone.kind === "dialable" && !stopped ? (
         <a href={phone.href} className={cellClass}>
           Call
@@ -289,7 +315,7 @@ function QuickActions({ leadId, phone, email, stopped }: { leadId: number; phone
       <button type="button" className={cellClass} onClick={() => jump("log-call")} disabled={stopped} title={stopped ? stopReason : undefined}>
         Log a call
       </button>
-      <button type="button" className={cellClass} onClick={() => jump("upcoming")}>
+      <button type="button" className={cellClass} onClick={onSetNextStep}>
         Set next step
       </button>
       <button type="button" className={cellClass} onClick={() => jump("note")}>
@@ -299,9 +325,18 @@ function QuickActions({ leadId, phone, email, stopped }: { leadId: number; phone
   );
 }
 
-function Upcoming({ leadId, upcoming }: { leadId: number; upcoming: LeadView["upcoming"] }) {
+function Upcoming({
+  leadId,
+  upcoming,
+  editing,
+  setEditing,
+}: {
+  leadId: number;
+  upcoming: LeadView["upcoming"];
+  editing: boolean;
+  setEditing: (v: boolean) => void;
+}) {
   const { busy, run } = useAction();
-  const [editing, setEditing] = useState(false);
   const [action, setAction] = useState(upcoming?.action ?? "");
   const [date, setDate] = useState(upcoming?.date ?? "");
 
@@ -309,9 +344,17 @@ function Upcoming({ leadId, upcoming }: { leadId: number; upcoming: LeadView["up
     if (await run("Next step saved", () => adminFetch(`/api/admin/leads/${leadId}`, next))) setEditing(false);
   }
 
+  /**
+   * The new date for the +2 days / +1 week chips, counted in Paris the way the
+   * column is stored. A stored date that is not a real day ("2026-13-45" gets
+   * past the route, which checks the shape only) is counted from today instead
+   * of turning into NaN — that threw inside the handler, so the chip looked
+   * alive and wrote nothing.
+   */
   function shift(days: number): string {
-    const base = upcoming?.date ? Date.parse(`${upcoming.date}T12:00:00Z`) : Date.now();
-    return new Date(base + days * 86_400_000).toISOString().slice(0, 10);
+    const stored = upcoming?.date ?? "";
+    const base = DATE_RE.test(stored) && Number.isFinite(Date.parse(`${stored}T12:00:00Z`)) ? stored : parisToday();
+    return addDays(base, days);
   }
 
   return (
@@ -319,13 +362,10 @@ function Upcoming({ leadId, upcoming }: { leadId: number; upcoming: LeadView["up
       <p className={HEADING}>Upcoming</p>
       {upcoming ? (
         <>
-          <p className="text-[17px] text-fg-heading">
-            {upcoming.action}
-            {upcoming.dateLabel ? <span className="text-fg-muted"> — {upcoming.dateLabel}</span> : null}
-          </p>
+          <p className="break-words text-[17px] text-fg-heading">{upcoming.action}</p>
           {upcoming.when ? (
             upcoming.overdue ? (
-              <Badge variant="warn">was due {upcoming.dateLabel}, {upcoming.when}</Badge>
+              <Badge variant="warn">{upcoming.when}</Badge>
             ) : (
               <p className="text-[16px] text-fg-muted">{upcoming.when}</p>
             )
@@ -349,7 +389,7 @@ function Upcoming({ leadId, upcoming }: { leadId: number; upcoming: LeadView["up
             >
               Done
             </Button>
-            <Button size="sm" onClick={() => setEditing((v) => !v)}>
+            <Button size="sm" onClick={() => setEditing(!editing)}>
               Edit
             </Button>
           </div>
@@ -362,7 +402,7 @@ function Upcoming({ leadId, upcoming }: { leadId: number; upcoming: LeadView["up
           </Button>
         </div>
       )}
-      {editing || !upcoming ? (
+      {editing ? (
         <form
           className="flex flex-wrap items-end gap-2 pt-1"
           onSubmit={(e) => {
@@ -426,9 +466,9 @@ function LogCallBox({ leadId, stopped }: { leadId: number; stopped: boolean }) {
             Log a call
           </label>
           <select id="call_outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)} className={`${inputClass} w-auto`}>
-            {OUTCOMES.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
+            {CALL_OUTCOMES.map((o) => (
+              <option key={o} value={o}>
+                {CALL_OUTCOME_LABELS[o]}
               </option>
             ))}
           </select>
@@ -546,6 +586,10 @@ function DetailRows({ section }: { section: DetailSection }) {
 export function LeadDetail({ view, activities }: { view: LeadView; activities: Activity[] }) {
   const { busy, run } = useAction();
   const [sent, setSent] = useState(false);
+  // The next-step form is opened from two places — the quick action at the top
+  // and "Set one" / "Edit" at the head of the timeline — so the state that
+  // opens it lives here, above both.
+  const [editStep, setEditStep] = useState(false);
 
   async function markStop() {
     await run("STOP recorded", async () => {
@@ -579,11 +623,11 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
           </p>
           <h1 className="mt-1 break-words text-2xl text-fg-heading">{view.title}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[15px] text-fg-muted">
-            <InlineFact leadId={view.id} field="name" label="Name" value={view.name} placeholder="First name">
-              <span>Name: {view.name ?? "not given"}</span>
+            <InlineFact leadId={view.id} field="name" label="Name" value={view.name} placeholder="First name" addLabel="add a name">
+              <span className="min-w-0 break-words">Name: {view.name}</span>
             </InlineFact>
-            <InlineFact leadId={view.id} field="company" label="Company" value={view.company} placeholder="Business name">
-              <span>Company: {view.company ?? "not given"}</span>
+            <InlineFact leadId={view.id} field="company" label="Company" value={view.company} placeholder="Business name" addLabel="add a company">
+              <span className="min-w-0 break-words">Company: {view.company}</span>
             </InlineFact>
           </div>
         </div>
@@ -621,7 +665,17 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
         </div>
 
         <div className="border-t border-line pt-4">
-          <QuickActions leadId={view.id} phone={view.reach.phone} email={view.reach.email} stopped={view.stopped} />
+          <QuickActions
+            phone={view.reach.phone}
+            email={view.reach.email}
+            emailHref={view.reach.emailHref}
+            hasReplyBlock={view.checkup}
+            stopped={view.stopped}
+            onSetNextStep={() => {
+              setEditStep(true);
+              jump("upcoming", "next_action");
+            }}
+          />
         </div>
       </header>
 
@@ -644,20 +698,22 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
             {view.words.empty ? <p className="text-[16px] text-fg-muted">{view.words.empty}</p> : null}
           </Section>
 
-          <Section id="facts" title="The facts that decide the sale">
-            {view.facts.rows ? (
-              <dl className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
-                {view.facts.rows.map((f) => (
-                  <div key={f.label} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-3">
-                    <dt className="text-[15px] text-fg-muted">{f.label}</dt>
-                    <dd className="min-w-0 break-words text-[16px] text-fg-heading">{f.href ? <ExtLink href={f.href} /> : f.value}</dd>
-                  </div>
-                ))}
-              </dl>
-            ) : (
-              <p className="text-[16px] text-fg-muted">{view.facts.note}</p>
-            )}
-          </Section>
+          {view.facts ? (
+            <Section id="facts" title="The facts that decide the sale">
+              {view.facts.rows ? (
+                <dl className="grid gap-x-6 gap-y-2.5 sm:grid-cols-2">
+                  {view.facts.rows.map((f) => (
+                    <div key={f.label} className="grid grid-cols-[minmax(7rem,40%)_1fr] gap-3">
+                      <dt className="text-[15px] text-fg-muted">{f.label}</dt>
+                      <dd className="min-w-0 break-words text-[16px] text-fg-heading">{f.href ? <ExtLink href={f.href} /> : f.value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : (
+                <p className="text-[16px] text-fg-muted">{view.facts.note}</p>
+              )}
+            </Section>
+          ) : null}
 
           {view.propose ? (
             <Section id="propose" title="What to propose">
@@ -669,41 +725,49 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
             </Section>
           ) : null}
 
-          <Section id="reply" title="The ready reply">
-            {view.reply ? (
-              <>
-                <p className="text-[16px] text-fg-heading">{view.reply.subject}</p>
-                <p className="whitespace-pre-wrap break-words text-[16px] text-fg">{view.reply.body}</p>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {view.stopped ? (
-                    <Button disabled title={view.stopNote ?? undefined}>
-                      {view.reply.label}
+          {view.checkup ? (
+            <Section id="reply" title="The ready reply">
+              {view.reply ? (
+                <>
+                  <p className="text-[16px] text-fg-heading">{view.reply.subject}</p>
+                  <p className="whitespace-pre-wrap break-words text-[16px] text-fg">{view.reply.body}</p>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {view.stopped ? (
+                      <Button disabled title={view.stopNote ?? undefined}>
+                        {view.reply.label}
+                      </Button>
+                    ) : view.reply.href ? (
+                      <a href={view.reply.href} className={WRAP_PRIMARY}>
+                        {view.reply.label}
+                      </a>
+                    ) : (
+                      <Button disabled>{view.reply.label}</Button>
+                    )}
+                    <CopyButton value={`${view.reply.subject}\n\n${view.reply.body}`} />
+                    <Button
+                      size="md"
+                      loading={busy}
+                      disabled={sent || view.stopped}
+                      title={view.stopped ? (view.stopNote ?? undefined) : undefined}
+                      onClick={() => iSentIt(view.reply!.subject)}
+                    >
+                      {sent ? "Recorded" : "I sent it"}
                     </Button>
-                  ) : view.reply.href ? (
-                    <a href={view.reply.href} className={WRAP_PRIMARY}>
-                      {view.reply.label}
+                  </div>
+                  {view.reply.note ? <p className="text-[15px] text-fg-muted">{view.reply.note}</p> : null}
+                </>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <p className="text-[16px] text-fg-muted">No draft — the AI triage did not answer. Write the reply yourself; the facts above are what you have.</p>
+                  {view.reach.emailHref && !view.stopped ? (
+                    <a href={view.reach.emailHref} className={buttonClass("ghost", "sm")}>
+                      Write
                     </a>
-                  ) : (
-                    <Button disabled>{view.reply.label}</Button>
-                  )}
-                  <CopyButton value={`${view.reply.subject}\n\n${view.reply.body}`} />
-                  <Button size="md" loading={busy} disabled={sent || view.stopped} onClick={() => iSentIt(view.reply!.subject)}>
-                    {sent ? "Recorded" : "I sent it"}
-                  </Button>
+                  ) : null}
                 </div>
-                {view.reply.note ? <p className="text-[15px] text-fg-muted">{view.reply.note}</p> : null}
-              </>
-            ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="text-[16px] text-fg-muted">No draft — the AI triage did not answer. Write the reply yourself; the facts above are what you have.</p>
-                {view.reach.emailHref && !view.stopped ? (
-                  <a href={view.reach.emailHref} className={buttonClass("ghost", "sm")}>
-                    Write
-                  </a>
-                ) : null}
-              </div>
-            )}
-          </Section>
+              )}
+            </Section>
+          ) : null}
 
           {view.ask ? (
             <Section id="ask" title="Ask them">
@@ -726,7 +790,7 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
 
         <div className="min-w-0 space-y-6">
           <Section id="timeline" title="Timeline">
-            <Upcoming leadId={view.id} upcoming={view.upcoming} />
+            <Upcoming leadId={view.id} upcoming={view.upcoming} editing={editStep} setEditing={setEditStep} />
             <div className="pt-1">
               <p className={HEADING}>Past</p>
               <div className="mt-2">

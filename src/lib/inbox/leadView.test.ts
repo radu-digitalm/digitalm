@@ -14,6 +14,7 @@ import {
   phoneState,
   priceFitFor,
   proposedLabel,
+  readableDate,
   replyMailto,
   saleFacts,
   sendLabel,
@@ -166,6 +167,35 @@ test("a lead with no number never reads France off the row", () => {
   assert.ok(!/France/i.test(whereLine(w)));
 });
 
+test("a number that dials is never denied by the cell beside it", () => {
+  // +221 is outside the 32 countries phone.ts carries: checkPostedPhone takes
+  // the number as typed, so Call is a working tel: link. Where may not answer
+  // "no usable number" while that link sits next to it.
+  const state = phoneState("+221771234567");
+  assert.equal(state.kind, "dialable");
+  const w = leadWhere({ phone: "+221771234567", browserCountry: null });
+  assert.equal(w.known, false);
+  assert.equal(whereLine(w), "Not known — the number dials, but its country code is not one we know");
+  assert.ok(!/no usable number/.test(whereLine(w)));
+  // With a hint it names the country and says the number did not decide it.
+  const hinted = leadWhere({ phone: "+221771234567", browserCountry: "SN" });
+  assert.equal(hinted.text, "Senegal");
+  assert.equal(hinted.second, "the number does not say which country");
+});
+
+test("a country code never reaches the screen as two letters", () => {
+  // COUNTRIES holds 32 rows; the browser hint can carry any ISO code at all.
+  assert.equal(whereLine(leadWhere({ phone: null, browserCountry: "SN" })), "Senegal — from what their browser reported");
+  assert.equal(whereLine(leadWhere({ phone: null, browserCountry: "BR" })), "Brazil — from what their browser reported");
+  assert.equal(whereLine(leadWhere({ phone: null, browserCountry: "AE" })), "UAE — from what their browser reported");
+  for (const code of ["SN", "CI", "BR", "MX", "JP", "IN", "ZZ", "QQ", "xx"]) {
+    const line = whereLine(leadWhere({ phone: null, browserCountry: code }));
+    assert.ok(!new RegExp(`\\b${code.toUpperCase()}\\b`).test(line), `${code} reached the screen: ${line}`);
+  }
+  // A code no table knows is not evidence, so the page falls through honestly.
+  assert.equal(whereLine(leadWhere({ phone: null, browserCountry: "ZZ" })), "Not known — no usable number and the browser did not say");
+});
+
 test("the browser hint is the only country the page will name, and the phone still wins", () => {
   assert.equal(whereLine(leadWhere({ phone: null, browserCountry: "CA" })), "Canada — from what their browser reported");
   const disagree = leadWhere({ phone: "+33780030320", browserCountry: "CA" });
@@ -263,8 +293,8 @@ test("Jojo's page carries the seven highlights, the repair offer and no country 
   assert.equal(view.reach.where, "Not proven — the number they typed cannot be used");
   assert.equal(view.reach.phone.kind, "unusable");
   assert.equal(view.words.empty, "They typed nothing in their own words — the facts below are all we have.");
-  assert.equal(view.facts.rows?.length, 8);
-  assert.equal(view.upcoming?.when, "in 4 days");
+  assert.equal(view.facts?.rows?.length, 8);
+  assert.equal(view.upcoming?.when, "25 Sept 2026, in 4 days");
   assert.equal(view.related[0]?.label, "The check-up");
   assert.equal(view.ask, null);
   // leads.country appears once, under its honest label, and nowhere else.
@@ -277,9 +307,29 @@ test("Jojo's page carries the seven highlights, the repair offer and no country 
 test("an overdue next step is overdue, and a missing one says so", () => {
   const late = buildLeadView({ lead: lead({ nextAction: "Call back", nextActionAt: "2026-09-19" }), enquiry: null, prospect: null, activities: [], now: NOW });
   assert.equal(late.upcoming?.overdue, true);
-  assert.equal(late.upcoming?.when, "2 days ago");
+  assert.equal(late.upcoming?.when, "was due 19 Sept 2026, 2 days ago");
   const none = buildLeadView({ lead: lead(), enquiry: null, prospect: null, activities: [], now: NOW });
   assert.equal(none.upcoming, null);
+});
+
+test("a follow-up date that is not a real day says so instead of printing NaN", () => {
+  // /api/admin/leads/[id] checks the shape of next_action_at and nothing else,
+  // so this row can be stored today. It used to read "NaN days ago" and make
+  // the +2 days chip throw before it sent anything.
+  assert.equal(readableDate("2026-09-25"), true);
+  assert.equal(readableDate("2026-13-45"), false);
+  assert.equal(readableDate("next tuesday"), false);
+  const view = buildLeadView({
+    lead: lead({ nextAction: "Follow up", nextActionAt: "2026-13-45" }),
+    enquiry: null,
+    prospect: null,
+    activities: [],
+    now: NOW,
+  });
+  assert.equal(view.upcoming?.when, "the date saved for this step cannot be read");
+  assert.equal(view.upcoming?.overdue, false);
+  assert.equal(view.upcoming?.date, null, "the chips never receive a date they cannot count from");
+  assert.ok(!/NaN/.test(JSON.stringify(view)), "no NaN reaches the page");
 });
 
 test("a lead with no check-up keeps its controls and says where it came from", () => {
@@ -291,9 +341,13 @@ test("a lead with no check-up keeps its controls and says where it came from", (
     now: NOW,
   });
   assert.equal(view.highlights[0]?.text, "No check-up — came from the contact form");
-  assert.equal(view.facts.rows, null);
-  assert.ok(view.facts.note?.startsWith("No check-up behind this lead"));
+  // §10: with no check-up behind the lead, the facts, propose, reply and ask
+  // blocks do not render — a lead that never met the triage must not be told
+  // "the AI triage did not answer".
+  assert.equal(view.checkup, false);
+  assert.equal(view.facts, null);
   assert.equal(view.reply, null);
+  assert.equal(view.ask, null);
   assert.equal(view.propose, null);
   assert.equal(view.words.inbound?.text, "Bonjour, pouvez-vous m'appeler ?");
   assert.equal(view.reach.emailNote, "no address and no number on file");
@@ -308,8 +362,9 @@ test("answers that will not parse replace the block with a sentence instead of f
     activities: [],
     now: NOW,
   });
-  assert.equal(view.facts.rows, null);
-  assert.equal(view.facts.note, "The saved answers could not be read — the check-up reference below still opens the record.");
+  assert.equal(view.checkup, true);
+  assert.equal(view.facts?.rows, null);
+  assert.equal(view.facts?.note, "The saved answers could not be read — the check-up reference below still opens the record.");
   assert.equal(view.reach.where, "Not proven — the number they typed cannot be used");
 });
 
