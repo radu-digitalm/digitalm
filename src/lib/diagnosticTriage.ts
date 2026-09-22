@@ -31,10 +31,19 @@
 //     cannot be filled in;
 //   - GRID is the single source of both the package list the model reads and
 //     the set of figures it is allowed to write back, so a band we do not sell
-//     is unquotable by construction;
+//     is unquotable by construction. A budget the customer tapped WIDENS that
+//     set to their own band; it never switches the check off;
+//   - the guard reads the three fields a figure can reach a person in - the
+//     reply, the note, and the paragraph the customer reads on screen - and
+//     whatever it writes in their place is then checked again, because the
+//     remedy interpolates text the model wrote;
 //   - the subject line is taken away from the model entirely: every money
 //     token is stripped and a tail is appended from the budget chip the
 //     customer physically tapped.
+//
+// And the counting is narrow on purpose: a bare run of digits is a price only
+// when something beside it says so. "Microsoft 365" is what a lead's own tool
+// chip hands the model, and calling it money cost a correct proposal draft.
 //
 // WHICH MODEL RUNS THIS. `OPENAI_MODEL_TRIAGE`, beside the two names its
 // siblings already use (`OPENAI_MODEL_CHAT` in the chat route,
@@ -75,17 +84,32 @@ export const GRID: { item: string; price: string; time: string; figures: number[
 /** Every figure we publish: {500, 2500, 1200, 800}. Nothing else is quotable. */
 export const ALLOWED_FIGURES: ReadonlySet<number> = new Set(GRID.flatMap((g) => g.figures));
 
-/** The budget chips that are an actual statement. "unsure" and "" are not. */
-const BAND_LABEL: Record<string, string> = {
-  "<1500": "under 1,500 EUR",
-  "1500-3500": "1,500-3,500 EUR",
-  "3500-7000": "3,500-7,000 EUR",
-  "7000+": "7,000 EUR and up",
+/**
+ * The budget chips that are an actual statement, each with what it means in
+ * figures. "unsure" and "" have no entry, because they are not a statement.
+ *
+ * `min`/`max` are what a quote for this person may name: the prompt tells the
+ * model to work UP to the floor of the band they tapped ("for a 3,500-7,000
+ * band quote something like 4,000 to 6,000 EUR"), so their own band is the
+ * allowed range, not just its floor. Everything outside it still has to be one
+ * of our published prices - a declared budget widens the guard, it never
+ * switches it off, which is how "Comptez 45 000 EUR" used to pass unread.
+ */
+const BANDS: Record<string, { label: string; min: number; max: number }> = {
+  "<1500": { label: "under 1,500 EUR", min: 0, max: 1500 },
+  "1500-3500": { label: "1,500-3,500 EUR", min: 1500, max: 3500 },
+  "3500-7000": { label: "3,500-7,000 EUR", min: 3500, max: 7000 },
+  "7000+": { label: "7,000 EUR and up", min: 7000, max: Number.POSITIVE_INFINITY },
 };
+
+/** The band they tapped, or null. "unsure" is NOT a budget. */
+function bandOf(budgetId: string | undefined | null): { label: string; min: number; max: number } | null {
+  return BANDS[String(budgetId ?? "").trim()] ?? null;
+}
 
 /** True only when the customer tapped a band. "unsure" is NOT a budget. */
 export function declaredBudget(budgetId: string | undefined | null): boolean {
-  return !!BAND_LABEL[String(budgetId ?? "").trim()];
+  return !!bandOf(budgetId);
 }
 
 // ---------------------------------------------------------------------------
@@ -478,6 +502,31 @@ const UNIT_RE = /^ {0,2}(?:k(?![A-Za-z])\s?(?:EUR\b|euros?\b|€)?|€|EUR\b|eur
 // What joins the two ends of a range: "1 500 a 3 500", "de 800 et 1 200".
 const RANGE_BETWEEN = /^\s*(?:[-–—]|to|and|et|ou|or|a|au|à)\s*$/i;
 
+// What makes a BARE run of digits a price: a currency or a price word beside
+// it. A three-digit number on its own is NOT money. "Microsoft 365" is the
+// proof: whoever ticks the `microsoft` tool chip has "Microsoft 365" handed to
+// the model in their labelled answers, the model writes it back, and reading
+// that as a price threw away a correct, price-free proposal draft on 2 of the
+// 5 real check-ups and stamped "Microsoft [price removed]" on the note Radu
+// reads. "100 %", "200 clients" and "Windows 11" are the same false positive.
+// A grouped number ("1 500") or a unit ("500 EUR", "1,5k") still needs nothing.
+const PRICE_WORD =
+  /(?:EUR|euros?|\bHT\b|\bTTC\b|prix|tarifs?|budgets?|forfaits?|montants?|honoraires|co[uû]t(?:s|e|ent|ez)?|comptez|compter|investissement|partir de|price|pricing|costs?|fees?|\brates?\b|\bcharges?\b|starting at|invest)/i;
+
+// How far from the number a price word still counts. Wide enough for "le prix
+// de ce forfait est 2500", short enough that a price named at the other end of
+// the sentence does not make a product name into money.
+const PRICE_BEFORE = 32;
+const PRICE_AFTER = 24;
+
+/** True when the text around a bare number says that the number is a price. */
+function pricedContext(masked: string, start: number, end: number): boolean {
+  return (
+    PRICE_WORD.test(masked.slice(Math.max(0, start - PRICE_BEFORE), start)) ||
+    PRICE_WORD.test(masked.slice(end, end + PRICE_AFTER))
+  );
+}
+
 type NumberHit = { start: number; end: number; money: boolean; value: number };
 
 /** The numeric value of one hit; "1,5" + "k" is 1500, "3,500" is 3500. */
@@ -498,10 +547,11 @@ function maskUrls(s: string): string {
 /**
  * Every number in the text, with a verdict on each.
  *
- * Money is: anything with a currency or a "k" after it, any run of three or
- * more digits, and any thousands-grouped number. NOT money: "2 a 3 jours",
- * "30 minutes", "24 h sur 24", a bare year. A plain number tied to a money one
- * by a range word ("de 1,5 a 3,5k") is pulled in, because half a range on
+ * Money is: anything with a currency or a "k" after it, any thousands-grouped
+ * number, and a bare run of three or more digits WITH a price word beside it.
+ * NOT money: "2 a 3 jours", "30 minutes", "24 h sur 24", a bare year,
+ * "Microsoft 365". A plain number tied to a money one by a range word
+ * ("de 1,5 a 3,5k", "800 et 1 200") is pulled in, because half a range on
  * screen is worse than none.
  */
 function scanNumbers(masked: string): NumberHit[] {
@@ -513,10 +563,11 @@ function scanNumbers(masked: string): NumberHit[] {
     const grouped = /[ .,]\d{3}/.test(raw);
     const digits = raw.replace(/\D/g, "").length;
     const yearLike = !unit && !grouped && /^(?:19|20)\d{2}$/.test(raw);
+    const end = m.index + raw.length + unit.length;
     hits.push({
       start: m.index,
-      end: m.index + raw.length + unit.length,
-      money: !!unit || (!yearLike && (grouped || digits >= 3)),
+      end,
+      money: !!unit || grouped || (!yearLike && digits >= 3 && pricedContext(masked, m.index, end)),
       value: valueOf(raw, unit),
     });
   }
@@ -564,10 +615,17 @@ function tidy(s: string): string {
     .replace(/[ \t]{2,}/g, " ")
     .replace(/ +([,;.!?])/g, "$1")
     .replace(/(^|[ \t])[-–—,;:|][ \t]*(?=[,;:|]|$)/g, "$1")
-    .replace(/[\s,;:·|-]+$/g, "")
-    .replace(/^[\s,;:·|-]+/g, "")
+    .replace(/[\s,;:·|<>~=-]+$/g, "")
+    .replace(/^[\s,;:·|<>~=-]+/g, "")
     .trim();
 }
+
+// The words that only exist to introduce a price, and mean nothing once it is
+// gone. The real subject line for DM-M9EZ7 came out as "...dès que possible,
+// <, under 1,500 EUR", and "un site a moins de 1 500 EUR" came out as "un site
+// a". No false information, but it reads as broken, and Radu reads it daily.
+const PRICE_LEAD_IN =
+  /(?:[<>~=]\s*|\b(?:[àa]|de|du|des|d'|environ|autour de|moins de|plus de|partir de|pr[èe]s de|jusqu'[àa]|from|to|under|over|about|around|at|up to|at least|starting at)\s+)+$/i;
 
 /** The same text with every price taken out (and, optionally, marked). */
 export function stripMoney(s: string, replacement = ""): string {
@@ -576,7 +634,10 @@ export function stripMoney(s: string, replacement = ""): string {
   let out = "";
   let last = 0;
   for (const sp of spans) {
-    out += norm.slice(last, sp.start) + replacement;
+    const head = norm.slice(last, sp.start);
+    // Only when the price leaves nothing behind: "est de [price removed]" still
+    // reads as a sentence, so a marked removal keeps its preposition.
+    out += (replacement ? head : head.replace(PRICE_LEAD_IN, "")) + replacement;
     last = sp.end;
   }
   return tidy(out + norm.slice(last));
@@ -584,6 +645,20 @@ export function stripMoney(s: string, replacement = ""): string {
 
 const NO_BUDGET_TAIL = { fr: "budget non précisé", en: "no budget given" } as const;
 const SUBJECT_MAX = 110;
+
+// A trailing "budget" with no figure left beside it says nothing the tail does
+// not say better: "budget à définir, budget non précisé" is the same fact
+// twice, and it happened on 2 of the 5 real rows. Only the budget words go -
+// never the rest of the clause, because "exploration budget 1,5-3,5k" carries
+// the timing Radu reads, and it is the only other thing in that subject line.
+const TRAILING_BUDGET =
+  /(?:[\s,;:·|<>~=-]+|^)(?:de\s+|du\s+)?budgets?(?:\s*:)?(?:\s+(?:[àa]\s+(?:d[ée]finir|pr[ée]ciser|voir)|(?:non|not|nicht)\s+\S+|to\s+be\s+\S+|unknown|unclear|tbd|inconnu\S*|ouvert\S*|flexible))?\s*$/i;
+
+function dropEmptyBudget(head: string): string {
+  const m = TRAILING_BUDGET.exec(head);
+  if (!m || /\d/.test(m[0])) return head;
+  return tidy(head.slice(0, m.index));
+}
 
 /**
  * The subject line, taken away from the model.
@@ -595,10 +670,9 @@ const SUBJECT_MAX = 110;
  * inbox, not for the prompt.)
  */
 export function buildSubject(summary: string, lead: TriageLead, locale: "en" | "fr"): string {
-  const tail = declaredBudget(lead.budgetId)
-    ? (lead.budget?.trim() || BAND_LABEL[String(lead.budgetId).trim()]!)
-    : NO_BUDGET_TAIL[locale];
-  const head = stripMoney(sanitizeLeadText(summary ?? "").replace(/[\r\n]+/g, " "));
+  const band = bandOf(lead.budgetId);
+  const tail = band ? (lead.budget?.trim() || band.label) : NO_BUDGET_TAIL[locale];
+  const head = dropEmptyBudget(stripMoney(sanitizeLeadText(summary ?? "").replace(/[\r\n]+/g, " ")));
   if (!head) return tail.slice(0, SUBJECT_MAX);
   const room = SUBJECT_MAX - tail.length - 2;
   const cut = head.length > room ? tidy(head.slice(0, Math.max(0, room))) : head;
@@ -777,12 +851,29 @@ const GENERIC_QUESTIONS = {
  * The draft we write ourselves when the model will not stop naming a price.
  *
  * It is short on purpose: their own sentence back, the questions, the booking
- * link, Radu's name. No figure can appear in it, because none is interpolated.
+ * link, Radu's name. It interpolates two things the model wrote, and both are
+ * cleaned before they go in: the questions (a question that names a price is
+ * dropped whole, not stripped, so no sentence arrives with a hole in it) and
+ * their own magic sentence. This draft only ever runs BECAUSE the model
+ * ignored "do not write any figure", which is exactly when it is likeliest to
+ * have put one in the questions as well - and it did: "Avez-vous un budget
+ * autour de 1 500 a 3 500 EUR ?" was printed to the one lead we had just
+ * decided we could not quote.
  */
 export function fallbackDraft(lead: TriageLead, callQuestions: string[], locale: "en" | "fr"): string {
   const name = sanitizeLeadText(lead.firstName ?? "").trim() || (locale === "fr" ? "bonjour" : "there");
-  const asked = callQuestions.map((q) => sanitizeLeadText(q).trim()).filter(Boolean).slice(0, 3);
-  const questions = (asked.length >= 2 ? asked : [...GENERIC_QUESTIONS[locale]]).map((q, i) => `${i + 1}. ${q}`);
+  const asked = callQuestions
+    .map((q) => sanitizeLeadText(q).replace(/[\r\n]+/g, " ").trim())
+    .filter((q) => q.length > 0 && moneyTokens(q).length === 0)
+    .slice(0, 3);
+  // One usable question of theirs beats two of ours, so the generics top the
+  // list up to two rather than replacing it.
+  const picked = [...asked];
+  for (const g of GENERIC_QUESTIONS[locale]) {
+    if (picked.length >= 2) break;
+    picked.push(g);
+  }
+  const questions = picked.map((q, i) => `${i + 1}. ${q}`);
   const magic = stripMoney(sanitizeLeadText(lead.magic ?? "").replace(/[\r\n]+/g, " ").trim());
   if (locale === "fr") {
     return [
@@ -818,12 +909,37 @@ export function fallbackDraft(lead: TriageLead, callQuestions: string[], locale:
   ].join("\n");
 }
 
-/** The figures this lead may be shown: our own grid, and nothing else. */
-function badFigures(t: Triage, lead: TriageLead, signal: Signal): number[] {
-  const figures = [...moneyFigures(t.replyDraft), ...moneyFigures(t.noteForRadu)];
+/**
+ * The figures in one string that this lead may NOT be shown.
+ *
+ * Thin: none at all. A band they tapped: our published prices, plus anything
+ * inside their own band, because the prompt asks for a range worked up to its
+ * floor ("4,000 to 6,000 EUR" for a 3,500-7,000 band). No band: our published
+ * prices and nothing else, so 1,500-3,500 is unquotable by construction.
+ *
+ * A declared band WIDENS the allowed set; it does not switch the check off.
+ * While it did, "Comptez 45 000 EUR, ou 120 000 EUR avec le sur-mesure" passed
+ * unread, and 2 of the 5 real leads sat entirely outside the guard.
+ */
+function disallowedIn(s: string, lead: TriageLead, signal: Signal): number[] {
+  const figures = moneyFigures(s);
   if (signal.thin) return figures; // not one price is allowed
-  if (declaredBudget(lead.budgetId)) return []; // their own band: the prompt's rules apply
-  return figures.filter((f) => !ALLOWED_FIGURES.has(f));
+  const band = bandOf(lead.budgetId);
+  return figures.filter((f) => !ALLOWED_FIGURES.has(f) && !(band && f >= band.min && f <= band.max));
+}
+
+/**
+ * Every figure this lead may not be shown, across the three fields a figure
+ * can reach a person in: the reply, Radu's note, and the paragraph printed on
+ * the results screen immediately above the booking button. The last one was
+ * never read by this guard, and it is the only one the customer sees.
+ */
+function badFigures(t: Triage, lead: TriageLead, signal: Signal): number[] {
+  return [
+    ...disallowedIn(t.replyDraft, lead, signal),
+    ...disallowedIn(t.noteForRadu, lead, signal),
+    ...disallowedIn(t.clientRationale, lead, signal),
+  ];
 }
 
 /**
@@ -840,7 +956,7 @@ export function checkTriage(t: Triage, lead: TriageLead, signal: Signal): string
   if (bad.length) {
     problems.push(
       signal.thin
-        ? `a price reached the draft or the note for a lead we cannot quote: ${bad.join(", ")}`
+        ? `a price reached the reply, the note or the on-screen paragraph for a lead we cannot quote: ${bad.join(", ")}`
         : `figures we do not sell: ${bad.join(", ")}`,
     );
   }
@@ -849,6 +965,16 @@ export function checkTriage(t: Triage, lead: TriageLead, signal: Signal): string
 
 const PRICES_REMOVED = "Prices that are not on our grid were removed from this note. Ask before quoting. ";
 
+// What the visitor reads when the model would not stop naming a price. This
+// paragraph sits on the results screen immediately above the booking button,
+// so it cannot simply be deleted, and a sentence with the figure cut out of
+// the middle of it ("Pour vous, comptez environ pour demarrer") is worse than
+// a short honest one. Written after the model call, for a human: accents.
+const SAFE_RATIONALE = {
+  fr: "Merci pour vos réponses. Je les relis en détail et je reviens vers vous avec des pistes concrètes, adaptées à votre situation.",
+  en: "Thanks for your answers. I am going through them in detail and will come back to you with concrete suggestions for your situation.",
+} as const;
+
 /**
  * Everything the model does not get to decide, applied to its answer.
  *
@@ -856,18 +982,31 @@ const PRICES_REMOVED = "Prices that are not on our grid were removed from this n
  * subject line, the fit clamp and the checklist are guarantees, not repairs.
  */
 export function finalizeTriage(t: Triage, lead: TriageLead, signal: Signal, locale: "en" | "fr"): Triage {
-  let replyDraft = t.replyDraft;
-  let noteForRadu = t.noteForRadu;
+  // A price that survived the retry. Three fields, three remedies, because
+  // three different people read them and one bad field is no reason to throw
+  // the other two away: the customer gets a draft we wrote ourselves, Radu
+  // gets his note with the figures marked as removed, and the results screen
+  // gets a short sentence that promises nothing.
+  let replyDraft = disallowedIn(t.replyDraft, lead, signal).length
+    ? fallbackDraft(lead, t.callQuestions, locale)
+    : t.replyDraft;
+  let noteForRadu = disallowedIn(t.noteForRadu, lead, signal).length
+    ? PRICES_REMOVED + stripMoney(t.noteForRadu, "[price removed]")
+    : t.noteForRadu;
+  let clientRationale = disallowedIn(t.clientRationale, lead, signal).length
+    ? SAFE_RATIONALE[locale]
+    : t.clientRationale;
 
-  // A price that survived the retry: write the draft ourselves, and take the
-  // figures out of the note, which is the other half of what Radu reads.
-  if (badFigures(t, lead, signal).length) {
-    replyDraft = fallbackDraft(lead, t.callQuestions, locale);
-    noteForRadu = PRICES_REMOVED + stripMoney(noteForRadu, "[price removed]");
-  }
+  // Nothing is trusted because we just wrote it. Each remedy is checked like
+  // any other answer, which is the only way the guarantee can hold for a draft
+  // that interpolates text the model wrote (the call questions): a price in
+  // question 1 used to be printed, in full, to the one lead we had just
+  // decided we could not quote.
+  if (disallowedIn(noteForRadu, lead, signal).length) noteForRadu = stripMoney(noteForRadu, "[price removed]");
+  if (disallowedIn(clientRationale, lead, signal).length) clientRationale = SAFE_RATIONALE[locale];
   // A draft Radu has to proofread is worse than no draft, because he will
   // eventually stop proofreading. No draft says so in the e-mail instead.
-  if (!draftOk(replyDraft, lead.firstName)) replyDraft = "";
+  if (disallowedIn(replyDraft, lead, signal).length || !draftOk(replyDraft, lead.firstName)) replyDraft = "";
 
   // A lead where not one line could be named from a stated fact is not a
   // confident fit, whatever the model says.
@@ -887,6 +1026,7 @@ export function finalizeTriage(t: Triage, lead: TriageLead, signal: Signal, loca
     proposed: fit === "no-fit" ? [] : t.proposed,
     subjectSummary: buildSubject(t.subjectSummary, lead, locale),
     noteForRadu,
+    clientRationale,
     replyDraft,
     unknowns: unknowns.slice(0, 600),
     fit,
@@ -946,7 +1086,12 @@ export async function triageEnquiry(
     const problems = checkTriage(value, lead, signal);
     if (problems.length) {
       console.error(`triage llm answer rejected (attempt ${attempt}): ${problems.join("; ")}`);
-      if (attempt < 2) return triageEnquiry(lead, ruleScoring, locale, signal, attempt + 1);
+      // The retry can time out or throw, and returning null then would throw
+      // away this answer too - draft, call questions, on-screen paragraph and
+      // all - leaving Radu with rule output and no reply to send. The answer
+      // we already have is imperfect, and `finalizeTriage` makes it safe.
+      const retried = attempt < 2 ? await triageEnquiry(lead, ruleScoring, locale, signal, attempt + 1) : null;
+      if (retried) return retried;
     }
     return finalizeTriage(value, lead, signal, locale);
   } catch (e) {

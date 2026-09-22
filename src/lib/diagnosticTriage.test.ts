@@ -13,6 +13,7 @@ import {
   buildTriagePrompt,
   checkTriage,
   declaredBudget,
+  draftOk,
   fallbackDraft,
   finalizeTriage,
   isMangled,
@@ -823,4 +824,214 @@ test("noFitColumn puts the decision in the one column every consumer reads", () 
     "Not enough in the answers to say what fits. Ask before quoting. No problem described and no budget.",
   );
   assert.equal(noFitColumn({ fit: "no-fit", fitReason: "They want an accountant, not software." }), "They want an accountant, not software.");
+});
+
+// ---------------------------------------------------------------------------
+// U2 review — the three holes in the money guarantee
+//
+// Each of the three was reproduced on the real rows before it was closed: a
+// price printed to the one lead we had just decided we could not quote, a
+// correct proposal thrown away because "Microsoft 365" was read as a price,
+// and no figure check at all for anyone who tapped a budget band.
+// ---------------------------------------------------------------------------
+
+test("a price in a call question never reaches the draft we write ourselves", () => {
+  // The deterministic draft only ever runs BECAUSE the model ignored "do not
+  // write any figure" - which is exactly when it has usually put one in the
+  // questions too. It interpolated them verbatim, so the band came out in
+  // question 1, in full, to Alberto.
+  const signal = signalFor("DM-JED9Y");
+  const leaking: Triage = {
+    ...MODEL_ANSWER,
+    callQuestions: [
+      "Avez-vous un budget autour de 1 500 a 3 500 EUR pour ce genre de projet ?",
+      "Combien d'heures par semaine y passez-vous ?",
+    ],
+  };
+  const draft = fallbackDraft(LEAD_THIN, leaking.callQuestions, "fr");
+  assert.deepEqual(moneyTokens(draft), [], `a figure survived into the draft: ${draft}`);
+  // Their own usable question is kept; ours only tops the list back up to two.
+  assert.match(draft, /1\. Combien d'heures par semaine/);
+  assert.match(draft, /2\. Qu'est-ce qui vous a pris le plus de temps/);
+
+  // The whole path, end to end, on the lead and the figure Radu complained about.
+  const out = finalizeTriage(leaking, LEAD_THIN, signal, "fr");
+  assert.deepEqual(moneyTokens(out.replyDraft), [], `a figure reached the lead: ${out.replyDraft}`);
+  assert.match(out.replyDraft, /Bonjour Alberto,/);
+  assert.ok(out.replyDraft.endsWith("Radu, Digital M"));
+
+  // Every question priced: ours carry the draft on their own rather than
+  // sending a question with a hole where the figure was.
+  const allPriced = fallbackDraft(LEAD_THIN, ["Un budget de 1 500 EUR vous conviendrait ?", "Comptez-vous investir 3 500 EUR ?"], "fr");
+  assert.deepEqual(moneyTokens(allPriced), []);
+  assert.match(allPriced, /1\. Qu'est-ce qui vous a pris le plus de temps/);
+  assert.match(allPriced, /2\. O.? retrouvez-vous/);
+});
+
+test("whatever finalizeTriage writes is checked again before it is returned", () => {
+  // The remedy interpolates text the model wrote, so the remedy is an answer
+  // like any other. Applied in one pass and never re-read, the guarantee held
+  // only for the fields the first pass happened to look at.
+  const signal = signalFor("DM-JED9Y");
+  const priced = "Objet : Votre check-up\n\nBonjour Alberto,\n\nComptez 1 500 a 3 500 EUR.\n\nRadu, Digital M";
+  const hostile: { lead: TriageLead; t: Triage }[] = [
+    { lead: LEAD_THIN, t: { ...MODEL_ANSWER, replyDraft: priced } },
+    {
+      lead: LEAD_THIN,
+      t: { ...MODEL_ANSWER, replyDraft: priced, callQuestions: ["Un budget de 1 500 a 3 500 EUR ?", "Et 800 EUR par mois ?"] },
+    },
+    {
+      lead: { ...LEAD_THIN, magic: "Je paie 2 500 EUR par mois a mon comptable" },
+      t: { ...MODEL_ANSWER, replyDraft: priced, clientRationale: "Vous pourriez economiser 1 200 EUR par mois." },
+    },
+  ];
+  for (const { lead, t } of hostile) {
+    const out = finalizeTriage(t, lead, signal, "fr");
+    for (const [field, value] of Object.entries({
+      replyDraft: out.replyDraft,
+      noteForRadu: out.noteForRadu,
+      clientRationale: out.clientRationale,
+      subjectSummary: out.subjectSummary,
+    })) {
+      assert.deepEqual(moneyTokens(value), [], `a figure survived in ${field}: ${value}`);
+    }
+    // A draft is either good enough to send as it stands, or there is no draft.
+    assert.ok(out.replyDraft === "" || draftOk(out.replyDraft, lead.firstName), out.replyDraft);
+  }
+});
+
+test("one bad field is not a reason to throw the other two away", () => {
+  // The note is Radu's and the draft is the customer's. A price the model put
+  // in the note says nothing about a draft that carries none, and replacing a
+  // sendable reply with "I need two or three precisions" costs the lead a day.
+  const signal = signalFor("DM-JED9Y");
+  const notePriced: Triage = {
+    ...MODEL_ANSWER,
+    replyDraft: "Objet : Votre check-up\n\nBonjour Alberto,\n\nJe reviens vers vous avec deux ou trois questions.\n\nRadu, Digital M",
+    clientRationale: "Vous cherchez a alleger votre quotidien.",
+  };
+  const out = finalizeTriage(notePriced, LEAD_THIN, signal, "fr");
+  assert.equal(out.replyDraft, notePriced.replyDraft, "a price-free draft is kept");
+  assert.equal(out.clientRationale, notePriced.clientRationale, "a price-free paragraph is kept");
+  assert.match(out.noteForRadu, /^Prices that are not on our grid were removed/);
+  assert.deepEqual(moneyTokens(out.noteForRadu), []);
+});
+
+test("a product name is not a price, so a correct proposal is not thrown away", () => {
+  // 2 of the 5 real leads tick the `microsoft` tool chip, which reaches the
+  // model as "Microsoft 365" in their labelled answers. DM-BSRA8's real stored
+  // note says "automatisation CRM connectee a Microsoft 365": reading the 365
+  // as a price replaced that whole draft with the generic "I need two or three
+  // precisions" and stamped the note "Microsoft [price removed]".
+  const notPrices = [
+    "connectee a Microsoft 365 pour organiser les devis",
+    "Windows 11 et Office 365",
+    "100 % de vos demandes",
+    "environ 250 clients par mois",
+    "le formulaire 2042 de votre comptable",
+  ];
+  for (const s of notPrices) assert.deepEqual(moneyTokens(s), [], `read as a price: ${s}`);
+  // A bare figure with a price word beside it still is a price.
+  assert.deepEqual(moneyFigures("Notre prix standard est de 2500 pour ce forfait"), [2500]);
+  assert.deepEqual(moneyFigures("Comptez 3500 pour le site"), [3500]);
+  assert.deepEqual(moneyFigures("1 500 a 3 500 EUR"), [1500, 3500]);
+
+  const signal = signalFor("DM-BSRA8"); // not thin, no budget declared
+  const lead: TriageLead = { firstName: "Michel", budgetId: "unsure", magic: "Repondre aux memes questions WhatsApp", answers: "" };
+  const good: Triage = {
+    ...MODEL_ANSWER,
+    subjectSummary: "suivi client, des que possible",
+    noteForRadu: "Proposer une petite automatisation CRM connectee a Microsoft 365 pour organiser les devis.",
+    clientRationale: "Vous repondez souvent aux memes questions.",
+    replyDraft: "Objet : Votre suivi client\n\nBonjour Michel,\n\nJe connecterais votre Microsoft 365 a un suivi client simple.\n\nRadu, Digital M",
+  };
+  assert.deepEqual(checkTriage(good, lead, signal), []);
+  const out = finalizeTriage(good, lead, signal, "fr");
+  assert.equal(out.replyDraft, good.replyDraft, "a price-free proposal draft is kept exactly as written");
+  assert.equal(out.noteForRadu, good.noteForRadu, "the note is not stamped with a removal that never happened");
+});
+
+test("a declared band widens the figure guard, it never switches it off", () => {
+  const signal = signalFor("DM-8FPFT"); // not thin
+  const anaia: TriageLead = { firstName: "Anaia", budgetId: "1500-3500", budget: "1,500-3,500 EUR", answers: "" };
+  const wild: Triage = {
+    ...MODEL_ANSWER,
+    subjectSummary: "site e-commerce, exploration",
+    noteForRadu: "Proposer 45 000 EUR sur trois ans.",
+    clientRationale: "Vous voulez vendre en ligne.",
+    replyDraft: "Objet : Votre boutique\n\nBonjour Anaia,\n\nComptez 45 000 EUR, ou 120 000 EUR avec le sur-mesure.\n\nRadu, Digital M",
+  };
+  assert.ok(
+    checkTriage(wild, anaia, signal).some((p) => /figures we do not sell: 45000/.test(p)),
+    "a band they tapped used to mean no figure was read at all",
+  );
+  const out = finalizeTriage(wild, anaia, signal, "fr");
+  assert.deepEqual(moneyTokens(out.replyDraft), []);
+  assert.match(out.noteForRadu, /^Prices that are not on our grid were removed/);
+
+  // Inside their own band, and our own published prices, stay quotable.
+  const inside: Triage = {
+    ...wild,
+    noteForRadu: "Viser 2 000 a 3 500 EUR, notre forfait a 800-1 200 EUR en premiere etape.",
+    replyDraft: "Objet : Votre boutique\n\nBonjour Anaia,\n\nComptez 2 000 a 3 500 EUR.\n\nRadu, Digital M",
+  };
+  assert.deepEqual(checkTriage(inside, anaia, signal), []);
+  // And the range the prompt itself asks for on a higher band.
+  const upper: TriageLead = { firstName: "Anaia", budgetId: "3500-7000", budget: "3,500-7,000 EUR", answers: "" };
+  const worked: Triage = {
+    ...inside,
+    noteForRadu: "Viser 4 000 a 6 000 EUR.",
+    replyDraft: "Objet : Votre boutique\n\nBonjour Anaia,\n\nComptez 4 000 a 6 000 EUR.\n\nRadu, Digital M",
+  };
+  assert.deepEqual(checkTriage(worked, upper, signal), []);
+});
+
+test("the paragraph the customer reads is money-checked like the rest", () => {
+  // clientRationale is printed on the results screen, immediately above the
+  // booking button. It was the only triage field the guard never read.
+  const signal = signalFor("DM-JED9Y");
+  const onScreen: Triage = {
+    ...MODEL_ANSWER,
+    noteForRadu: "Rien de special a signaler.",
+    replyDraft: "Objet : Votre check-up\n\nBonjour Alberto,\n\nOn en parle quand vous voulez.\n\nRadu, Digital M",
+    clientRationale: "Pour vous, comptez environ 1 500 a 3 500 EUR pour demarrer.",
+  };
+  assert.ok(checkTriage(onScreen, LEAD_THIN, signal).length > 0);
+  const fr = finalizeTriage(onScreen, LEAD_THIN, signal, "fr");
+  assert.deepEqual(moneyTokens(fr.clientRationale), []);
+  assert.match(fr.clientRationale, /^Merci pour vos réponses\./, "the screen is never left with an empty paragraph");
+  const en = finalizeTriage(onScreen, { ...LEAD_THIN, firstName: "Sam" }, signal, "en");
+  assert.match(en.clientRationale, /^Thanks for your answers\./);
+});
+
+test("the subject line reads as a sentence once the price is out of it", () => {
+  // The real stored summaries of three of the five leads. No false information
+  // before, but "dès que possible, <, under 1,500 EUR" reads as broken, and
+  // this line is the first thing Radu sees every morning.
+  const jose: TriageLead = { firstName: "Jose", budgetId: "<1500", budget: "under 1,500 EUR", answers: "" };
+  assert.equal(
+    buildSubject("relance factures impayees, des que possible, <1 500 EUR", jose, "fr"),
+    "relance factures impayees, des que possible, under 1,500 EUR",
+  );
+  const unsure: TriageLead = { firstName: "X", budgetId: "unsure", answers: "" };
+  assert.equal(buildSubject("un site a moins de 1 500 EUR", unsure, "fr"), "un site, budget non précisé");
+  assert.equal(buildSubject("500 EUR de budget", unsure, "en"), "no budget given");
+  // The same fact twice is not information: the tail already says it.
+  assert.equal(
+    buildSubject("relance factures impayees, exploration, budget a definir", unsure, "fr"),
+    "relance factures impayees, exploration, budget non précisé",
+  );
+  assert.equal(
+    buildSubject("suivi client, des que possible, budget à définir", unsure, "fr"),
+    "suivi client, des que possible, budget non précisé",
+  );
+  // Only the budget words go. DM-8FPFT's real summary has no comma in it, and
+  // dropping the whole clause would have taken the trade and the timing with it.
+  const anaia: TriageLead = { firstName: "Anaia", budgetId: "1500-3500", budget: "1,500-3,500 EUR", answers: "" };
+  assert.equal(
+    buildSubject("relances factures -- site e-commerce -- exploration budget 1,5-3,5k", anaia, "fr"),
+    "relances factures -- site e-commerce -- exploration, 1,500-3,500 EUR",
+  );
+  // A budget that is described rather than left blank is not noise.
+  assert.equal(buildSubject("site vitrine, budget serre", unsure, "fr"), "site vitrine, budget serre, budget non précisé");
 });
