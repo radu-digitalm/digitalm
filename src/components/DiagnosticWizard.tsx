@@ -106,10 +106,32 @@ function shortLabel(s: string, max = 52): string {
   return `${(space > 24 ? cut.slice(0, space) : cut).trim()}…`;
 }
 
-/** url-kind answers, normalised on submit so a bare domain arrives usable. */
-const URL_QUESTION_IDS: string[] = [
+/** Every question in the tables, including the ones kept only to read old answers back. */
+const ALL_QUESTIONS: Question[] = [
   ...STEP1, ROUTER, ...Object.values(BRANCHES).flat(), TOOLS, MAGIC, ...STEP5, ...CONTACT,
-].filter((q) => q.kind === "url").map((q) => q.id);
+];
+
+/** What a visitor is actually asked: a retired question is data, never a screen. */
+const shown = (qs: Question[]): Question[] => qs.filter((q) => !q.retired);
+
+/** url-kind answers, normalised on submit so a bare domain arrives usable. */
+const URL_QUESTION_IDS: string[] = ALL_QUESTIONS.filter((q) => q.kind === "url").map((q) => q.id);
+
+/** Questions with an option that an earlier answer can take away (router card E). */
+const CONDITIONAL_QUESTIONS: Question[] = ALL_QUESTIONS.filter((q) => q.options?.some((o) => o.showIf));
+
+/**
+ * The answer keys the wizard still knows about. A draft saved before a question
+ * was cut is resumed without it: the route looks some ids up by name, and a key
+ * no screen can show any more is a fact nobody checked.
+ */
+const KNOWN_ANSWER_KEYS = new Set<string>([
+  ...shown(ALL_QUESTIONS).map((q) => q.id),
+  ...ALL_QUESTIONS.flatMap((q) => (q.noneOption ? [q.noneOption.key] : [])),
+]);
+
+/** Both paths are six screens: the counter never moves under the visitor. */
+const TOTAL_STEPS = 6;
 
 export function DiagnosticWizard({ locale }: { locale: Locale }) {
   const t = UI[locale];
@@ -175,7 +197,10 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   function resume() {
     try {
       const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}");
-      setAnswers(d.answers || {}); setOther(d.other || {}); setStep(d.step || 1);
+      const saved = (d.answers ?? {}) as Answers;
+      const kept: Answers = {};
+      for (const [k, v] of Object.entries(saved)) if (KNOWN_ANSWER_KEYS.has(k)) kept[k] = v;
+      setAnswers(kept); setOther(d.other || {}); setStep(d.step || 1);
     } catch { setStep(1); }
     setShowResume(false);
   }
@@ -185,20 +210,53 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   }
 
   // ----- branch logic -----
-  const picked = (answers.pains as string[] | undefined)?.filter((p) => p !== "unsure") as BranchKey[] | undefined;
+  // "Je ne sais pas trop" routes to branch U instead of skipping the deep dive.
+  // Half of everyone who gets past the router picks that card, and what used to
+  // reach Radu from them was a trade, a headcount and a mood.
+  const pains = answers.pains;
+  const picked: BranchKey[] = useMemo(() => {
+    const raw = Array.isArray(pains) ? (pains as string[]) : [];
+    return raw
+      .map((p) => (p === "unsure" ? "U" : p))
+      .filter((b): b is BranchKey => Object.prototype.hasOwnProperty.call(BRANCHES, b));
+  }, [pains]);
   const branchQuestions: Question[] = useMemo(() => {
-    if (!picked || picked.length === 0) return [];
+    if (picked.length === 0) return [];
     if (picked.length === 1) return BRANCHES[picked[0]!];
     return picked.flatMap((b) => BRANCHES[b].filter((q) => BRANCH_CORE[b].includes(q.id)));
   }, [picked]);
 
+  // A card an earlier answer takes away (the security card, once they say they
+  // do not sell online) must not stay selected out of sight: the branch and the
+  // score would follow a question the visitor was never shown. Pruned in an
+  // effect, never during render.
+  useEffect(() => {
+    setAnswers((a) => {
+      let next: Answers | null = null;
+      for (const q of CONDITIONAL_QUESTIONS) {
+        const v = a[q.id];
+        const hidden = (id: string) => {
+          const o = q.options?.find((x) => x.id === id);
+          return !!o?.showIf && !o.showIf(a);
+        };
+        if (Array.isArray(v)) {
+          const kept = v.filter((id) => !hidden(id));
+          if (kept.length !== v.length) { next = next ?? { ...a }; next[q.id] = kept; }
+        } else if (typeof v === "string" && v && hidden(v)) {
+          next = next ?? { ...a };
+          delete next[q.id];
+        }
+      }
+      return next ?? a;
+    });
+  }, [answers]);
+
   const stepQuestions: Question[][] = [
-    [], STEP1, [ROUTER], branchQuestions, [TOOLS, MAGIC], STEP5, CONTACT,
+    [], shown(STEP1), [ROUTER], shown(branchQuestions), [TOOLS, MAGIC], shown(STEP5), shown(CONTACT),
   ];
 
   function next() {
-    let n = step + 1;
-    if (n === 3 && branchQuestions.length === 0) n = 4; // "unsure" skips deep-dive
+    const n = step + 1;
     // Deep-dive already asked for an address: carry it over instead of asking twice.
     if (n === 6) {
       setAnswers((a) => {
@@ -208,12 +266,10 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       });
     }
     setStep(n);
-    track(`dm_step_${n}`, picked?.length ? { branch: picked.join("+") } : undefined);
+    track(`dm_step_${n}`, picked.length ? { branch: picked.join("+") } : undefined);
   }
   function back() {
-    let n = step - 1;
-    if (n === 3 && branchQuestions.length === 0) n = 2;
-    setStep(Math.max(0, n));
+    setStep(Math.max(0, step - 1));
   }
 
   /** `required`, or `requiredIf` satisfied by what they answered earlier. */
@@ -223,9 +279,17 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
 
   function answered(q: Question): boolean {
     const v = answers[q.id];
+    // "Je n'en ai pas encore" is an answer, and a more useful one than a blank.
+    if (q.noneOption && answers[q.noneOption.key] === "none") return true;
     if (q.kind === "chips-multi" || q.kind === "cards") return Array.isArray(v) && v.length > 0;
     if (q.kind === "email") return typeof v === "string" && /.+@.+\..+/.test(v);
     if (q.kind === "url") return typeof v === "string" && normalizeUrl(v) !== null;
+    // The one required sentence in the form has to be words: a full stop or a
+    // stray space used to satisfy it. "Je ne sais pas" still passes, on purpose,
+    // because the triage has to see a thin answer rather than have it blocked.
+    if (q.kind === "textarea") {
+      return typeof v === "string" && v.trim().length >= 3 && /\p{L}/u.test(v);
+    }
     return typeof v === "string" && v.trim().length > 0;
   }
 
@@ -321,7 +385,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       if (!json.ok) throw new Error("rejected");
       setReference(json.reference);
       setResult(score(merged));
-      if (Array.isArray(json.proposed) && json.proposed.length) setServerProposed(json.proposed);
+      if (Array.isArray(json.proposed)) setServerProposed(json.proposed);
       if (typeof json.rationale === "string" && json.rationale) setRationale(json.rationale);
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setStep(7);
@@ -342,13 +406,30 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       const i = cur.indexOf(id);
       if (i >= 0) cur.splice(i, 1);
       else {
-        // "unsure" on the router is exclusive.
-        if (q.id === "pains" && id === "unsure") return { ...a, [q.id]: ["unsure"] };
-        if (q.id === "pains" && cur.includes("unsure")) cur.splice(cur.indexOf("unsure"), 1);
+        // An option declared `exclusive` stands alone ("je ne sais pas trop",
+        // "rien de tout ça"): picking it clears the rest, picking anything else
+        // clears it. Declared on the option, not hardcoded on the question id.
+        const exclusiveIds = (q.options ?? []).filter((o) => o.exclusive).map((o) => o.id);
+        if (exclusiveIds.includes(id)) return { ...a, [q.id]: [id] };
+        for (const ex of exclusiveIds) {
+          const at = cur.indexOf(ex);
+          if (at >= 0) cur.splice(at, 1);
+        }
         if (q.max && cur.length >= q.max) cur.shift();
         cur.push(id);
       }
       return { ...a, [q.id]: cur };
+    });
+  }
+
+  /** The one-tap escape under a required text field ("Je n'en ai pas encore"). */
+  function toggleNone(q: Question, key: string) {
+    setAnswers((a) => {
+      const next = { ...a };
+      if (next[key] === "none") { delete next[key]; return next; }
+      next[key] = "none";
+      delete next[q.id]; // the field is cleared and disabled while it is on
+      return next;
     });
   }
 
@@ -375,6 +456,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
       const selected = (id: string) =>
         q.kind === "chips" ? val === id : Array.isArray(val) && val.includes(id);
       const isCards = q.kind === "cards";
+      // Only the options this visitor's earlier answers still allow.
+      const options = (q.options ?? []).filter((o) => !o.showIf || o.showIf(answers));
       return (
         <div key={q.id} className="mt-6 first:mt-0">
           <p className="text-base font-medium text-fg-heading">
@@ -382,7 +465,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
           </p>
           {hint ? <p className="mt-1 text-sm text-fg-faint">{hint}</p> : null}
           <div className={isCards ? "mt-3 grid gap-2" : "mt-3 flex flex-wrap gap-2"}>
-            {q.options?.map((o) => (
+            {options.map((o) => (
               <button
                 key={o.id}
                 type="button"
@@ -401,7 +484,7 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
               </button>
             ))}
           </div>
-          {q.options?.some((o) => o.other && selected(o.id)) ? (
+          {options.some((o) => o.other && selected(o.id)) ? (
             <input
               value={other[q.id] ?? ""}
               onChange={(e) => setOther((s) => ({ ...s, [q.id]: e.target.value }))}
@@ -420,27 +503,14 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         <div key={q.id} className="mt-6 first:mt-0">
           <p className="text-base font-medium text-fg-heading">{label}</p>
           {hint ? <p className="mt-1 text-sm text-fg-faint">{hint}</p> : null}
-          {q.starters ? (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {q.starters.map((s) => {
-                const txt = L === "fr" ? s.fr : s.en;
-                return (
-                  <button
-                    key={txt}
-                    type="button"
-                    onClick={() => setAnswers((a) => ({ ...a, [q.id]: txt.replace(/…$/, " ") }))}
-                    className="inline-flex min-h-[2.5rem] items-center rounded-full border border-white/10 bg-surface-2 px-3.5 py-2 text-xs text-fg-muted hover:border-accent/40 hover:text-fg-heading"
-                  >
-                    {txt}
-                  </button>
-                );
-              })}
-            </div>
-          ) : null}
+          {/* No tap-to-prefill starters: this sentence has to be theirs. The
+              placeholder is a grey example the browser never submits. */}
           <textarea
             value={(val as string) ?? ""}
             onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
             rows={3}
+            placeholder={ph}
+            aria-required={isRequired(q) || undefined}
             className={`${INPUT} mt-3 resize-y`}
           />
         </div>
@@ -479,6 +549,8 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
     const required = isRequired(q);
     const hintText = (required ? (L === "fr" ? q.hintRequiredFr : q.hintRequiredEn) : undefined) ?? hint;
     const typed = typeof val === "string" ? val.trim() : "";
+    const none = q.noneOption;
+    const noneOn = !!none && answers[none.key] === "none";
     // Same inline treatment as the booking form: only once they have left the field.
     const badUrl = q.kind === "url" && typed.length > 0 && normalizeUrl(typed) === null && touched[q.id] === true;
     return (
@@ -487,11 +559,12 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
         <input
           id={`dm-${q.id}`}
           type={q.kind === "text" ? "text" : q.kind}
-          value={(val as string) ?? ""}
+          value={noneOn ? "" : ((val as string) ?? "")}
           onChange={(e) => setAnswers((a) => ({ ...a, [q.id]: e.target.value }))}
           onBlur={() => setTouched((s) => (s[q.id] ? s : { ...s, [q.id]: true }))}
           placeholder={ph}
-          className={INPUT}
+          disabled={noneOn}
+          className={`${INPUT}${noneOn ? " opacity-50" : ""}`}
           aria-required={required || undefined}
           aria-invalid={badUrl || undefined}
           aria-describedby={badUrl ? `dm-${q.id}-error` : hintText ? `dm-${q.id}-hint` : undefined}
@@ -501,6 +574,23 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
           <p id={`dm-${q.id}-error`} role="alert" className="mt-1 text-xs text-accent-soft">{t.urlInvalid}</p>
         ) : hintText ? (
           <p id={`dm-${q.id}-hint`} className="mt-1 text-xs text-fg-faint">{hintText}</p>
+        ) : null}
+        {/* The way out of a required field, one tap, and a fact in its own
+            right: "they have none yet" is not "they did not answer". */}
+        {none ? (
+          <button
+            type="button"
+            onClick={() => toggleNone(q, none.key)}
+            aria-pressed={noneOn}
+            className={
+              "mt-2 inline-flex min-h-[2.5rem] items-center rounded-full border px-3.5 py-2 text-xs " +
+              (noneOn
+                ? "border-accent bg-accent/15 text-fg-heading"
+                : "border-white/10 bg-surface-2 text-fg-muted hover:border-accent/40 hover:text-fg-heading")
+            }
+          >
+            {L === "fr" ? none.fr : none.en}
+          </button>
         ) : null}
       </div>
     );
@@ -532,9 +622,14 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   }
 
   if (step === 7 && result) {
-    const cards: readonly ServiceLine[] =
-      serverProposed ?? (result.proposed.length ? result.proposed : (["AUTO"] as const));
-    const selfServe = result.grade === "C" && !serverProposed;
+    // The server's list wins when it sent one, empty included: "we cannot name a
+    // line from these answers" is an honest answer and the rules must not
+    // overrule it. There is no invented fallback line any more.
+    const cards: readonly ServiceLine[] = serverProposed ?? result.proposed;
+    const selfServe =
+      cards.length === 0 ||
+      result.flags.includes("thin") ||
+      (result.grade === "C" && !serverProposed?.length);
     // The AI paragraph is best-effort: when the model returns nothing usable the
     // screen falls back to the rule-based reading instead of an empty box.
     const aiSummary = typeof rationale === "string" ? rationale.trim() : "";
@@ -595,26 +690,17 @@ export function DiagnosticWizard({ locale }: { locale: Locale }) {
   }
 
   // steps 1..6
-  // The deep dive is assumed to happen until the router answer rules it out, so
-  // the total is 6 from the first screen instead of growing from 5 to 6 the
-  // moment the visitor engages ("Étape 1 sur 5" then "Étape 3 sur 6"). Only
-  // "unsure" drops it to 5, and that drop waits until they have left the router
-  // screen: while they are still on it, picking "je ne sais pas trop" and then
-  // a pain instead moved the finish line back and forth under them. The step
-  // number itself never jumps either way.
-  const routerAnswered = Array.isArray(answers.pains) && (answers.pains as string[]).length > 0;
-  const skipsDeepDive = step > 2 && routerAnswered && branchQuestions.length === 0;
-  const visibleStep = skipsDeepDive && step > 3 ? step - 1 : step;
-  const totalSteps = skipsDeepDive ? 5 : 6;
+  // Every path has a step 3 now, so the counter is a plain count: no visible
+  // step, no conditional total, nothing that can move under the visitor.
   // Capped short of full: the last screen is a form nobody has submitted yet,
   // and a bar at 100 % above it reads as "finished".
-  const pct = Math.min(95, Math.round((visibleStep / totalSteps) * 100));
+  const pct = Math.min(95, Math.round((step / TOTAL_STEPS) * 100));
 
   return (
     <div ref={topRef} className="card scroll-mt-24 p-6 md:scroll-mt-28 md:p-10">
       <div className="flex items-baseline justify-between gap-4">
         <p className="font-mono text-xs uppercase tracking-wide text-fg-faint">
-          {t.stepOf(visibleStep, totalSteps)}
+          {t.stepOf(step, TOTAL_STEPS)}
         </p>
         <p className="text-sm text-fg-muted">{t.stepNames[step - 1]}</p>
       </div>
