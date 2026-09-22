@@ -14,7 +14,6 @@ export type Answers = {
   magic?: string;
   start?: string;
   budget?: string;
-  decision?: string;
 };
 
 export type Scoring = {
@@ -32,38 +31,130 @@ const CARD_TO_LINE: Record<string, ServiceLine> = { A: "AUTO", B: "AGENT", C: "W
 const FLOOR: Record<ServiceLine, number> = { AGENT: 1500, AUTO: 1500, SEC: 1500, WEB: 3500, CRM: 3500 };
 const BUDGET_MAX: Record<string, number> = { "<1500": 1499, "1500-3500": 3500, "3500-7000": 7000, "7000+": 99999 };
 
+// Branch U - what last week actually cost them, weighted like a router card
+// (3) so a visitor who cannot name their problem lands on the same scale as
+// one who can. Before branch U existed these people were asked nothing at all
+// and reached Radu as a trade, a headcount and a mood: every rule scored zero.
+const U_WEEK_POINTS: Record<string, Partial<Record<ServiceLine, number>>> = {
+  replies: { AGENT: 3 },
+  quotes: { AUTO: 3 },
+  chasing: { CRM: 3, AUTO: 1 },
+  retyping: { AUTO: 3, CRM: 1 },
+  planning: { AGENT: 2, AUTO: 1 },
+  searching: { CRM: 3 },
+  // `none` scores nothing on purpose: "last week went fine" is a fact about
+  // the lead, not a service line. It raises the no-symptom flag instead.
+};
+
 function arr(v: unknown): string[] {
   return Array.isArray(v) ? (v as string[]) : [];
+}
+
+/** Which deep dive each router card opens. "unsure" is branch U. */
+const CARD_TO_BRANCH: Record<string, string> = { A: "A", B: "B", C: "C", D: "D", E: "E", unsure: "U" };
+
+/**
+ * The branch the visitor is ON. It is the only branch whose answers are
+ * evidence of anything, and it is defined here once so the rules and the words
+ * cannot disagree about it (lib/diagnostic/answers.ts reads this function to
+ * decide which deep-dive answers Radu is shown first).
+ *
+ * The wizard sends the answers it has COLLECTED, and it prunes none of them:
+ * someone who taps the security card, answers it, goes back and picks "the
+ * admin eats my week" instead still posts an E_platform and an E_trigger, and
+ * someone who takes the "honestly not sure" card, answers branch U and then
+ * goes back and names a card still posts a U_week and a U_where. Read without
+ * this guard, an abandoned branch unlocks a line nobody asked about — and
+ * U_week is the heaviest rule in this file, three points across four lines.
+ * What they last chose is what they are asking for.
+ */
+export function branchesOn(a: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const p of arr(a.pains)) {
+    const b = CARD_TO_BRANCH[p];
+    if (b && !out.includes(b)) out.push(b);
+  }
+  return out;
 }
 
 export function score(a: Answers): Scoring {
   const s: Record<ServiceLine, number> = { AGENT: 0, AUTO: 0, WEB: 0, CRM: 0, SEC: 0 };
   const flags: string[] = [];
+  // `tools: paper` and `U_where: paper` are two ways of saying the same thing
+  // and both raise "basics-first": the flag is a fact, not a counter.
+  const flag = (f: string): void => {
+    if (!flags.includes(f)) flags.push(f);
+  };
   const pains = arr(a.pains).filter((p) => p in CARD_TO_LINE);
 
   for (const p of pains) s[CARD_TO_LINE[p]!] += 3;
 
-  const sellsOnline = a.sellsOnline === "own-site" || a.sellsOnline === "marketplaces";
+  // A deep dive counts as evidence only while its card is the card they are
+  // on — see branchesOn(). Every branch is read through this guard, not just
+  // the security one: a stale U_week is worth three points across four lines,
+  // which is more than a stale E_platform ever was.
+  const branches = branchesOn(a);
+  const onBranch = (b: string): boolean => branches.includes(b);
+  const securityCard = onBranch("E");
+
+  // Whether a shop EXISTS, read from the evidence rather than from one chip.
+  // DM-88HKT tapped "not yet, but we would like to", then named his platform
+  // ("custom / an agency built it") and said a bank had asked about its
+  // security. Answering the security deep dive is the proof; the earlier chip
+  // is a plan. Reading only the chip zeroed his SEC score and sent him a draft
+  // telling him to come back when he was ready to sell online.
+  const sellsOnline =
+    a.sellsOnline === "own-site" ||
+    a.sellsOnline === "marketplaces" ||
+    (securityCard &&
+      (!!String(a.E_platform ?? "").trim() || !!String(a.E_url ?? "").trim()));
   if (a.sellsOnline === "want-to") s.WEB += 2;
   if (a.sellsOnline === "own-site") s.SEC += 1;
 
-  if (arr(a.A_where).includes("copying")) { s.AUTO += 1; s.CRM += 1; }
-  if (a.A_hours === "15-30" || a.A_hours === "30+") s.AUTO += 2;
+  if (onBranch("A")) {
+    if (arr(a.A_where).includes("copying")) { s.AUTO += 1; s.CRM += 1; }
+    if (a.A_hours === "15-30" || a.A_hours === "30+") s.AUTO += 2;
+  }
 
-  if (arr(a.B_asks).includes("availability")) { s.AGENT += 1; s.AUTO += 1; }
-  if (a.B_speed === "slip") { s.AGENT += 2; s.CRM += 1; }
+  if (onBranch("B")) {
+    if (arr(a.B_asks).includes("availability")) { s.AGENT += 1; s.AUTO += 1; }
+    if (a.B_speed === "slip") { s.AGENT += 2; s.CRM += 1; }
+  }
 
-  if (a.C_situation === "underperforms") { s.WEB += 2; s.SEC += 1; }
-  if (arr(a.C_matters).includes("google")) { s.WEB += 1; flags.push("seo-addon"); }
+  if (onBranch("C")) {
+    if (a.C_situation === "underperforms") { s.WEB += 2; s.SEC += 1; }
+    if (arr(a.C_matters).includes("google")) { s.WEB += 1; flag("seo-addon"); }
+  }
 
   const tools = arr(a.tools);
-  if (arr(a.D_where).includes("crm") || tools.includes("salesforce")) s.CRM += 2;
-  if (arr(a.D_breaks).includes("followups")) { s.CRM += 2; s.AGENT += 1; s.AUTO += 1; }
+  // `tools: salesforce` is step 4, asked of everyone: it is not behind a branch.
+  if (tools.includes("salesforce")) s.CRM += 2;
+  if (onBranch("D")) {
+    if (arr(a.D_where).includes("crm")) s.CRM += 2;
+    if (arr(a.D_breaks).includes("followups")) { s.CRM += 2; s.AGENT += 1; s.AUTO += 1; }
+  }
 
-  const urgentIncident = a.E_trigger === "incident" || a.E_trigger === "suspicious";
-  if (urgentIncident) { s.SEC += 3; flags.push("urgent"); }
+  // Branch U: the people who answered "honestly, I do not know". Two taps.
+  const week = onBranch("U") ? arr(a.U_week) : [];
+  for (const w of week) {
+    for (const [line, points] of Object.entries(U_WEEK_POINTS[w] ?? {})) {
+      s[line as ServiceLine] += points as number;
+    }
+  }
+  if (week.length && week.every((w) => w === "none")) flag("no-symptom");
 
-  if (tools.includes("paper")) { s.AUTO -= 1; s.CRM -= 1; s.WEB += 1; flags.push("basics-first"); }
+  // Where the work lives on a Monday morning. Paper and memory earn the same
+  // "start with the basics" flag as `tools: paper`, but NOT its -1 penalty:
+  // that penalty exists to stop us automating on top of nothing, and applied
+  // here it would cancel the very symptoms U_week just collected.
+  const where = onBranch("U") ? String(a.U_where ?? "") : "";
+  if (where === "paper" || where === "head") { s.WEB += 1; flag("basics-first"); }
+  if (where === "sheet" || where === "inbox") s.CRM += 1;
+
+  const urgentIncident = securityCard && (a.E_trigger === "incident" || a.E_trigger === "suspicious");
+  if (urgentIncident) { s.SEC += 3; flag("urgent"); }
+
+  if (tools.includes("paper")) { s.AUTO -= 1; s.CRM -= 1; s.WEB += 1; flag("basics-first"); }
   if (a.team === "6-20" || a.team === "20+") { s.AUTO += 1; s.CRM += 1; }
 
   // Security is only proposable for businesses that actually sell online.
@@ -81,7 +172,10 @@ export function score(a: Answers): Scoring {
   }
 
   let urgency = { asap: 3, "1-3mo": 2, later: 1, exploring: 0 }[a.start ?? ""] ?? 0;
-  if (a.B_speed === "slip") urgency += 1;
+  if (onBranch("B") && a.B_speed === "slip") urgency += 1;
+  // A partner or a bank asking is a deadline someone else set. "Protecting
+  // customer data" and "just to sleep better" are not, and do not bump.
+  if (securityCard && a.E_trigger === "asked") urgency += 1;
   if (urgentIncident) urgency += 2;
   urgency = Math.min(urgency, 5);
 
@@ -91,12 +185,21 @@ export function score(a: Answers): Scoring {
     budgetOk = (BUDGET_MAX[a.budget] ?? 0) >= FLOOR[proposed[0]!];
   }
 
-  const researching = a.decision === "researching";
   let grade: Grade;
-  if (urgency >= 2 && budgetOk && !researching) grade = "A";
+  if (urgency >= 2 && budgetOk) grade = "A";
   else if (urgency >= 1) grade = "B";
   else grade = "C";
   if (!budgetOk && grade === "A") grade = "B";
+
+  // The one machine-readable definition of "there is not enough here to
+  // propose anything": not one of the five lines could be named from a fact
+  // this person stated. The wizard reads it to show the self-serve tips
+  // instead of a guess, and the route reads it to pick the triage schema that
+  // has no priced field at all. Neither of them defines it again.
+  //
+  // It does not touch the grade: the grade is urgency and budget fit, and a
+  // person can be in a hurry about something we have not understood yet.
+  if (!proposed.length) flag("thin");
 
   return { scores: s, proposed, urgency, urgent: urgentIncident, grade, flags };
 }

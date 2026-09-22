@@ -3,7 +3,7 @@ import { sendMail, mailConfigured, renderClientEmail, renderLeadNotification, sp
 import { rateLimit, clientIp } from "@/lib/rateLimit";
 import { enquiriesDb, newReference } from "@/lib/enquiries";
 import { score } from "@/lib/diagnosticScoring";
-import { triageEnquiry, toAscii } from "@/lib/diagnosticTriage";
+import { triageEnquiry, toAscii, signalOf, noFitColumn, declaredBudget } from "@/lib/diagnosticTriage";
 import { notifyTelegram } from "@/lib/notify";
 import { serverTrack } from "@/lib/serverTrack";
 import { adsConversion } from "@/lib/openaiAds";
@@ -11,7 +11,7 @@ import { readAttribution, attributionLabel, attributionSource } from "@/lib/attr
 import { repairPostedPhone } from "@/lib/phone";
 import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
-import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, labelFor } from "@/lib/diagnostic/answers";
+import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, labelFor, saleFacts } from "@/lib/diagnostic/answers";
 // @@crm:inbox
 import { leadFromEnquiry } from "@/lib/inbox/hooks";
 
@@ -39,7 +39,9 @@ const BUDGET_FOR_MODEL: Record<string, string> = {
   "1500-3500": "1,500-3,500 EUR",
   "3500-7000": "3,500-7,000 EUR",
   "7000+": "7,000 EUR and up",
-  unsure: "not decided yet",
+  // No entry for "unsure" and none for a missing answer: "not decided yet"
+  // read to the model as a soft answer, and it priced a two-phase proposal on
+  // top of it (DM-JED9Y). A budget that was not given now says NOT GIVEN.
 };
 
 // Telegram refuses a message over 4,096 characters, and the push now carries
@@ -152,6 +154,9 @@ export async function POST(req: NextRequest) {
   const flagged = ts === "outage";
 
   const scoring = score(answers as Parameters<typeof score>[0]);
+  // One reading of "there is not enough here", computed from the rules' own
+  // flag and from the answers, shared by the prompt, the guards and the e-mail.
+  const signal = signalOf(answers as Record<string, unknown>, scoring);
 
   // Labelled answers (EN labels), kept as data rather than one string: the
   // email picks out the facts that decide the sale and leaves the rest for the
@@ -210,11 +215,20 @@ export async function POST(req: NextRequest) {
 
   // LLM triage — reads the free text the rules can't. Rule scoring is the fallback.
   const triage = await triageEnquiry(
-    { firstName, company, website, budget: BUDGET_FOR_MODEL[budgetId] ?? "", answers: modelAnswers },
+    { firstName, company, website, budgetId, budget: BUDGET_FOR_MODEL[budgetId] ?? "", magic, answers: modelAnswers },
     scoring,
     locale,
+    signal,
   );
-  const proposed = triage?.proposed ?? scoring.proposed;
+  // An empty proposal from the triage is an ANSWER: it read the free text the
+  // rules cannot and found nothing it could honestly name. It is stored as "-"
+  // and the results screen shows the self-serve tips instead of a guess.
+  const proposed = triage ? triage.proposed : scoring.proposed;
+  // The price line reaches Radu with no model involved, so it is gated here
+  // too: nothing that says "quote 2,000-3,500" is printed beside a triage that
+  // just said it does not know what fits.
+  const priceForMail = !triage || triage.fit === "fits" ? priceFit : undefined;
+  const noFit = triage ? noFitColumn(triage) : null;
 
   const reference = newReference();
   const attr = readAttribution(body.attribution);
@@ -234,7 +248,12 @@ export async function POST(req: NextRequest) {
     country: browserCountry,
     dial: typeof body.phoneDial === "string" ? body.phoneDial : null,
   }).slice(0, 50);
+  // Still read and still stored for the historical rows; the question itself
+  // is gone, so new rows store null.
   const source = String(answers.source ?? "").trim().slice(0, 100);
+  // "I do not have one yet" is an answer. An empty box is not, and the e-mail
+  // is allowed to tell the two apart.
+  const companyNone = String(answers.companyNone ?? "").trim();
 
   try {
     // The triage's questions for the call, its line of what we still do not
@@ -250,11 +269,13 @@ export async function POST(req: NextRequest) {
         reference, locale, JSON.stringify(answers), JSON.stringify(scoring.scores),
         proposed.join("+") || "-", scoring.grade, scoring.urgent ? 1 : 0, flagged ? 1 : 0,
         firstName, email, company || null, phone || null, source || null, ip,
-        triage?.replyDraft ?? null, triage?.noteForRadu ?? null, triage?.subjectSummary ?? null,
+        // An empty draft means it failed its checks (no first name, or not
+        // signed by Radu): that is NO draft, and the column has to say so.
+        triage?.replyDraft || null, triage?.noteForRadu ?? null, triage?.subjectSummary ?? null,
         attributionSource(attr) || null, Object.keys(attr).length ? JSON.stringify(attr) : null,
         triage?.callQuestions?.length ? JSON.stringify(triage.callQuestions) : null,
         triage?.unknowns?.trim() || null,
-        triage?.noFit?.trim() || null,
+        noFit,
         browserCountry, browserTz,
       );
   } catch (e) {
@@ -287,7 +308,9 @@ export async function POST(req: NextRequest) {
   const tgLines = [
     `🔔 ${scoring.grade}${scoring.urgent ? " · URGENT" : ""} lead — ${reference}`,
     `${firstName}${company ? ` · ${company}` : ""}${place ? ` · ${place}` : ""}`,
-    `→ ${proposed.map((p) => LINE_LABEL[p]).join(" + ") || "?"} · ${budgetLabel || "budget not stated"}`,
+    // The band they tapped, or the plain statement that there is none. The
+    // "unsure" chip is not a budget and must never read like one on a phone.
+    `→ ${proposed.map((p) => LINE_LABEL[p]).join(" + ") || "?"} · ${declaredBudget(budgetId) && budgetLabel ? budgetLabel : "budget not stated"}`,
     e164 ? `📞 ${e164}` : phone ? `📞 ${phone} (not dialable as stored)` : null,
     `✉️ ${email}`,
     via ? `📣 via ${via}` : null,
@@ -324,31 +347,33 @@ export async function POST(req: NextRequest) {
         ...(magic ? [{ label: "Magic wand — the chore they want gone", text: magic }] : []),
         ...entries.filter((e) => e.freeText).map((e) => ({ label: e.label, text: e.value })),
       ],
-      facts: [
-        { label: "What they do", value: [answerOf("activity"), answerOf("activity_other")].filter(Boolean).join(" — ") || "not stated" },
-        { label: "Size", value: answerOf("team") || "not stated" },
-        { label: "Sells online", value: answerOf("sellsOnline") || "not stated" },
-        { label: "Budget", value: budgetLabel || "not stated" },
-        { label: "Wants to start", value: answerOf("start") || "not stated" },
-        { label: "Who decides", value: answerOf("decision") || "not stated" },
-        { label: "Tools today", value: answerOf("tools") || "none picked" },
-        { label: "Website", value: website || "not given" },
-      ],
+      // One copy of the seven facts, and the deep dive above them: the lead
+      // page reads the same function, so the e-mail and the page cannot say a
+      // fact two different ways ("Other (tell us) - Travail social" here,
+      // "Travail social" there), and the branch answers that decide the call
+      // reach the first screenful instead of the wall at the bottom.
+      facts: saleFacts(answers as Record<string, unknown>),
       propose: {
         lines: proposed.map((p) => LINE_LABEL[p]).join(" + ") || "(none scored)",
         why: triage?.noteForRadu,
-        price: priceFit,
-        noFit: triage?.noFit?.trim() || undefined,
+        price: priceForMail,
+        noFit: noFit ?? undefined,
       },
       callQuestions: triage?.callQuestions,
       unknowns: triage?.unknowns,
       reply: triage?.replyDraft ? splitReplyDraft(triage.replyDraft, checkupSubject) : undefined,
-      detail: entries.map((e) => ({ label: e.label, value: e.value })),
+      // With the id, THE DETAIL can drop the rows THE FACTS already printed.
+      detail: entries.map((e) => ({ id: e.id, label: e.label, value: e.value })),
       diagnostics: [
         { label: "Rule scores", value: Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-" },
         { label: "Urgency", value: `${scoring.urgency}/5` },
         { label: "Flags", value: scoring.flags.join(", ") || "-" },
-        { label: "Heard about us", value: source ? labelFor(BY_ID.get("source")!, source) : "not answered" },
+        // "Heard about us" is gone: 6 of 7 rows carried utm_source=chatgpt
+        // automatically, the one self-report that differed was wrong, and
+        // "Attribution" right below says the same thing from data.
+        ...(company
+          ? []
+          : [{ label: "Business name", value: companyNone === "none" ? "they have none yet (they said so)" : "not given" }]),
         { label: "Attribution", value: via || "direct" },
         { label: "Language", value: locale },
         { label: "IP", value: ip },

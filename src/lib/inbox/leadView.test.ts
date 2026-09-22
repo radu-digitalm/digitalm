@@ -231,7 +231,7 @@ test("Jojo's page carries the seven highlights, the repair offer and no country 
   assert.equal(view.reach.where, "Not proven — the number they typed cannot be used");
   assert.equal(view.reach.phone.kind, "unusable");
   assert.equal(view.words.empty, "They typed nothing in their own words — the facts below are all we have.");
-  assert.equal(view.facts?.rows?.length, 8);
+  assert.equal(view.facts?.rows?.length, 9);
   assert.equal(view.upcoming?.when, "25 Sept 2026, in 4 days");
   assert.equal(view.related[0]?.label, "The check-up");
   assert.equal(view.ask, null);

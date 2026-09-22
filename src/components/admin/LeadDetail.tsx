@@ -702,6 +702,9 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
             ),
           )}
         </div>
+        {/* The letter, in words, beside the letter. Radu read "C" as a bad
+            lead; it has never meant that. Same sentence as the lead e-mail. */}
+        {view.gradeNote ? <p className="text-[15px] leading-snug text-fg-muted">{view.gradeNote}</p> : null}
 
         <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-3">
           <div className="min-w-0 space-y-1">
@@ -831,7 +834,7 @@ export function LeadDetail({ view, activities }: { view: LeadView; activities: A
                 </>
               ) : (
                 <div className="flex flex-wrap items-center gap-3">
-                  <p className="text-[16px] text-fg-muted">No draft — the AI triage did not answer. Write the reply yourself; the facts above are what you have.</p>
+                  <p className="text-[16px] text-fg-muted">{view.noReply ?? "No draft — the AI triage did not answer. Write the reply yourself; the facts above are what you have."}</p>
                   {view.reach.emailHref && !view.stopped ? (
                     <a href={view.reach.emailHref} className={buttonClass("ghost", "sm")}>
                       Write

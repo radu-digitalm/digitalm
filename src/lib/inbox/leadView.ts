@@ -14,9 +14,9 @@
 //
 // Pure apart from the two helper modules it reads (mail.ts, phone.ts): no DB,
 // no React, relative imports with .ts so `node --test` loads it.
-import { SALE_FACT_IDS, answerEntries, heardAbout, ownWords, priceFitFor, proposedLabel, saleFacts } from "../diagnostic/answers.ts";
+import { answerEntries, heardAbout, ownWords, priceFitFor, proposedLabel, saleFactIdsOn, saleFacts } from "../diagnostic/answers.ts";
 import { checkPostedPhone, countryFor, countryFromE164 } from "../phone.ts";
-import { leadPlace, mailtoAddress, replyLink, splitReplyDraft, type Prefill } from "../mail.ts";
+import { gradeLegend, leadPlace, mailtoAddress, replyLink, splitReplyDraft, type Prefill } from "../mail.ts";
 import { attributionLabel, type Attribution } from "../attribution.ts";
 import { safeHttpUrl } from "../crm/classify.ts";
 import { sqlToMs } from "../crm/time.ts";
@@ -443,6 +443,8 @@ export interface LeadView {
   stopped: boolean;
   stopNote: string | null;
   highlights: Highlight[];
+  /** What the grade letter means, in words. A letter nobody can read is not a fact. */
+  gradeNote: string | null;
   reach: {
     email: string | null;
     emailHref: string | null;
@@ -461,6 +463,8 @@ export interface LeadView {
   facts: { rows: { label: string; value: string; href: string | null }[] | null; note: string | null } | null;
   propose: { lines: string | null; price: string | null; why: string | null; noFit: string | null; note: string | null } | null;
   reply: { subject: string; body: string; href: string; label: string; note: string | null } | null;
+  /** With no draft, WHICH of the two things happened — the same sentence the e-mail prints. */
+  noReply: string | null;
   ask: { questions: string[]; unknowns: string | null } | null;
   upcoming: { action: string; date: string | null; when: string | null; overdue: boolean } | null;
   related: RelatedRow[];
@@ -566,7 +570,12 @@ export function buildLeadView(input: LeadViewInput): LeadView {
   const propose = enquiry
     ? {
         lines: proposedLabel(enquiry.proposed) || null,
-        price: priceFitFor(answers ? String(answers.budget ?? "") : ""),
+        // No price beside a badge that says nothing fits. `no_fit` is set both
+        // when nothing we sell fits and when the answers were too thin to say
+        // (the clamp), and in either case "Price that fits" is a figure the
+        // page has no business printing. The enquiry route already gates the
+        // e-mail the same way (`triage.fit === "fits"`).
+        price: enquiry.noFit ? null : priceFitFor(answers ? String(answers.budget ?? "") : ""),
         why: enquiry.noteForRadu,
         noFit: enquiry.noFit,
         note: enquiry.noteForRadu ? null : "The AI triage did not answer — the lines and the grade above are rule-based only.",
@@ -588,6 +597,23 @@ export function buildLeadView(input: LeadViewInput): LeadView {
       note: lead.email ? null : "No address on file — call them instead.",
     };
   }
+  // No draft, and WHICH of the two things happened. A draft that failed its two
+  // checks (greet this person by name, be signed by Radu) is not a triage that
+  // never ran, and an empty box said neither. The test is the same one the lead
+  // e-mail applies: the triage's other output is on the row, or it is not.
+  const triageAnswered = !!(
+    enquiry &&
+    (enquiry.subjectSummary?.trim() ||
+      enquiry.unknowns?.trim() ||
+      enquiry.noteForRadu?.trim() ||
+      (enquiry.callQuestions ?? []).some((q) => q.trim()))
+  );
+  const noReply =
+    !enquiry || enquiry.replyDraft
+      ? null
+      : triageAnswered
+        ? "No draft — it did not pass its checks (no first name, or not signed by Radu). Write this one yourself; the facts above are what you have."
+        : "No draft — the AI triage did not answer at all. Write the reply yourself; the facts above are what you have.";
 
   // ---- ask them
   const ask =
@@ -652,7 +678,11 @@ export function buildLeadView(input: LeadViewInput): LeadView {
   // ---- details
   const details: DetailSection[] = [];
   if (answers && !answersBroken) {
-    const rest = answerEntries(answers).filter((e) => !SALE_FACT_IDS.includes(e.id) && e.id !== "source" && e.id !== "source_other");
+    // Against the ids THIS lead's facts really cover, not the constant: a
+    // branch the visitor backed out of is covered by neither list otherwise,
+    // and the answer appears nowhere on the page.
+    const covered = saleFactIdsOn(answers);
+    const rest = answerEntries(answers).filter((e) => !covered.includes(e.id) && e.id !== "source" && e.id !== "source_other");
     if (rest.length) details.push({ title: "The rest of the check-up", rows: rest.map((e) => ({ label: e.label, value: e.value })) });
   }
   if (enquiry) {
@@ -723,6 +753,7 @@ export function buildLeadView(input: LeadViewInput): LeadView {
     stopped: lead.stage === "stop",
     stopNote: lead.stage === "stop" ? "Asked not to be contacted — every way of reaching them is switched off here." : null,
     highlights,
+    gradeNote: enquiry ? gradeLegend(enquiry.grade) || null : null,
     reach: {
       email: lead.email,
       emailHref: lead.email ? `mailto:${mailtoAddress(lead.email)}` : null,
@@ -736,6 +767,7 @@ export function buildLeadView(input: LeadViewInput): LeadView {
     facts: enquiry ? { rows: factRows, note: factNote } : null,
     propose,
     reply,
+    noReply,
     ask,
     upcoming,
     related,

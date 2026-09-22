@@ -12,6 +12,18 @@ export type Option = {
   other?: boolean;
   /** With `other`: the free-text box has to be filled in before moving on. */
   otherRequired?: true;
+  /**
+   * Stands alone: picking it clears every other choice, and picking anything
+   * else clears it. Declared here rather than hardcoded in the wizard, so a
+   * second exclusive option costs no code.
+   */
+  exclusive?: true;
+  /**
+   * Offered only when an earlier answer makes it possible. A hidden option is
+   * also dropped from the stored answer, so the branch and the scoring can
+   * never follow a card the visitor was never shown.
+   */
+  showIf?: (answers: Record<string, unknown>) => boolean;
 };
 
 export type Question = {
@@ -35,11 +47,23 @@ export type Question = {
   placeholderEn?: string;
   placeholderFr?: string;
   options?: Option[];
-  /** Tap-to-prefill starters (magic wand). */
-  starters?: { en: string; fr: string }[];
+  /**
+   * One-tap escape for a required text field ("I do not have one yet"). Tapping
+   * it clears and disables the input and writes `key: "none"` into the answers,
+   * which is what satisfies `required`. "They have none" and "they could not be
+   * bothered" are different facts and the lead e-mail says which.
+   */
+  noneOption?: { key: string; en: string; fr: string };
+  /**
+   * Cut from the form, kept in the table. The wizard never renders it, so no
+   * new answer can be stored against it; everything that reads an OLD answer
+   * back (the lead e-mail, the lead page, `heardAbout`) still finds the option
+   * labels instead of printing a raw id at Radu.
+   */
+  retired?: true;
 };
 
-export type BranchKey = "A" | "B" | "C" | "D" | "E";
+export type BranchKey = "A" | "B" | "C" | "D" | "E" | "U";
 
 // ---------- Step 1 — Your business ----------
 export const STEP1: Question[] = [
@@ -101,12 +125,88 @@ export const ROUTER: Question = {
     { id: "B", en: "We miss messages or answer customers too slowly", fr: "On rate des messages ou on répond trop lentement aux clients" },
     { id: "C", en: "Our website is outdated, or we have none, and it brings in no business", fr: "Notre site est dépassé, ou on n'en a pas, et il ne ramène pas de clients" },
     { id: "D", en: "Customer info is scattered: quotes and follow-ups get forgotten", fr: "Les infos clients sont éparpillées : des devis et des relances sont oubliés" },
-    { id: "E", en: "I worry about the security of our online shop", fr: "Je m'inquiète pour la sécurité de notre boutique en ligne" },
-    { id: "unsure", en: "Honestly not sure, that's exactly why I'm here", fr: "Honnêtement, je ne sais pas trop, c'est justement pour ça que je suis là" },
+    // Offered to anyone who has a shop, wants one, or sells on a marketplace.
+    // "Pas encore, mais on aimerait" is not evidence that there is no shop: the
+    // 20 Sep lead answered exactly that and then described a shop an agency
+    // built for him. Only "Non, et ça nous va" rules the card out.
+    {
+      id: "E",
+      en: "I worry about the security of our online shop",
+      fr: "Je m'inquiète pour la sécurité de notre boutique en ligne",
+      showIf: (a) => a.sellsOnline !== "no",
+    },
+    {
+      id: "unsure",
+      en: "Honestly not sure, that's exactly why I'm here",
+      fr: "Honnêtement, je ne sais pas trop, c'est justement pour ça que je suis là",
+      exclusive: true,
+    },
   ],
 };
 
 // ---------- Step 3 — Branch deep-dives ----------
+
+/**
+ * Shared by branch B and branch U — one object, referenced twice, never copied.
+ * For someone who cannot name their own problem it says where an assistant
+ * would have to live. `answerEntries` keys by id, so it stores and prints once.
+ */
+const B_CHANNELS: Question = {
+  id: "B_channels",
+  kind: "chips-multi",
+  en: "How do customers reach you?",
+  fr: "Par où les clients vous contactent-ils ?",
+  options: [
+    { id: "email", en: "Email", fr: "E-mail" },
+    { id: "phone", en: "Phone", fr: "Téléphone" },
+    { id: "whatsapp", en: "WhatsApp", fr: "WhatsApp" },
+    { id: "social", en: "Instagram / Facebook", fr: "Instagram / Facebook" },
+    { id: "form", en: "Website form", fr: "Formulaire du site" },
+    { id: "marketplace", en: "Marketplace messages", fr: "Messages des places de marché" },
+  ],
+};
+
+/**
+ * Branch U — for "Honnêtement, je ne sais pas trop". Two required taps and one
+ * optional, no typing unless they pick "un logiciel". Every option is a symptom
+ * they lived through last week: none of them asks a non-technical person to
+ * name a cause, which is the thing they have just told us they cannot do.
+ */
+const U_WEEK: Question = {
+  id: "U_week",
+  kind: "chips-multi",
+  required: true,
+  max: 2,
+  en: "Last week, what took the most time away from your real work?",
+  fr: "La semaine dernière, qu'est-ce qui vous a pris le plus de temps en dehors de votre vrai travail ?",
+  hintEn: "Pick up to two. Think of last week, not of a normal week.",
+  hintFr: "Choisissez-en jusqu'à deux. Pensez à la semaine dernière, pas à une semaine normale.",
+  options: [
+    { id: "replies", en: "Answering customers (messages, calls, e-mails)", fr: "Répondre aux clients (messages, appels, e-mails)" },
+    { id: "quotes", en: "Writing quotes or invoices", fr: "Faire des devis ou des factures" },
+    { id: "chasing", en: "Chasing people who did not reply or did not pay", fr: "Relancer ceux qui n'ont pas répondu ou pas payé" },
+    { id: "retyping", en: "Typing the same information in two places", fr: "Ressaisir les mêmes informations à deux endroits" },
+    { id: "planning", en: "Sorting out appointments and the schedule", fr: "Gérer les rendez-vous et le planning" },
+    { id: "searching", en: "Looking for information I could not find again", fr: "Chercher une information que je ne retrouvais plus" },
+    { id: "none", en: "None of that, last week went fine", fr: "Rien de tout ça, la semaine s'est bien passée", exclusive: true },
+  ],
+};
+
+const U_WHERE: Question = {
+  id: "U_where",
+  kind: "chips",
+  required: true,
+  en: "On a Monday morning, where do you find what you have to do?",
+  fr: "Le lundi matin, où retrouvez-vous ce que vous avez à faire ?",
+  options: [
+    { id: "paper", en: "On paper: a notebook, a diary, a board", fr: "Sur papier : un carnet, un agenda, un tableau" },
+    { id: "head", en: "Mostly in my head", fr: "Surtout dans ma tête" },
+    { id: "sheet", en: "In a spreadsheet (Excel, Google Sheets)", fr: "Dans un tableur (Excel, Google Sheets)" },
+    { id: "inbox", en: "In my inbox and my messages", fr: "Dans ma boîte mail et mes messages" },
+    { id: "software", en: "In software made for that (which one?)", fr: "Dans un logiciel prévu pour ça (lequel ?)", other: true },
+  ],
+};
+
 export const BRANCHES: Record<BranchKey, Question[]> = {
   A: [
     {
@@ -142,20 +242,7 @@ export const BRANCHES: Record<BranchKey, Question[]> = {
     },
   ],
   B: [
-    {
-      id: "B_channels",
-      kind: "chips-multi",
-      en: "How do customers reach you?",
-      fr: "Par où les clients vous contactent-ils ?",
-      options: [
-        { id: "email", en: "Email", fr: "E-mail" },
-        { id: "phone", en: "Phone", fr: "Téléphone" },
-        { id: "whatsapp", en: "WhatsApp", fr: "WhatsApp" },
-        { id: "social", en: "Instagram / Facebook", fr: "Instagram / Facebook" },
-        { id: "form", en: "Website form", fr: "Formulaire du site" },
-        { id: "marketplace", en: "Marketplace messages", fr: "Messages des places de marché" },
-      ],
-    },
+    B_CHANNELS,
     {
       id: "B_asks",
       kind: "chips-multi",
@@ -288,12 +375,18 @@ export const BRANCHES: Record<BranchKey, Question[]> = {
     {
       id: "E_url",
       kind: "url",
-      en: "Your shop address (optional)",
-      fr: "L'adresse de votre boutique (facultatif)",
+      // Required: the one lead in five with a real shop left us no address
+      // anywhere, and a security answer written without looking is guesswork.
+      required: true,
+      en: "Your shop address",
+      fr: "L'adresse de votre boutique",
+      hintEn: "So we can look at it before we reply.",
+      hintFr: "Pour qu'on y jette un œil avant de vous répondre.",
       placeholderEn: "yourshop.com",
       placeholderFr: "votreboutique.fr",
     },
   ],
+  U: [U_WEEK, U_WHERE, B_CHANNELS],
 };
 
 /** Core two questions per branch when TWO router cards are picked (hard cap 4). */
@@ -303,6 +396,9 @@ export const BRANCH_CORE: Record<BranchKey, string[]> = {
   C: ["C_situation", "C_matters"],
   D: ["D_where", "D_breaks"],
   E: ["E_platform", "E_trigger"],
+  // "unsure" is exclusive, so U is never combined with another branch. The
+  // entry keeps the Record total.
+  U: ["U_week", "U_where"],
 };
 
 // ---------- Step 4 — Tools & magic wand ----------
@@ -328,19 +424,24 @@ export const TOOLS: Question = {
   ],
 };
 
+/**
+ * The one sentence the whole triage is built on, so it has to be theirs. The
+ * three tap-to-prefill starters are deleted: 5 of the 7 answers ever stored
+ * were byte-identical to a starter, trailing space and all, and they then
+ * outranked the cards the visitor had chosen on purpose. The placeholder is
+ * deliberately not one of the five service lines, and placeholder text is never
+ * submitted as a value.
+ */
 export const MAGIC: Question = {
   id: "magic",
   kind: "textarea",
   required: true,
-  en: "With one wave of a magic wand, which chore would you make disappear by tomorrow morning?",
-  fr: "D'un coup de baguette magique, quelle corvée feriez-vous disparaître demain matin ?",
-  hintEn: "One sentence is enough. It is the answer that helps us most.",
-  hintFr: "Une seule phrase suffit. C'est la réponse qui nous aide le plus.",
-  starters: [
-    { en: "Chasing unpaid invoices…", fr: "Courir après les factures impayées…" },
-    { en: "Answering the same WhatsApp questions…", fr: "Répondre aux mêmes questions WhatsApp…" },
-    { en: "Re-typing things into different tools…", fr: "Ressaisir les mêmes infos dans plusieurs outils…" },
-  ],
+  en: "If you could hand one task to someone else tomorrow morning, which one would it be?",
+  fr: "Si vous pouviez confier une seule tâche à quelqu'un d'autre demain matin, ce serait laquelle ?",
+  hintEn: "One sentence in your own words is enough. It is the answer that helps us most, even if it has nothing to do with computers.",
+  hintFr: "Une phrase, avec vos mots, suffit. C'est la réponse qui nous aide le plus, même si elle n'a rien d'informatique.",
+  placeholderEn: "For example: the Saturday-morning paperwork nobody else can do.",
+  placeholderFr: "Par exemple : la paperasse du samedi matin que personne d'autre ne peut faire.",
 };
 
 // ---------- Step 5 — Practical bits ----------
@@ -384,28 +485,34 @@ export const STEP5: Question[] = [
       { id: "1500-3500", en: "€1,500–3,500", fr: "1 500–3 500 €" },
       { id: "3500-7000", en: "€3,500–7,000", fr: "3 500–7 000 €" },
       { id: "7000+", en: "€7,000+", fr: "7 000 € et plus" },
-      { id: "unsure", en: "Not sure yet", fr: "Pas encore décidé" },
+      // Says out loud what the chip has always meant, so nobody reads a silence
+      // as a band. The id, the scoring, the stored value and BUDGET_CAD are
+      // untouched.
+      { id: "unsure", en: "No idea yet, tell me what it costs", fr: "Je ne sais pas encore, dites-moi ce que ça coûte" },
     ],
   },
-  {
-    id: "decision",
-    kind: "chips",
-    en: "Who decides on something like this?",
-    fr: "Qui décide, chez vous, pour ce genre de projet ?",
-    options: [
-      { id: "me", en: "Just me", fr: "Moi seul(e)" },
-      { id: "partners", en: "Me + partner(s)", fr: "Moi + associé(s)" },
-      { id: "signoff", en: "Someone else signs off", fr: "Quelqu'un d'autre valide" },
-      { id: "researching", en: "I'm researching for someone else", fr: "Je me renseigne pour quelqu'un d'autre" },
-    ],
-  },
+  // "Qui décide ?" is cut: 7 of 7 leads answered "Moi seul(e)", the only value
+  // that moved the grade has never been picked, and for a solo or 2-5 person
+  // business `team` on step 1 already answers it.
 ];
 
 // ---------- Step 6 — Contact ----------
 export const CONTACT: Question[] = [
   { id: "firstName", kind: "text", required: true, en: "First name", fr: "Prénom" },
   { id: "email", kind: "email", required: true, en: "Email", fr: "E-mail" },
-  { id: "company", kind: "text", en: "Business name (optional)", fr: "Nom de votre entreprise (facultatif)" },
+  {
+    id: "company",
+    kind: "text",
+    // Required, with a one-tap way out. Every lead so far arrived with no
+    // business name, and nothing told us whether they have none or simply did
+    // not bother: the escape chip makes the two different answers.
+    required: true,
+    en: "Business name",
+    fr: "Nom de votre entreprise",
+    hintEn: "It lets us look you up before we reply.",
+    hintFr: "Cela nous permet de vous trouver avant de vous répondre.",
+    noneOption: { key: "companyNone", en: "I do not have one yet", fr: "Je n'en ai pas encore" },
+  },
   {
     id: "phone",
     kind: "tel",
@@ -419,18 +526,26 @@ export const CONTACT: Question[] = [
     kind: "url",
     // Required once they have told us they sell on their own site.
     requiredIf: (a) => a.sellsOnline === "own-site",
-    en: "Your website (if you have one)",
-    fr: "Votre site web (si vous en avez un)",
-    hintEn: "It lets us take a look before the call.",
-    hintFr: "Cela nous permet d'y jeter un œil avant l'appel.",
+    en: "Your website, Facebook page or Google listing",
+    fr: "Votre site, votre page Facebook ou votre fiche Google",
+    hintEn: "Anything we can look at before we reply.",
+    hintFr: "N'importe quoi qu'on puisse regarder avant de vous répondre.",
     hintRequiredEn: "You sell on your own site, so the address lets us take a look before the call.",
     hintRequiredFr: "Vous vendez sur votre propre site : l'adresse nous permet d'y jeter un œil avant l'appel.",
     placeholderEn: "yourbusiness.com",
     placeholderFr: "votreentreprise.fr",
   },
+  // "Comment nous avez-vous connus ?" is cut from the form: 6 of 7 rows already
+  // carry utm_source=chatgpt from the click itself, the one self-report that
+  // differed was wrong, and it was a seven-option scan on the screen that loses
+  // 60 per cent of the people who reach it. It stays here `retired`, so the
+  // seven leads who did answer it still read as "Word of mouth" on the lead page
+  // instead of "word". The `enquiries.source` column and `heardAbout()` stay;
+  // new rows store null, because nothing asks the question any more.
   {
     id: "source",
     kind: "chips",
+    retired: true,
     en: "How did you hear about us?",
     fr: "Comment nous avez-vous connus ?",
     options: [
