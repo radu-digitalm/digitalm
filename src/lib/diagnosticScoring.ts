@@ -50,6 +50,33 @@ function arr(v: unknown): string[] {
   return Array.isArray(v) ? (v as string[]) : [];
 }
 
+/** Which deep dive each router card opens. "unsure" is branch U. */
+const CARD_TO_BRANCH: Record<string, string> = { A: "A", B: "B", C: "C", D: "D", E: "E", unsure: "U" };
+
+/**
+ * The branch the visitor is ON. It is the only branch whose answers are
+ * evidence of anything, and it is defined here once so the rules and the words
+ * cannot disagree about it (lib/diagnostic/answers.ts reads this function to
+ * decide which deep-dive answers Radu is shown first).
+ *
+ * The wizard sends the answers it has COLLECTED, and it prunes none of them:
+ * someone who taps the security card, answers it, goes back and picks "the
+ * admin eats my week" instead still posts an E_platform and an E_trigger, and
+ * someone who takes the "honestly not sure" card, answers branch U and then
+ * goes back and names a card still posts a U_week and a U_where. Read without
+ * this guard, an abandoned branch unlocks a line nobody asked about — and
+ * U_week is the heaviest rule in this file, three points across four lines.
+ * What they last chose is what they are asking for.
+ */
+export function branchesOn(a: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  for (const p of arr(a.pains)) {
+    const b = CARD_TO_BRANCH[p];
+    if (b && !out.includes(b)) out.push(b);
+  }
+  return out;
+}
+
 export function score(a: Answers): Scoring {
   const s: Record<ServiceLine, number> = { AGENT: 0, AUTO: 0, WEB: 0, CRM: 0, SEC: 0 };
   const flags: string[] = [];
@@ -62,13 +89,13 @@ export function score(a: Answers): Scoring {
 
   for (const p of pains) s[CARD_TO_LINE[p]!] += 3;
 
-  // The security deep dive counts as evidence only while card E is the card
-  // they are on. The wizard merges the answers it has collected, so someone
-  // who taps E, answers it, goes back and picks A instead still SENDS an
-  // E_platform and an E_trigger; without this guard that stale pair would
-  // unlock a line they did not ask about and add a point of urgency nobody
-  // stated. What they last chose is what they are asking for.
-  const securityCard = pains.includes("E");
+  // A deep dive counts as evidence only while its card is the card they are
+  // on — see branchesOn(). Every branch is read through this guard, not just
+  // the security one: a stale U_week is worth three points across four lines,
+  // which is more than a stale E_platform ever was.
+  const branches = branchesOn(a);
+  const onBranch = (b: string): boolean => branches.includes(b);
+  const securityCard = onBranch("E");
 
   // Whether a shop EXISTS, read from the evidence rather than from one chip.
   // DM-88HKT tapped "not yet, but we would like to", then named his platform
@@ -84,21 +111,31 @@ export function score(a: Answers): Scoring {
   if (a.sellsOnline === "want-to") s.WEB += 2;
   if (a.sellsOnline === "own-site") s.SEC += 1;
 
-  if (arr(a.A_where).includes("copying")) { s.AUTO += 1; s.CRM += 1; }
-  if (a.A_hours === "15-30" || a.A_hours === "30+") s.AUTO += 2;
+  if (onBranch("A")) {
+    if (arr(a.A_where).includes("copying")) { s.AUTO += 1; s.CRM += 1; }
+    if (a.A_hours === "15-30" || a.A_hours === "30+") s.AUTO += 2;
+  }
 
-  if (arr(a.B_asks).includes("availability")) { s.AGENT += 1; s.AUTO += 1; }
-  if (a.B_speed === "slip") { s.AGENT += 2; s.CRM += 1; }
+  if (onBranch("B")) {
+    if (arr(a.B_asks).includes("availability")) { s.AGENT += 1; s.AUTO += 1; }
+    if (a.B_speed === "slip") { s.AGENT += 2; s.CRM += 1; }
+  }
 
-  if (a.C_situation === "underperforms") { s.WEB += 2; s.SEC += 1; }
-  if (arr(a.C_matters).includes("google")) { s.WEB += 1; flag("seo-addon"); }
+  if (onBranch("C")) {
+    if (a.C_situation === "underperforms") { s.WEB += 2; s.SEC += 1; }
+    if (arr(a.C_matters).includes("google")) { s.WEB += 1; flag("seo-addon"); }
+  }
 
   const tools = arr(a.tools);
-  if (arr(a.D_where).includes("crm") || tools.includes("salesforce")) s.CRM += 2;
-  if (arr(a.D_breaks).includes("followups")) { s.CRM += 2; s.AGENT += 1; s.AUTO += 1; }
+  // `tools: salesforce` is step 4, asked of everyone: it is not behind a branch.
+  if (tools.includes("salesforce")) s.CRM += 2;
+  if (onBranch("D")) {
+    if (arr(a.D_where).includes("crm")) s.CRM += 2;
+    if (arr(a.D_breaks).includes("followups")) { s.CRM += 2; s.AGENT += 1; s.AUTO += 1; }
+  }
 
   // Branch U: the people who answered "honestly, I do not know". Two taps.
-  const week = arr(a.U_week);
+  const week = onBranch("U") ? arr(a.U_week) : [];
   for (const w of week) {
     for (const [line, points] of Object.entries(U_WEEK_POINTS[w] ?? {})) {
       s[line as ServiceLine] += points as number;
@@ -110,8 +147,9 @@ export function score(a: Answers): Scoring {
   // "start with the basics" flag as `tools: paper`, but NOT its -1 penalty:
   // that penalty exists to stop us automating on top of nothing, and applied
   // here it would cancel the very symptoms U_week just collected.
-  if (a.U_where === "paper" || a.U_where === "head") { s.WEB += 1; flag("basics-first"); }
-  if (a.U_where === "sheet" || a.U_where === "inbox") s.CRM += 1;
+  const where = onBranch("U") ? String(a.U_where ?? "") : "";
+  if (where === "paper" || where === "head") { s.WEB += 1; flag("basics-first"); }
+  if (where === "sheet" || where === "inbox") s.CRM += 1;
 
   const urgentIncident = securityCard && (a.E_trigger === "incident" || a.E_trigger === "suspicious");
   if (urgentIncident) { s.SEC += 3; flag("urgent"); }
@@ -134,7 +172,7 @@ export function score(a: Answers): Scoring {
   }
 
   let urgency = { asap: 3, "1-3mo": 2, later: 1, exploring: 0 }[a.start ?? ""] ?? 0;
-  if (a.B_speed === "slip") urgency += 1;
+  if (onBranch("B") && a.B_speed === "slip") urgency += 1;
   // A partner or a bank asking is a deadline someone else set. "Protecting
   // customer data" and "just to sleep better" are not, and do not bump.
   if (securityCard && a.E_trigger === "asked") urgency += 1;

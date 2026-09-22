@@ -2,7 +2,7 @@ import nodemailer from "nodemailer";
 import dns from "node:dns/promises";
 import net from "node:net";
 import { checkPostedPhone, countryFor, countryFromE164 } from "./phone.ts";
-import { SALE_FACT_IDS } from "./diagnostic/answers.ts";
+import { CORE_FACT_IDS } from "./diagnostic/answers.ts";
 
 const TO = process.env.CONTACT_FORM_TO || "contact@digitalm.eu";
 const FROM_ADDR =
@@ -399,18 +399,47 @@ function gradeLegend(grade: string): string {
 /**
  * Nothing could honestly be named. Saying "Lines: (none scored)" reads as a
  * scoring accident; it is an answer, and the questions below are the work.
+ *
+ * "The questions below" has to be true. When the triage is down there are no
+ * call questions in the message at all, and WHAT TO PROPOSE was followed
+ * straight by the reply draft, pointing at a block that does not exist.
  */
 const NOTHING_TO_PROPOSE = "Not enough here to quote. Ask the questions below before proposing anything.";
+const NOTHING_TO_PROPOSE_ALONE = "Not enough here to quote. Ask them what they are trying to fix before proposing anything.";
+
+function nothingToProposeLine(i: LeadMailInput): string {
+  return (i.callQuestions ?? []).some((q) => q.trim()) ? NOTHING_TO_PROPOSE : NOTHING_TO_PROPOSE_ALONE;
+}
 
 /**
- * No draft. Either the triage never answered, or the draft it wrote failed the
- * two checks every draft has to pass (greet this person by name, be signed by
- * Radu). One of five live drafts opened "Bonjour," and signed "L'equipe
- * Digital M", and a draft Radu has to proofread is worse than no draft,
- * because he will eventually stop proofreading.
+ * No draft, and which of the two things happened. A draft that failed its two
+ * checks (greet this person by name, be signed by Radu) is a different message
+ * from a triage that never ran: telling Radu his draft failed checks that were
+ * never run sends him looking for a draft that was never written. One of five
+ * live drafts opened "Bonjour," and signed "L'equipe Digital M", and a draft
+ * Radu has to proofread is worse than no draft, because he will eventually
+ * stop proofreading.
+ *
+ * Nothing has to be passed in for this: the triage's other output is in the
+ * message or it is not.
  */
 const NO_DRAFT =
-  "No draft: either the AI triage did not answer, or the draft did not pass its checks (no first name, or not signed by Radu). Write this one yourself.";
+  "No draft: the draft did not pass its checks (no first name, or not signed by Radu). Write this one yourself.";
+const NO_DRAFT_NO_TRIAGE =
+  "No draft: the AI triage did not answer at all, so everything above is the rules on their own. Write this one yourself.";
+
+function triageAnswered(i: LeadMailInput): boolean {
+  return !!(
+    i.summary?.trim() ||
+    i.unknowns?.trim() ||
+    i.propose?.why?.trim() ||
+    (i.callQuestions ?? []).some((q) => q.trim())
+  );
+}
+
+function noDraftLine(i: LeadMailInput): string {
+  return triageAnswered(i) ? NO_DRAFT : NO_DRAFT_NO_TRIAGE;
+}
 
 /** True when there is no service line to name. */
 function nothingToPropose(lines: string | undefined): boolean {
@@ -430,13 +459,31 @@ const NOTHING_SUBJECT = "not enough to quote - ask first";
 /**
  * THE DETAIL is "everything else", and it was not: six of the seven rows of
  * THE FACTS were reprinted word for word a few lines below, in the text part
- * and the HTML part of every lead e-mail. `SALE_FACT_IDS` is the list of
- * answers the facts already cover - the same list the lead page reads - so a
- * row that carries its id and appears there is dropped here. A row with no id
- * is printed as given, so a caller that has already filtered loses nothing.
+ * and the HTML part of every lead e-mail.
+ *
+ * A row is dropped only against the facts this message was ACTUALLY given:
+ * the seven core facts every caller prints (`CORE_FACT_IDS`), plus whatever
+ * ids the facts list carries. Dropping the whole deep dive against a constant
+ * was a way to lose it altogether: until the route passes `saleFacts(...)`,
+ * its facts list is seven demographic rows with no deep dive in it, and
+ * Steven's "an agency built it" and "a partner or bank asked" - the whole of
+ * his call - would have been filtered out of the one place they still appear.
+ *
+ * A row with no id is printed as given, so a caller that has already filtered
+ * loses nothing, and a caller that passes no facts at all keeps every row.
  */
 function detailFacts(i: LeadMailInput): LeadMailFact[] {
-  return (i.detail ?? []).filter((f) => !f.id || !SALE_FACT_IDS.includes(f.id));
+  const detail = i.detail ?? [];
+  const facts = i.facts ?? [];
+  if (!facts.length) return detail;
+  const printed = new Set(facts.map((f) => f.id).filter((id): id is string => !!id));
+  return detail.filter((f) => {
+    if (!f.id) return true;
+    // "Autre (précisez)" is printed with the chip it belongs to, so a fact
+    // that carries the chip carries the box with it.
+    if (printed.has(f.id.replace(/_other$/, ""))) return false;
+    return !CORE_FACT_IDS.includes(f.id);
+  });
 }
 
 /** Subject: reference, grade, who, where, need. Works with no AI answer at all. */
@@ -451,7 +498,9 @@ function leadSubject(i: LeadMailInput): string {
       ? nothingToPropose(i.propose.lines)
         ? NOTHING_SUBJECT
         : [i.propose.lines, budget].filter(Boolean).join(", ")
-      : "") ||
+      : // No proposal block at all: the band they tapped is still better than
+        // nothing, and it is a figure they typed themselves.
+        budget || "") ||
     "new check-up";
   return `[${i.reference}] ${i.grade}${flags ? ` ${flags}` : ""} - ${who}${where} - ${need}`.slice(0, 190);
 }
@@ -481,7 +530,7 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
         "",
         i.reply.body.trim() || "(the AI returned a subject line and no body - write the reply yourself)",
       ].join("\n")
-    : NO_DRAFT;
+    : noDraftLine(i);
 
   // The plain-text part is what Telegram and some clients show, so the link
   // has to stay readable rather than bury the message in three lines of %20.
@@ -513,7 +562,7 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
       "WHAT TO PROPOSE",
       i.propose
         ? [
-            nothingToPropose(i.propose.lines) ? NOTHING_TO_PROPOSE : `Lines: ${i.propose.lines}`,
+            nothingToPropose(i.propose.lines) ? nothingToProposeLine(i) : `Lines: ${i.propose.lines}`,
             i.propose.price ? `Price range that fits: ${i.propose.price}` : null,
             i.propose.why ? `Why: ${i.propose.why}` : null,
             i.propose.noFit ? `HONEST FLAG: ${i.propose.noFit}` : null,
@@ -607,7 +656,7 @@ function renderLeadHtml(i: LeadMailInput): string {
   const nothingNamed = !!i.propose && nothingToPropose(i.propose.lines);
   const proposeHtml = i.propose
     ? (nothingNamed
-        ? `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:${INK};font-weight:600;">${esc(NOTHING_TO_PROPOSE)}</p>`
+        ? `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:${INK};font-weight:600;">${esc(nothingToProposeLine(i))}</p>`
         : "") +
       htmlFacts(
         [
@@ -655,7 +704,7 @@ function renderLeadHtml(i: LeadMailInput): string {
       }</div>
     </div>
     <p style="margin:12px 0 0;">${htmlButton(sendLabel[send.prefill], send.href, true)}</p>`
-    : `<p style="margin:0;font-size:14px;color:${INK};">${esc(NO_DRAFT)}</p>`;
+    : `<p style="margin:0;font-size:14px;color:${INK};">${esc(noDraftLine(i))}</p>`;
 
   const detail = [...detailFacts(i), ...(i.diagnostics ?? [])];
 

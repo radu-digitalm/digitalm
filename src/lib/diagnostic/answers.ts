@@ -10,6 +10,7 @@
 // Pure — the question tables and nothing else. No DB, no React, relative
 // imports with .ts so `node --test` loads it.
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "../../content/diagnostic.ts";
+import { branchesOn } from "../diagnosticScoring.ts";
 
 // ---- shared labels (the e-mail's words, verbatim) --------------------------------
 
@@ -166,6 +167,27 @@ const BRANCH_IDS: string[] = Object.values(BRANCHES)
   .map((q) => q.id)
   .filter((id, i, all) => all.indexOf(id) === i && id !== "C_url" && id !== "E_url");
 
+/** The same list, per branch, so a branch can be read on its own. */
+const IDS_BY_BRANCH: Record<string, string[]> = Object.fromEntries(
+  Object.entries(BRANCHES).map(([key, qs]) => [key, qs.map((q) => q.id).filter((id) => BRANCH_IDS.includes(id))]),
+);
+
+/**
+ * The deep-dive answers that are evidence for THIS lead: the questions of the
+ * branch they are on, in the order the branch asks them.
+ *
+ * `branchesOn` (lib/diagnosticScoring.ts) is the one definition of which card
+ * they are on, and the rules refuse to score anything else. Printing what the
+ * rules refuse to read is how a lead e-mail comes to open with "we had an
+ * incident" on a lead the scoring has already decided is not urgent: the
+ * visitor tapped the security card, answered it, went back and picked another.
+ * An abandoned answer is not a fact of the sale; it is still in the record,
+ * under the rest of the check-up.
+ */
+export function deepDiveIdsOn(answers: Record<string, unknown>): string[] {
+  return branchesOn(answers).flatMap((b) => IDS_BY_BRANCH[b] ?? []);
+}
+
 /**
  * The seven facts that decide the sale, in the e-mail's order with the
  * e-mail's labels. Changing a word here changes the e-mail too
@@ -197,19 +219,21 @@ export function coreSaleFacts(answers: Record<string, unknown>): { label: string
  * copy" and DM-88HKT's "a partner or bank asked" are the two sentences that
  * decide those two calls, so they belong in the first screenful.
  */
-export function saleFacts(answers: Record<string, unknown>): { label: string; value: string }[] {
+export function saleFacts(answers: Record<string, unknown>): { id?: string; label: string; value: string }[] {
   const entries = answerEntries(answers);
   // In the order they answered them: the stored answers keep the order the
   // wizard wrote them in, and branch U asks its own two questions before the
-  // channels question it borrows from branch B.
+  // channels question it borrows from branch B. Only the branch they are ON:
+  // see deepDiveIdsOn().
+  const on = deepDiveIdsOn(answers);
   const deepDive = entries
-    .filter((e) => BRANCH_IDS.includes(e.id) && e.value.trim() !== "")
-    .map((e) => ({ label: e.label, value: e.value }));
+    .filter((e) => on.includes(e.id) && e.value.trim() !== "")
+    .map((e) => ({ id: e.id, label: e.label, value: e.value }));
   return [...deepDive, ...coreSaleFacts(answers)];
 }
 
-/** The answer ids the sale facts already cover — Details prints the rest. */
-export const SALE_FACT_IDS = [
+/** The answer ids the seven core facts cover. Every lead e-mail prints those. */
+export const CORE_FACT_IDS = [
   "activity",
   "activity_other",
   "team",
@@ -221,11 +245,29 @@ export const SALE_FACT_IDS = [
   "site",
   "C_url",
   "E_url",
-  // The deep dive is promoted into the facts now, so the page and the e-mail
-  // must not print it a second time under "the rest of the check-up".
-  ...BRANCH_IDS,
-  ...BRANCH_IDS.map((id) => `${id}_other`),
 ];
+
+/** The deep dive's ids, whichever branch they belong to. */
+export const DEEP_DIVE_IDS = [...BRANCH_IDS, ...BRANCH_IDS.map((id) => `${id}_other`)];
+
+/**
+ * The answer ids the sale facts CAN cover — Details prints the rest.
+ *
+ * It stays the whole deep dive rather than the branch they are on, because it
+ * is a constant and a reader of it (lib/inbox/leadView.ts) has no way to ask
+ * per lead. The cost is that an answer from a branch they backed out of shows
+ * up nowhere on the lead page; the fix is one line in that file and is a
+ * declared blocker (`deepDiveIdsOn(answers)`). The lead e-mail does not have
+ * to wait for it: mail.ts drops a row only against the facts it was actually
+ * given (`CORE_FACT_IDS` plus the ids those facts carry).
+ */
+export const SALE_FACT_IDS = [...CORE_FACT_IDS, ...DEEP_DIVE_IDS];
+
+/** The ids `saleFacts(answers)` really covers for THIS lead. */
+export function saleFactIdsOn(answers: Record<string, unknown>): string[] {
+  const on = deepDiveIdsOn(answers);
+  return [...CORE_FACT_IDS, ...on, ...on.map((id) => `${id}_other`)];
+}
 
 /** Their own sentences: the magic wand first, then every free-text answer. */
 export function ownWords(answers: Record<string, unknown>): { label: string; text: string }[] {

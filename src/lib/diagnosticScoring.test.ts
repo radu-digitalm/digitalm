@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { score } from "./diagnosticScoring.ts";
 import { renderLeadNotification } from "./mail.ts";
-import { answerEntries, saleFacts } from "./diagnostic/answers.ts";
+import { answerEntries, coreSaleFacts, saleFactIdsOn, saleFacts } from "./diagnostic/answers.ts";
 import type { Answers } from "./diagnosticScoring.ts";
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ const REAL: Record<string, Answers> = {
 // ---- branch U: the people who cannot name their own problem -----------------
 
 test("branch U scores what last week actually cost them, on the router's scale", () => {
-  const of = (week: string[]) => score({ U_week: week }).scores;
+  const of = (week: string[]) => score({ pains: ["unsure"], U_week: week }).scores;
   assert.equal(of(["replies"]).AGENT, 3);
   assert.equal(of(["quotes"]).AUTO, 3);
   assert.deepEqual([of(["chasing"]).CRM, of(["chasing"]).AUTO], [3, 1]);
@@ -62,30 +62,30 @@ test("branch U scores what last week actually cost them, on the router's scale",
 });
 
 test("'last week went fine' is a fact about the lead, not a service line", () => {
-  const s = score({ U_week: ["none"], U_where: "software", team: "solo" });
+  const s = score({ pains: ["unsure"], U_week: ["none"], U_where: "software", team: "solo" });
   assert.deepEqual(s.scores, { AGENT: 0, AUTO: 0, WEB: 0, CRM: 0, SEC: 0 });
   assert.ok(s.flags.includes("no-symptom"), "the e-mail has to be able to say no symptom was named");
   assert.ok(s.flags.includes("thin"));
   // A symptom beside it is still a symptom: the flag is for "none" alone.
-  assert.equal(score({ U_week: ["none", "quotes"] }).flags.includes("no-symptom"), false);
+  assert.equal(score({ pains: ["unsure"], U_week: ["none", "quotes"] }).flags.includes("no-symptom"), false);
 });
 
 test("where the work lives on a Monday morning, without cancelling the symptoms", () => {
   for (const where of ["paper", "head"]) {
-    const s = score({ U_where: where });
+    const s = score({ pains: ["unsure"], U_where: where });
     assert.equal(s.scores.WEB, 1, `${where} points at the basics`);
     assert.ok(s.flags.includes("basics-first"), `${where} raises basics-first`);
   }
-  assert.equal(score({ U_where: "sheet" }).scores.CRM, 1);
-  assert.equal(score({ U_where: "inbox" }).scores.CRM, 1);
-  assert.deepEqual(score({ U_where: "software" }).scores, { AGENT: 0, AUTO: 0, WEB: 0, CRM: 0, SEC: 0 });
+  assert.equal(score({ pains: ["unsure"], U_where: "sheet" }).scores.CRM, 1);
+  assert.equal(score({ pains: ["unsure"], U_where: "inbox" }).scores.CRM, 1);
+  assert.deepEqual(score({ pains: ["unsure"], U_where: "software" }).scores, { AGENT: 0, AUTO: 0, WEB: 0, CRM: 0, SEC: 0 });
   // `tools: paper` docks a point off AUTO and CRM to stop us automating on top
   // of nothing. U_where must NOT: applied here it would cancel the very
   // symptoms the question before it just collected.
-  assert.equal(score({ U_week: ["quotes"], U_where: "paper" }).scores.AUTO, 3);
-  assert.equal(score({ U_week: ["quotes"], tools: ["paper"] }).scores.AUTO, 2);
+  assert.equal(score({ pains: ["unsure"], U_week: ["quotes"], U_where: "paper" }).scores.AUTO, 3);
+  assert.equal(score({ pains: ["unsure"], U_week: ["quotes"], tools: ["paper"] }).scores.AUTO, 2);
   // And "basics-first" is a fact, not a counter: two ways of saying it once.
-  const both = score({ U_where: "paper", tools: ["paper"] }).flags.filter((f) => f === "basics-first");
+  const both = score({ pains: ["unsure"], U_where: "paper", tools: ["paper"] }).flags.filter((f) => f === "basics-first");
   assert.equal(both.length, 1);
 });
 
@@ -115,7 +115,7 @@ test("the thin flag fires on DM-JED9Y and on nobody else in the batch", () => {
 test("thin is about the answers, never about the hurry they are in", () => {
   // Nothing to propose and a deadline is a real combination: it means call
   // them and ask. The grade keeps meaning urgency and budget fit alone.
-  const s = score({ U_week: ["none"], start: "asap", budget: "3500-7000" });
+  const s = score({ pains: ["unsure"], U_week: ["none"], start: "asap", budget: "3500-7000" });
   assert.ok(s.flags.includes("thin"));
   assert.equal(s.grade, "A");
 });
@@ -157,6 +157,60 @@ test("a branch they backed out of is not evidence of anything", () => {
   assert.equal(onIt.urgency, 2);
   assert.equal(score({ ...stale, pains: ["A"], E_trigger: "incident" }).urgent, false);
   assert.equal(score({ ...stale, pains: ["E"], E_trigger: "incident" }).urgent, true);
+});
+
+test("every branch is read that way, not only the security one", () => {
+  // Reachable in the wizard: tap "honestly not sure", answer branch U, go Back
+  // and tap "too much manual admin". toggle() clears the exclusive card out of
+  // `pains`; nothing clears U_week and U_where, and the submit posts them
+  // whole. U_week is the heaviest rule in the file - three points across four
+  // lines - so a branch left behind put CRM on the shortlist Radu pitches.
+  const leftBehind = { U_week: ["chasing", "retyping"], U_where: "sheet" };
+  const onA = score({ ...leftBehind, pains: ["A"] });
+  assert.deepEqual(onA.proposed, ["AUTO"], "CRM came off a question he walked away from");
+  assert.equal(onA.scores.CRM, 0);
+  // On the card those answers belong to, they mean everything they say.
+  const onU = score({ ...leftBehind, pains: ["unsure"] });
+  assert.ok(onU.proposed.includes("CRM") && onU.proposed.includes("AUTO"));
+  // And it holds the other way round: branch A's own answers are not evidence
+  // for someone who ended up on "honestly not sure".
+  const staleA = { A_where: ["copying"], A_hours: "30+" };
+  assert.equal(score({ ...staleA, pains: ["unsure"], U_week: ["replies"] }).scores.AUTO, 0);
+  assert.equal(score({ ...staleA, pains: ["A"] }).scores.AUTO, 6);
+  // Branch B's "quotes slip through" is a point of urgency: the same guard.
+  assert.equal(score({ B_speed: "slip", pains: ["unsure"] }).urgency, 0);
+  assert.equal(score({ B_speed: "slip", pains: ["B"] }).urgency, 1);
+});
+
+test("the facts Radu reads first are the facts the rules agreed to read", () => {
+  // The scoring refuses a branch they backed out of; printing it at the top of
+  // the e-mail, under "what they told us goes wrong", made the first two lines
+  // read "we had an incident" on a lead the same rules call not urgent.
+  const backedOut = {
+    activity: "services", team: "solo", sellsOnline: "want-to", pains: ["A"],
+    A_where: ["stock"], A_hours: "30+", E_platform: "shopify", E_trigger: "incident",
+    tools: ["google"], start: "asap", budget: "unsure",
+  };
+  const s = score(backedOut);
+  assert.equal(s.scores.SEC, 0);
+  assert.equal(s.urgent, false);
+  const labels = saleFacts(backedOut).map((f) => f.label);
+  assert.equal(labels[0], "Where does the time go?", "the branch he is on comes first");
+  for (const gone of ["What is the shop built on?", "What brings the question up?"]) {
+    assert.equal(labels.includes(gone), false, `"${gone}" is not a fact of this sale`);
+  }
+  // The id list says the same thing, for a page that filters by id.
+  assert.ok(saleFactIdsOn(backedOut).includes("A_hours"));
+  assert.equal(saleFactIdsOn(backedOut).includes("E_platform"), false);
+  // It is not deleted: it is an answer he gave, and it sits with the rest.
+  const { text } = renderLeadNotification({
+    ...ALBERTO_MAIL,
+    facts: saleFacts(backedOut),
+    detail: answerEntries(backedOut).map((e) => ({ id: e.id, label: e.label, value: e.value })),
+  });
+  const detail = text.indexOf("THE DETAIL");
+  assert.ok(text.indexOf("What is the shop built on?: Shopify") > detail, "still in the record, under the rest");
+  assert.equal(text.indexOf("Where does the time go?", detail), -1, "and the branch he IS on is said once");
 });
 
 test("a partner or a bank asking is a deadline; sleeping better is not", () => {
@@ -300,4 +354,51 @@ test("no draft says which of the two things went wrong", () => {
   assert.ok(text.includes(sentence), "an empty draft box tells Radu nothing");
   assert.ok(html.includes(sentence));
   assert.match(text, /Write this one yourself\./);
+});
+
+test("THE DETAIL keeps the deep dive until THE FACTS actually carries it", () => {
+  // The route still builds its own seven demographic facts (its edit is a
+  // declared blocker). Dropping the deep dive against a constant list of every
+  // branch id would then have deleted "an agency built it" and "a partner or
+  // bank asked" - the whole of Steven's call - from the only place they still
+  // appear, instead of de-duplicating them.
+  const answers = { ...REAL["DM-88HKT"]! } as Record<string, unknown>;
+  const { text } = renderLeadNotification({
+    ...ALBERTO_MAIL,
+    firstName: "Steven",
+    facts: coreSaleFacts(answers), // the route's list: seven rows, no ids
+    detail: answerEntries(answers).map((e) => ({ id: e.id, label: e.label, value: e.value })),
+  });
+  const detail = text.indexOf("THE DETAIL");
+  for (const line of ["What is the shop built on?: Custom / an agency built it", "What brings the question up?: A partner or bank asked"]) {
+    assert.ok(text.includes(line), `"${line}" disappeared from the e-mail altogether`);
+    assert.ok(text.indexOf(line) > detail, "until the route passes saleFacts(), it lives under THE DETAIL");
+  }
+  // What the seven facts DID print is still said once.
+  const rest = text.slice(detail);
+  for (const dup of ["What does your business do?", "How many people in the business?"]) {
+    assert.equal(rest.includes(dup), false, `THE DETAIL reprints "${dup}"`);
+  }
+});
+
+test("with no triage at all, nothing points at a block that is not there", () => {
+  // WHAT TO PROPOSE said "Ask the questions below" and was followed straight by
+  // the reply draft: the questions come from the triage, and the triage is
+  // exactly what is missing here.
+  const noTriage = { ...ALBERTO_MAIL, propose: { lines: "(none scored)" }, callQuestions: undefined, unknowns: undefined };
+  const { text, html } = renderLeadNotification(noTriage);
+  assert.equal(text.includes("Ask the questions below"), false);
+  assert.match(text, /Ask them what they are trying to fix before proposing anything\./);
+  assert.match(html, /Ask them what they are trying to fix/);
+  // And a draft that was never written did not fail any checks.
+  assert.match(text, /the AI triage did not answer at all/);
+  assert.equal(text.includes("did not pass its checks"), false);
+  // With the triage's own output in the message, it IS the checks that failed.
+  const checksFailed = renderLeadNotification(ALBERTO_MAIL);
+  assert.match(checksFailed.text, /^No draft: the draft did not pass its checks/m);
+  assert.equal(checksFailed.text.includes("did not answer at all"), false);
+  // A message with no proposal block at all keeps the band they tapped in the
+  // subject: it is the one figure in there that the customer typed.
+  const noPropose = renderLeadNotification({ ...ALBERTO_MAIL, propose: undefined });
+  assert.match(noPropose.subject, /No idea yet, tell me what it costs$/);
 });
