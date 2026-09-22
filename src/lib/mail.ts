@@ -499,8 +499,9 @@ function leadSubject(i: LeadMailInput): string {
         ? NOTHING_SUBJECT
         : [i.propose.lines, budget].filter(Boolean).join(", ")
       : // No proposal block at all: the band they tapped is still better than
-        // nothing, and it is a figure they typed themselves.
-        budget || "") ||
+        // nothing, and it is a figure they typed themselves. "not stated" is
+        // the facts list saying there is none, and it is not a need.
+        (budget === "not stated" ? "" : budget || "")) ||
     "new check-up";
   return `[${i.reference}] ${i.grade}${flags ? ` ${flags}` : ""} - ${who}${where} - ${need}`.slice(0, 190);
 }
