@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { score } from "./diagnosticScoring.ts";
 import { renderLeadNotification } from "./mail.ts";
+import { answerEntries, saleFacts } from "./diagnostic/answers.ts";
 import type { Answers } from "./diagnosticScoring.ts";
 
 // ---------------------------------------------------------------------------
@@ -137,6 +138,27 @@ test("answering the security deep dive is the proof that a shop exists", () => {
   assert.equal(score({ sellsOnline: "want-to", pains: ["E"] }).scores.SEC, 0);
 });
 
+test("a branch they backed out of is not evidence of anything", () => {
+  // The wizard sends the answers it has collected, so a visitor who taps the
+  // security card, answers it, goes back and picks "the admin eats my week"
+  // instead still ships an E_platform and an E_trigger. Those two used to
+  // unlock a line he never asked about and add a point of urgency he never
+  // stated - and after this change they are read harder than before, so the
+  // guard is the card he is actually on.
+  const stale = { sellsOnline: "want-to", E_platform: "custom", E_trigger: "asked", start: "later" };
+  const backedOut = score({ ...stale, pains: ["A"] });
+  assert.equal(backedOut.scores.SEC, 0, "the audit is not proposable to someone who did not ask about it");
+  assert.equal(backedOut.proposed.includes("SEC"), false);
+  assert.equal(backedOut.urgency, 1, "someone else's deadline, on a question he left behind");
+  assert.equal(backedOut.urgent, false);
+  // Still on card E, the same answers mean everything they say.
+  const onIt = score({ ...stale, pains: ["E"] });
+  assert.ok(onIt.proposed.includes("SEC"));
+  assert.equal(onIt.urgency, 2);
+  assert.equal(score({ ...stale, pains: ["A"], E_trigger: "incident" }).urgent, false);
+  assert.equal(score({ ...stale, pains: ["E"], E_trigger: "incident" }).urgent, true);
+});
+
 test("a partner or a bank asking is a deadline; sleeping better is not", () => {
   const base = { sellsOnline: "own-site", pains: ["E"], E_platform: "custom", start: "later" };
   assert.equal(score({ ...base, E_trigger: "asked" }).urgency, 2);
@@ -223,6 +245,53 @@ test("the one-tap reply is last, and the CRM link is beside the draft", () => {
   assert.ok(text.lastIndexOf("mailto:alberto@example.ca%3F") === -1);
   assert.ok(text.lastIndexOf("mailto:alberto@example.ca?subject=") > detail);
   assert.match(text.slice(oneTap), /Send that reply in one tap|too long to pre-fill|subject line only/);
+});
+
+test("what they told us goes wrong is in THE FACTS, and THE DETAIL says it once", () => {
+  // Steven's whole call is two answers: an agency built his shop, and a bank
+  // asked him about it. Both used to sit thirty lines below the reply draft,
+  // under THE DETAIL, while THE FACTS printed his headcount - and six of the
+  // seven facts were then reprinted word for word underneath.
+  const answers = { ...REAL["DM-88HKT"]! } as Record<string, unknown>;
+  const { text } = renderLeadNotification({
+    ...ALBERTO_MAIL,
+    firstName: "Steven",
+    facts: saleFacts(answers),
+    detail: answerEntries(answers).map((e) => ({ id: e.id, label: e.label, value: e.value })),
+  });
+  const facts = text.indexOf("THE FACTS");
+  const detail = text.indexOf("THE DETAIL");
+  for (const line of ["What is the shop built on?: Custom / an agency built it", "What brings the question up?: A partner or bank asked"]) {
+    const at = text.indexOf(line);
+    assert.ok(at > facts && at < detail, `"${line}" belongs in the first screenful, not under the dump`);
+    assert.equal(text.indexOf(line, at + 1), -1, `"${line}" is printed twice`);
+  }
+  // The demographic chips are printed once too: THE DETAIL is everything else.
+  const rest = text.slice(detail);
+  for (const dup of ["What does your business do?", "How many people in the business?", "What budget do you have in mind?"]) {
+    assert.equal(rest.includes(dup), false, `THE DETAIL reprints "${dup}", which THE FACTS already said`);
+  }
+  // What THE FACTS does not carry is still there: the card he picked.
+  assert.match(rest, /Which of these feels most true right now\?/);
+  // A caller that sends no ids loses nothing.
+  const unlabelled = renderLeadNotification({ ...ALBERTO_MAIL, detail: [{ label: "Anything", value: "kept" }] });
+  assert.match(unlabelled.text, /Anything: kept/);
+});
+
+test("the subject never says '(none scored)' either", () => {
+  // The body says "not enough here to quote"; the subject said
+  // "(none scored), No idea yet, tell me what it costs" on the very same
+  // lead, in the one line Radu reads before he opens anything.
+  const { subject } = renderLeadNotification(ALBERTO_MAIL);
+  assert.equal(subject.includes("(none scored)"), false);
+  assert.equal(subject.includes("No idea yet"), false, "a budget chip is not a need");
+  assert.match(subject, /^\[DM-JED9Y\] C - Alberto - not enough to quote - ask first$/);
+  // A lead that scored keeps the line and the band they tapped.
+  const scored = renderLeadNotification({ ...ALBERTO_MAIL, propose: { lines: "Process automation" } });
+  assert.match(scored.subject, /Process automation, No idea yet, tell me what it costs/);
+  // And the AI subject, when there is one, still wins.
+  const summarised = renderLeadNotification({ ...ALBERTO_MAIL, summary: "Deux questions avant de chiffrer" });
+  assert.match(summarised.subject, /Deux questions avant de chiffrer$/);
 });
 
 test("no draft says which of the two things went wrong", () => {

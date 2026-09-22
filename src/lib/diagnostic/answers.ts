@@ -95,6 +95,25 @@ function typedOther(answers: Record<string, unknown>, q: Question, v: string): s
   return String(answers[`${q.id}_other`] ?? "").trim().slice(0, 500);
 }
 
+/**
+ * The typed text when it replaces the WHOLE answer: one option picked, and it
+ * is the one with the box. That is the "Autre (précisez)" + "Travail social"
+ * case, and folding it loses nothing.
+ *
+ * A multi-select does not fold. `tools: ["google", "other"]` + "un logiciel
+ * maison" folded into "Google Workspace, un logiciel maison" would be half our
+ * words and half theirs in one string, so it could no longer be marked as
+ * typed (our labels carry the en dashes and euro signs that corrupt the
+ * model's French) and their sentence would be de-accented; and suppressing the
+ * separate row took their words out of "their own words" altogether. So the
+ * chips stay chips there, and their box keeps its own row.
+ */
+function foldedOther(answers: Record<string, unknown>, q: Question): string {
+  const vals = valuesOf(answers[q.id]);
+  if (vals.length !== 1) return "";
+  return typedOther(answers, q, vals[0]!);
+}
+
 /** Every stored answer with its English label, the "other" box folded in. */
 export function answerEntries(answers: Record<string, unknown>): AnswerEntry[] {
   const entries: AnswerEntry[] = [];
@@ -104,11 +123,14 @@ export function answerEntries(answers: Record<string, unknown>): AnswerEntry[] {
     if (!q) continue;
     if (id.endsWith("_other")) {
       // Printed in place of the chip it belongs to, so it is not printed twice.
-      if (valuesOf(answers[q.id]).some((x) => typedOther(answers, q, x))) continue;
+      if (foldedOther(answers, q)) continue;
       entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true, typed: true });
       continue;
     }
-    const parts = valuesOf(v).map((x) => ({ text: typedOther(answers, q, x) || labelFor(q, x), typed: !!typedOther(answers, q, x) }));
+    const folded = foldedOther(answers, q);
+    const parts = folded
+      ? [{ text: folded, typed: true }]
+      : valuesOf(v).map((x) => ({ text: labelFor(q, x), typed: false }));
     entries.push({
       id,
       label: q.en,

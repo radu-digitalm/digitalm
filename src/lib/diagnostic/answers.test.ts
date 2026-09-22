@@ -56,13 +56,23 @@ test("a budget nobody gave can never print a figure, with no model involved", ()
 test("the sale facts keep the seven labels the lead e-mail prints, in order", () => {
   const block = ROUTE.slice(ROUTE.indexOf("facts: ["), ROUTE.indexOf("propose: {"));
   const inEmail = [...block.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
-  // The route may either hold the same list (and this compares it word for
-  // word) or call the shared one, which is the same thing said once.
   if (inEmail.length) {
+    // The route still writes its own list, so this compares it word for word.
+    // It is a copy, and a copy diverges: this one prints "Other (tell us) -
+    // Travail social" where the shared list prints "Travail social", and it
+    // leaves the deep dive out of the e-mail entirely. Only the route can fix
+    // that, and the edit is a declared blocker in the U3 report
+    // (`facts: saleFacts(answers as Record<string, unknown>),`).
     assert.deepEqual(coreSaleFacts(JOJO_ANSWERS).map((f) => f.label), inEmail);
     assert.equal(inEmail.length, 7, "'Who decides' is cut: 7 of 7 leads answered 'Moi seul(e)'");
   } else {
+    // Or it calls the shared list, which is the same thing said once - and
+    // then the e-mail carries the deep dive, in the same order as the page.
     assert.match(block, /saleFacts\(/);
+    assert.deepEqual(
+      saleFacts(MICHEL_ANSWERS).map((f) => f.label).slice(-7),
+      coreSaleFacts(MICHEL_ANSWERS).map((f) => f.label),
+    );
   }
   // Whatever the e-mail does, the page's list ENDS with those same seven.
   const onPage = saleFacts(JOJO_ANSWERS).map((f) => f.label);
@@ -120,6 +130,28 @@ test("answerEntries turns the branch answers into English", () => {
   assert.equal(orphan[0]?.freeText, true);
   // And the chip is still the chip when they typed nothing in its box.
   assert.equal(answerEntries({ activity: "other" })[0]?.value, "Other (tell us)");
+});
+
+test("a chip and a typed box side by side keep both halves", () => {
+  // One option picked and it is the one with the box: the box IS the answer,
+  // and folding it loses nothing ("Entretien piscine", never "Other (tell us)
+  // - Entretien piscine").
+  const solo = answerEntries({ tools: ["other"], tools_other: "Un logiciel fait maison" });
+  assert.equal(solo[0]?.value, "Un logiciel fait maison");
+  assert.equal(solo[0]?.typed, true);
+  assert.equal(solo.some((e) => e.id === "tools_other"), false);
+  // A multi-select does not fold: half our labels and half their sentence in
+  // one string is neither, and it used to take their words out of "their own
+  // words" and de-accent them on the way to the model.
+  const mixed = answerEntries({ tools: ["google", "other"], tools_other: "Un logiciel fait maison" });
+  assert.equal(mixed.find((e) => e.id === "tools")?.value, "Google Workspace, Another tool");
+  assert.equal(mixed.find((e) => e.id === "tools")?.typed, false, "our own labels never go to the model as their words");
+  const box = mixed.find((e) => e.id === "tools_other");
+  assert.equal(box?.value, "Un logiciel fait maison");
+  assert.deepEqual([box?.freeText, box?.typed], [true, true]);
+  assert.deepEqual(ownWords({ tools: ["google", "other"], tools_other: "Un logiciel fait maison" }), [
+    { label: "Which tools do you use day-to-day? (other)", text: "Un logiciel fait maison" },
+  ]);
 });
 
 test("ownWords holds their sentence, not their trade", () => {

@@ -62,6 +62,14 @@ export function score(a: Answers): Scoring {
 
   for (const p of pains) s[CARD_TO_LINE[p]!] += 3;
 
+  // The security deep dive counts as evidence only while card E is the card
+  // they are on. The wizard merges the answers it has collected, so someone
+  // who taps E, answers it, goes back and picks A instead still SENDS an
+  // E_platform and an E_trigger; without this guard that stale pair would
+  // unlock a line they did not ask about and add a point of urgency nobody
+  // stated. What they last chose is what they are asking for.
+  const securityCard = pains.includes("E");
+
   // Whether a shop EXISTS, read from the evidence rather than from one chip.
   // DM-88HKT tapped "not yet, but we would like to", then named his platform
   // ("custom / an agency built it") and said a bank had asked about its
@@ -71,8 +79,8 @@ export function score(a: Answers): Scoring {
   const sellsOnline =
     a.sellsOnline === "own-site" ||
     a.sellsOnline === "marketplaces" ||
-    !!String(a.E_platform ?? "").trim() ||
-    !!String(a.E_url ?? "").trim();
+    (securityCard &&
+      (!!String(a.E_platform ?? "").trim() || !!String(a.E_url ?? "").trim()));
   if (a.sellsOnline === "want-to") s.WEB += 2;
   if (a.sellsOnline === "own-site") s.SEC += 1;
 
@@ -105,7 +113,7 @@ export function score(a: Answers): Scoring {
   if (a.U_where === "paper" || a.U_where === "head") { s.WEB += 1; flag("basics-first"); }
   if (a.U_where === "sheet" || a.U_where === "inbox") s.CRM += 1;
 
-  const urgentIncident = a.E_trigger === "incident" || a.E_trigger === "suspicious";
+  const urgentIncident = securityCard && (a.E_trigger === "incident" || a.E_trigger === "suspicious");
   if (urgentIncident) { s.SEC += 3; flag("urgent"); }
 
   if (tools.includes("paper")) { s.AUTO -= 1; s.CRM -= 1; s.WEB += 1; flag("basics-first"); }
@@ -129,7 +137,7 @@ export function score(a: Answers): Scoring {
   if (a.B_speed === "slip") urgency += 1;
   // A partner or a bank asking is a deadline someone else set. "Protecting
   // customer data" and "just to sleep better" are not, and do not bump.
-  if (a.E_trigger === "asked") urgency += 1;
+  if (securityCard && a.E_trigger === "asked") urgency += 1;
   if (urgentIncident) urgency += 2;
   urgency = Math.min(urgency, 5);
 

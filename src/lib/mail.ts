@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import dns from "node:dns/promises";
 import net from "node:net";
 import { checkPostedPhone, countryFor, countryFromE164 } from "./phone.ts";
+import { SALE_FACT_IDS } from "./diagnostic/answers.ts";
 
 const TO = process.env.CONTACT_FORM_TO || "contact@digitalm.eu";
 const FROM_ADDR =
@@ -211,6 +212,14 @@ export function renderClientEmail(opts: {
 // ---------------------------------------------------------------------------
 
 export interface LeadMailFact {
+  /**
+   * The answer id this row came from, when it came from one. THE DETAIL drops
+   * the rows THE FACTS has already printed, and it needs the id to know: the
+   * two lists carry different labels for the same answer ("What they do" up
+   * top, "What does your business do?" down below), so matching on the label
+   * cannot work. A row with no id is printed as given.
+   */
+  id?: string;
   label: string;
   value: string;
 }
@@ -409,16 +418,40 @@ function nothingToPropose(lines: string | undefined): boolean {
   return l === "" || /^\(none scored\)$/i.test(l);
 }
 
+/**
+ * The subject line when nothing could be named and the triage wrote no summary
+ * (it was down, or it is not configured). "(none scored), No idea yet, tell me
+ * what it costs" is what Radu's inbox showed for DM-JED9Y: a scoring accident
+ * and a budget chip, on the one lead where the body says "not enough here to
+ * quote". The subject says the same thing the body says.
+ */
+const NOTHING_SUBJECT = "not enough to quote - ask first";
+
+/**
+ * THE DETAIL is "everything else", and it was not: six of the seven rows of
+ * THE FACTS were reprinted word for word a few lines below, in the text part
+ * and the HTML part of every lead e-mail. `SALE_FACT_IDS` is the list of
+ * answers the facts already cover - the same list the lead page reads - so a
+ * row that carries its id and appears there is dropped here. A row with no id
+ * is printed as given, so a caller that has already filtered loses nothing.
+ */
+function detailFacts(i: LeadMailInput): LeadMailFact[] {
+  return (i.detail ?? []).filter((f) => !f.id || !SALE_FACT_IDS.includes(f.id));
+}
+
 /** Subject: reference, grade, who, where, need. Works with no AI answer at all. */
 function leadSubject(i: LeadMailInput): string {
   const flags = [i.urgent ? "URGENT" : null, i.flagged ? "FLAGGED" : null].filter(Boolean).join(" ");
   const who = [i.firstName, i.company].filter(Boolean).join(", ");
   const where = i.place ? ` (${i.place})` : "";
+  const budget = i.facts?.find((f) => /budget/i.test(f.label))?.value;
   const need =
     (i.summary && i.summary.trim()) ||
-    [i.propose?.lines, i.facts?.find((f) => /budget/i.test(f.label))?.value]
-      .filter(Boolean)
-      .join(", ") ||
+    (i.propose
+      ? nothingToPropose(i.propose.lines)
+        ? NOTHING_SUBJECT
+        : [i.propose.lines, budget].filter(Boolean).join(", ")
+      : "") ||
     "new check-up";
   return `[${i.reference}] ${i.grade}${flags ? ` ${flags}` : ""} - ${who}${where} - ${need}`.slice(0, 190);
 }
@@ -494,7 +527,7 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     textBlock("READY-TO-SEND REPLY", [reply]) +
     textBlock("LINKS", [i.crmUrl ? `Lead in the CRM: ${i.crmUrl}` : null]) +
     textBlock("THE DETAIL", [
-      ...(i.detail ?? []).map((f) => `${f.label}: ${f.value}`),
+      ...detailFacts(i).map((f) => `${f.label}: ${f.value}`),
       ...(i.diagnostics ?? []).map((f) => `${f.label}: ${f.value}`),
     ]) +
     // Last, on its own. The one-tap reply is ~1,900 characters of
@@ -624,7 +657,7 @@ function renderLeadHtml(i: LeadMailInput): string {
     <p style="margin:12px 0 0;">${htmlButton(sendLabel[send.prefill], send.href, true)}</p>`
     : `<p style="margin:0;font-size:14px;color:${INK};">${esc(NO_DRAFT)}</p>`;
 
-  const detail = [...(i.detail ?? []), ...(i.diagnostics ?? [])];
+  const detail = [...detailFacts(i), ...(i.diagnostics ?? [])];
 
   return `<div style="background:#f4f5f7;padding:20px 12px;font-family:Arial,Helvetica,sans-serif;">
   <div style="max-width:600px;margin:0 auto;background:#ffffff;border-radius:12px;overflow:hidden;border:1px solid #e6e8ec;">
