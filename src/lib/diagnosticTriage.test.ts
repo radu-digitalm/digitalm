@@ -608,7 +608,7 @@ test("signalOf lists the facts that are not on file, the phone number included",
     "no website or page to look at",
     "no budget given",
     "main problem not named",
-    "hours unknown",
+    // No "hours unknown": Alberto is on branch U and was never asked.
     "just exploring",
   ]);
   // A number nobody can dial is not a number on file: the lead e-mail prints
@@ -622,7 +622,10 @@ test("signalOf lists the facts that are not on file, the phone number included",
   const declared = signalOf({ ...REAL["DM-JED9Y"], companyNone: "none" }, scoringOf(REAL["DM-JED9Y"]!));
   assert.ok(!declared.missing.includes("no business name"));
   // The new branch's "last week went fine" is a symptom count of zero.
-  const quiet = signalOf({ ...REAL["DM-JED9Y"], U_week: ["none"] }, scoringOf(REAL["DM-JED9Y"]!));
+  // Built from the SAME answers: the symptom count is a scoring flag now, so
+  // scoring the fixture without U_week would silently assert nothing.
+  const quietAnswers = { ...REAL["DM-JED9Y"], U_week: ["none"] };
+  const quiet = signalOf(quietAnswers, scoringOf(quietAnswers));
   assert.ok(quiet.missing.includes("no symptom named"));
 });
 
@@ -716,7 +719,8 @@ test("a thin lead cannot be told that anything fits, whatever the model says", (
   // the note names the rule that actually fired.
   assert.match(out.noteForRadu, /^No price could be quoted for this lead at all/);
   // The checklist is ours; the model's line is added after it, never instead.
-  assert.match(out.unknowns, /^no business name; no phone number; no website or page to look at; no budget given; main problem not named; hours unknown; just exploring; /);
+  // No "hours unknown": that question belongs to branch A and Alberto is on U.
+  assert.match(out.unknowns, /^no business name; no phone number; no website or page to look at; no budget given; main problem not named; just exploring; /);
   assert.match(out.unknowns, /no company name, no website$/);
   // And the answer still carries everything that makes it useful.
   assert.equal(out.callQuestions.length, 2);

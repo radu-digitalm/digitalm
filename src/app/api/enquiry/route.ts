@@ -11,7 +11,7 @@ import { readAttribution, attributionLabel, attributionSource } from "@/lib/attr
 import { repairPostedPhone } from "@/lib/phone";
 import { SITE_URL } from "@/lib/seo";
 import { STEP1, ROUTER, BRANCHES, TOOLS, MAGIC, STEP5, CONTACT, type Question } from "@/content/diagnostic";
-import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, labelFor } from "@/lib/diagnostic/answers";
+import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, labelFor, saleFacts } from "@/lib/diagnostic/answers";
 // @@crm:inbox
 import { leadFromEnquiry } from "@/lib/inbox/hooks";
 
@@ -347,15 +347,12 @@ export async function POST(req: NextRequest) {
         ...(magic ? [{ label: "Magic wand — the chore they want gone", text: magic }] : []),
         ...entries.filter((e) => e.freeText).map((e) => ({ label: e.label, text: e.value })),
       ],
-      facts: [
-        { label: "What they do", value: [answerOf("activity"), answerOf("activity_other")].filter(Boolean).join(" — ") || "not stated" },
-        { label: "Size", value: answerOf("team") || "not stated" },
-        { label: "Sells online", value: answerOf("sellsOnline") || "not stated" },
-        { label: "Budget", value: budgetLabel || "not stated" },
-        { label: "Wants to start", value: answerOf("start") || "not stated" },
-        { label: "Tools today", value: answerOf("tools") || "none picked" },
-        { label: "Website", value: website || "not given" },
-      ],
+      // One copy of the seven facts, and the deep dive above them: the lead
+      // page reads the same function, so the e-mail and the page cannot say a
+      // fact two different ways ("Other (tell us) - Travail social" here,
+      // "Travail social" there), and the branch answers that decide the call
+      // reach the first screenful instead of the wall at the bottom.
+      facts: saleFacts(answers as Record<string, unknown>),
       propose: {
         lines: proposed.map((p) => LINE_LABEL[p]).join(" + ") || "(none scored)",
         why: triage?.noteForRadu,
@@ -365,7 +362,8 @@ export async function POST(req: NextRequest) {
       callQuestions: triage?.callQuestions,
       unknowns: triage?.unknowns,
       reply: triage?.replyDraft ? splitReplyDraft(triage.replyDraft, checkupSubject) : undefined,
-      detail: entries.map((e) => ({ label: e.label, value: e.value })),
+      // With the id, THE DETAIL can drop the rows THE FACTS already printed.
+      detail: entries.map((e) => ({ id: e.id, label: e.label, value: e.value })),
       diagnostics: [
         { label: "Rule scores", value: Object.entries(scoring.scores).filter(([, v]) => v !== 0).map(([k, v]) => `${k}:${v}`).join("  ") || "-" },
         { label: "Urgency", value: `${scoring.urgency}/5` },

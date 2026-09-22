@@ -60,6 +60,7 @@
 import { openai } from "@ai-sdk/openai";
 import { generateObject } from "ai";
 import { z } from "zod";
+import { branchesOn } from "./diagnosticScoring.ts";
 import type { Scoring, ServiceLine } from "./diagnosticScoring";
 
 const MODEL = process.env.OPENAI_MODEL_TRIAGE || process.env.OPENAI_MODEL || "gpt-4.1-mini";
@@ -799,9 +800,15 @@ export function signalOf(answers: Record<string, unknown>, scoring: Scoring): Si
   if (!declaredBudget(val("budget"))) missing.push(MISSING.budget);
   const pains = list("pains");
   if (!pains.length || pains.every((p) => p === "unsure")) missing.push(MISSING.problem);
-  const week = list("U_week");
-  if (week.length && week.every((w) => w === "none")) missing.push(MISSING.symptom);
-  if (!val("A_hours")) missing.push(MISSING.hours);
+  // One definition of "they named no symptom", read from the flag score()
+  // pushes, not computed a second time here. Said twice it drifted at once:
+  // this copy read U_week with no branch guard, so someone who answered
+  // branch U, went back and named a card still told Radu "no symptom named".
+  if (scoring.flags.includes("no-symptom")) missing.push(MISSING.symptom);
+  // Only branch A is ever asked how many hours it costs. Read for everyone,
+  // this line printed "hours unknown" at leads who were never asked, which
+  // reads as an answer they withheld.
+  if (branchesOn(answers).includes("A") && !val("A_hours")) missing.push(MISSING.hours);
   if (val("start") === "exploring") missing.push(MISSING.exploring);
   return { thin: scoring.flags.includes("thin"), missing };
 }

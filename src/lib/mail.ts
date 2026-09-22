@@ -392,7 +392,12 @@ const GRADE_LEGEND: Record<string, string> = {
   C: "Grade C = they said they are only exploring (A: wants to start now and the budget covers it; B: in between). It is urgency and budget fit, never lead quality.",
 };
 
-function gradeLegend(grade: string): string {
+/**
+ * What the letter means, in the one place it is written. The lead page reads
+ * this too: Radu read "C" as "bad lead" and it has never meant that — it is
+ * urgency and budget fit, and Alberto's C says "he told us he is only looking".
+ */
+export function gradeLegend(grade: string): string {
   return GRADE_LEGEND[String(grade ?? "").trim().toUpperCase()] ?? "";
 }
 

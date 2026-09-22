@@ -54,7 +54,10 @@ test("a budget nobody gave can never print a figure, with no model involved", ()
 });
 
 test("the sale facts keep the seven labels the lead e-mail prints, in order", () => {
-  const block = ROUTE.slice(ROUTE.indexOf("facts: ["), ROUTE.indexOf("propose: {"));
+  // "facts:", not "facts: [": the route calls saleFacts() now, and anchoring
+  // on the bracket sliced an empty string, which matched nothing and passed
+  // the wrong branch of this test.
+  const block = ROUTE.slice(ROUTE.indexOf("facts:"), ROUTE.indexOf("propose: {"));
   const inEmail = [...block.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
   if (inEmail.length) {
     // The route still writes its own list, so this compares it word for word.
