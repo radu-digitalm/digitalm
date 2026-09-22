@@ -371,6 +371,44 @@ function telLink(e164: string): string {
 
 const LANG_NAME: Record<string, string> = { fr: "French", en: "English" };
 
+/**
+ * What the letter means, beside the letter. Nothing anywhere told Radu, and a
+ * grade that looks like a verdict on the person is read as one: "C" on a lead
+ * who only said he is looking around is not a bad lead, it is a lead who told
+ * us when. The grade is urgency plus budget fit and nothing else.
+ */
+const GRADE_LEGEND: Record<string, string> = {
+  A: "Grade A = they want to start now and the budget covers it (B: in between; C: they said they are only exploring). It is urgency and budget fit, never lead quality.",
+  B: "Grade B = in between (A: wants to start now and the budget covers it; C: they said they are only exploring). It is urgency and budget fit, never lead quality.",
+  C: "Grade C = they said they are only exploring (A: wants to start now and the budget covers it; B: in between). It is urgency and budget fit, never lead quality.",
+};
+
+function gradeLegend(grade: string): string {
+  return GRADE_LEGEND[String(grade ?? "").trim().toUpperCase()] ?? "";
+}
+
+/**
+ * Nothing could honestly be named. Saying "Lines: (none scored)" reads as a
+ * scoring accident; it is an answer, and the questions below are the work.
+ */
+const NOTHING_TO_PROPOSE = "Not enough here to quote. Ask the questions below before proposing anything.";
+
+/**
+ * No draft. Either the triage never answered, or the draft it wrote failed the
+ * two checks every draft has to pass (greet this person by name, be signed by
+ * Radu). One of five live drafts opened "Bonjour," and signed "L'equipe
+ * Digital M", and a draft Radu has to proofread is worse than no draft,
+ * because he will eventually stop proofreading.
+ */
+const NO_DRAFT =
+  "No draft: either the AI triage did not answer, or the draft did not pass its checks (no first name, or not signed by Radu). Write this one yourself.";
+
+/** True when there is no service line to name. */
+function nothingToPropose(lines: string | undefined): boolean {
+  const l = (lines ?? "").trim();
+  return l === "" || /^\(none scored\)$/i.test(l);
+}
+
 /** Subject: reference, grade, who, where, need. Works with no AI answer at all. */
 function leadSubject(i: LeadMailInput): string {
   const flags = [i.urgent ? "URGENT" : null, i.flagged ? "FLAGGED" : null].filter(Boolean).join(" ");
@@ -410,7 +448,7 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
         "",
         i.reply.body.trim() || "(the AI returned a subject line and no body - write the reply yourself)",
       ].join("\n")
-    : "No draft: the AI triage did not answer. The facts above are all rule-based.";
+    : NO_DRAFT;
 
   // The plain-text part is what Telegram and some clients show, so the link
   // has to stay readable rather than bury the message in three lines of %20.
@@ -425,8 +463,11 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     none: "Reply (the draft above is a subject line only)",
   };
 
+  const legend = gradeLegend(i.grade);
+
   return (
     `${subject}\n${"=".repeat(Math.min(subject.length, 72))}\n` +
+    (legend ? `${legend}\n` : "") +
     textBlock("WHO AND WHERE", [
       `Name: ${i.firstName}${i.company ? ` - ${i.company}` : " (no business name given)"}`,
       i.place ? `Where: ${i.place}` : "Where: not known from the answers",
@@ -435,25 +476,32 @@ function renderLeadText(i: LeadMailInput, subject: string): string {
     textBlock("HOW TO REACH THEM", [`Email: ${i.email}  (mailto:${i.email})`, phoneLine]) +
     textBlock("THEIR OWN WORDS", words.length ? words : ["(they typed nothing free-form)"]) +
     textBlock("THE FACTS", (i.facts ?? []).map((f) => `${f.label}: ${f.value}`)) +
-    textBlock("WHAT TO PROPOSE", [
-      i.propose?.lines ? `Lines: ${i.propose.lines}` : null,
-      i.propose?.price ? `Price range that fits: ${i.propose.price}` : null,
-      i.propose?.why ? `Why: ${i.propose.why}` : null,
-      i.propose?.noFit ? `HONEST FLAG: ${i.propose.noFit}` : null,
-    ]) +
+    textBlock(
+      "WHAT TO PROPOSE",
+      i.propose
+        ? [
+            nothingToPropose(i.propose.lines) ? NOTHING_TO_PROPOSE : `Lines: ${i.propose.lines}`,
+            i.propose.price ? `Price range that fits: ${i.propose.price}` : null,
+            i.propose.why ? `Why: ${i.propose.why}` : null,
+            i.propose.noFit ? `HONEST FLAG: ${i.propose.noFit}` : null,
+          ]
+        : [],
+    ) +
     textBlock("ON THE CALL", [
       ...(i.callQuestions ?? []).filter((q) => q.trim()).map((q, n) => `${n + 1}. ${q.trim()}`),
       i.unknowns ? `Still unknown: ${i.unknowns}` : null,
     ]) +
     textBlock("READY-TO-SEND REPLY", [reply]) +
-    textBlock("LINKS", [
-      send ? `${sendLabel[send.prefill]}:\n${send.href}` : null,
-      i.crmUrl ? `Lead in the CRM: ${i.crmUrl}` : null,
-    ]) +
+    textBlock("LINKS", [i.crmUrl ? `Lead in the CRM: ${i.crmUrl}` : null]) +
     textBlock("THE DETAIL", [
       ...(i.detail ?? []).map((f) => `${f.label}: ${f.value}`),
       ...(i.diagnostics ?? []).map((f) => `${f.label}: ${f.value}`),
-    ])
+    ]) +
+    // Last, on its own. The one-tap reply is ~1,900 characters of
+    // percent-encoding and it used to sit between the draft and the CRM link,
+    // so the link Radu wanted was two screens of %20 away from the draft he
+    // had just read. The link itself is untouched: it still works from a phone.
+    textBlock("SEND THE REPLY IN ONE TAP", [send ? `${sendLabel[send.prefill]}:\n${send.href}` : null])
   );
 }
 
@@ -523,14 +571,20 @@ function renderLeadHtml(i: LeadMailInput): string {
         .join("")
     : `<p style="margin:0;font-size:14px;color:${MUTED};">They typed nothing free-form.</p>`;
 
-  const proposeHtml = htmlFacts(
-    [
-      i.propose?.lines ? { label: "Lines", value: i.propose.lines } : null,
-      i.propose?.price ? { label: "Price range", value: i.propose.price } : null,
-      i.propose?.why ? { label: "Why", value: i.propose.why } : null,
-      i.propose?.noFit ? { label: "Honest flag", value: i.propose.noFit } : null,
-    ].filter((f): f is LeadMailFact => !!f),
-  );
+  const nothingNamed = !!i.propose && nothingToPropose(i.propose.lines);
+  const proposeHtml = i.propose
+    ? (nothingNamed
+        ? `<p style="margin:0 0 8px;font-size:15px;line-height:1.6;color:${INK};font-weight:600;">${esc(NOTHING_TO_PROPOSE)}</p>`
+        : "") +
+      htmlFacts(
+        [
+          nothingNamed ? null : { label: "Lines", value: i.propose.lines },
+          i.propose.price ? { label: "Price range", value: i.propose.price } : null,
+          i.propose.why ? { label: "Why", value: i.propose.why } : null,
+          i.propose.noFit ? { label: "Honest flag", value: i.propose.noFit } : null,
+        ].filter((f): f is LeadMailFact => !!f),
+      )
+    : "";
 
   const callHtml =
     (i.callQuestions ?? []).filter((q) => q.trim()).length || i.unknowns
@@ -568,7 +622,7 @@ function renderLeadHtml(i: LeadMailInput): string {
       }</div>
     </div>
     <p style="margin:12px 0 0;">${htmlButton(sendLabel[send.prefill], send.href, true)}</p>`
-    : `<p style="margin:0;font-size:14px;color:${INK};">The AI triage did not answer. Everything above is rule-based.</p>`;
+    : `<p style="margin:0;font-size:14px;color:${INK};">${esc(NO_DRAFT)}</p>`;
 
   const detail = [...(i.detail ?? []), ...(i.diagnostics ?? [])];
 
@@ -582,6 +636,7 @@ function renderLeadHtml(i: LeadMailInput): string {
       <h1 style="margin:0 0 16px;font-size:20px;color:${INK};font-weight:700;">Grade ${esc(i.grade)}${
         i.urgent ? " - URGENT" : ""
       }${i.flagged ? " - flagged" : ""}: ${esc(i.firstName)}${i.company ? `, ${esc(i.company)}` : ""}</h1>
+      ${gradeLegend(i.grade) ? `<p style="margin:-10px 0 16px;font-size:12px;line-height:1.5;color:${MUTED};">${esc(gradeLegend(i.grade))}</p>` : ""}
       ${htmlSection(
         "Who and where",
         htmlFacts([

@@ -22,15 +22,22 @@ export const LINE_LABEL: Record<string, string> = {
   SEC: "E-commerce security audit",
 };
 
+/** What we say when no band was chosen: a question, never a figure. */
+const NO_BUDGET_PRICE = "not stated - ask before quoting, do not name a band";
+
 /** What to quote against the band they chose (the e-mail's line, word for word). */
 export const PRICE_FIT: Record<string, string> = {
   "<1500": "under €1,500 — quote €800-1,500, never the €500 entry price",
   "1500-3500": "€1,500-3,500 — quote €2,000-3,500",
   "3500-7000": "€3,500-7,000 — quote €4,000-6,000",
   "7000+": "€7,000+ — quote from €7,000 up",
-  unsure: "not decided — quote the standard €1,500-3,500 range",
+  // No band. These two lines reach the lead e-mail and the lead page with no
+  // model involved at all, so "quote the standard €1,500-3,500 range" WAS the
+  // order that printed a price nobody had said: 1,500-3,500 is not even on our
+  // grid. A budget that was not given is a question to ask, not a range.
+  unsure: NO_BUDGET_PRICE,
 };
-export const STANDARD_PRICE = "not stated — quote the standard €1,500-3,500 range";
+export const STANDARD_PRICE = NO_BUDGET_PRICE;
 
 export function priceFitFor(budgetId: string | null | undefined): string {
   const id = String(budgetId ?? "").trim();
@@ -69,7 +76,26 @@ export interface AnswerEntry {
   typed: boolean;
 }
 
-/** Every stored answer with its English label — the enquiry route's loop, unchanged. */
+/** The values of a stored answer, as a list of strings. */
+function valuesOf(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => String(x)) : [String(v ?? "")];
+}
+
+/**
+ * The text the visitor typed into an option's own box, when that option is the
+ * one they actually picked. "Autre (précisez)" + "Travail social" is ONE
+ * answer, and the answer is "Travail social": printing "Other (tell us) -
+ * Travail social" made Radu read the chip we offered instead of the trade he
+ * was told, and it put a trade under "their own words", where the only
+ * sentence that belongs is the one they wrote about their work.
+ */
+function typedOther(answers: Record<string, unknown>, q: Question, v: string): string {
+  const opt = q.options?.find((o) => o.id === v);
+  if (!opt?.other) return "";
+  return String(answers[`${q.id}_other`] ?? "").trim().slice(0, 500);
+}
+
+/** Every stored answer with its English label, the "other" box folded in. */
 export function answerEntries(answers: Record<string, unknown>): AnswerEntry[] {
   const entries: AnswerEntry[] = [];
   for (const [id, v] of Object.entries(answers)) {
@@ -77,11 +103,23 @@ export function answerEntries(answers: Record<string, unknown>): AnswerEntry[] {
     const q = BY_ID.get(id.replace(/_other$/, ""));
     if (!q) continue;
     if (id.endsWith("_other")) {
+      // Printed in place of the chip it belongs to, so it is not printed twice.
+      if (valuesOf(answers[q.id]).some((x) => typedOther(answers, q, x))) continue;
       entries.push({ id, label: `${q.en} (other)`, value: String(v).slice(0, 500), freeText: true, typed: true });
       continue;
     }
-    const vals = Array.isArray(v) ? v.map((x) => labelFor(q, String(x))).join(", ") : labelFor(q, String(v));
-    entries.push({ id, label: q.en, value: vals, freeText: false, typed: !q.options?.length });
+    const parts = valuesOf(v).map((x) => ({ text: typedOther(answers, q, x) || labelFor(q, x), typed: !!typedOther(answers, q, x) }));
+    entries.push({
+      id,
+      label: q.en,
+      value: parts.map((p) => p.text).join(", "),
+      freeText: false,
+      // `typed` sends the string to the model verbatim. It is true only when
+      // every word of the value came out of their keyboard: our own option
+      // labels carry en dashes and euro signs, and those are the proven cause
+      // of the corrupted French.
+      typed: !q.options?.length || (parts.length > 0 && parts.every((p) => p.typed)),
+    });
   }
   return entries;
 }
@@ -96,27 +134,76 @@ export function websiteOf(answers: Record<string, unknown>): string {
 }
 
 /**
- * The eight facts that decide the sale, in the e-mail's order with the e-mail's
- * labels. Changing a word here changes the e-mail too (leadView.test.ts asserts
- * the two match), which is the point.
+ * The deep dive's questions. The address questions are left out: they are the
+ * "Website" fact, and printing a URL twice on one screen is how a page starts
+ * arguing with itself. `B_channels` appears in two branches and is one object,
+ * so one id.
  */
-export function saleFacts(answers: Record<string, unknown>): { label: string; value: string }[] {
+const BRANCH_IDS: string[] = Object.values(BRANCHES)
+  .flat()
+  .map((q) => q.id)
+  .filter((id, i, all) => all.indexOf(id) === i && id !== "C_url" && id !== "E_url");
+
+/**
+ * The seven facts that decide the sale, in the e-mail's order with the
+ * e-mail's labels. Changing a word here changes the e-mail too
+ * (answers.test.ts asserts the two match), which is the point.
+ *
+ * "Who decides" is gone with the question: 7 of 7 leads answered "Moi
+ * seul(e)", and for a solo or 2-5 person business `team` already said it.
+ */
+export function coreSaleFacts(answers: Record<string, unknown>): { label: string; value: string }[] {
   const entries = answerEntries(answers);
   const answerOf = (id: string): string => entries.find((e) => e.id === id)?.value ?? "";
   return [
-    { label: "What they do", value: [answerOf("activity"), answerOf("activity_other")].filter(Boolean).join(" — ") || "not stated" },
+    { label: "What they do", value: answerOf("activity") || "not stated" },
     { label: "Size", value: answerOf("team") || "not stated" },
     { label: "Sells online", value: answerOf("sellsOnline") || "not stated" },
     { label: "Budget", value: answerOf("budget") || "not stated" },
     { label: "Wants to start", value: answerOf("start") || "not stated" },
-    { label: "Who decides", value: answerOf("decision") || "not stated" },
     { label: "Tools today", value: answerOf("tools") || "none picked" },
     { label: "Website", value: websiteOf(answers) || "not given" },
   ];
 }
 
-/** The answer ids the eight sale facts already cover — Details prints the rest. */
-export const SALE_FACT_IDS = ["activity", "activity_other", "team", "sellsOnline", "budget", "start", "decision", "tools", "site", "C_url", "E_url"];
+/**
+ * What they told us goes wrong, first, then the demographic chips.
+ *
+ * The deep dive is the only part of the check-up where a customer describes
+ * their own business, and it used to sit under a 1,900-character mailto at the
+ * bottom of the page. DM-BSRA8's "Spreadsheets / everyone keeps their own
+ * copy" and DM-88HKT's "a partner or bank asked" are the two sentences that
+ * decide those two calls, so they belong in the first screenful.
+ */
+export function saleFacts(answers: Record<string, unknown>): { label: string; value: string }[] {
+  const entries = answerEntries(answers);
+  // In the order they answered them: the stored answers keep the order the
+  // wizard wrote them in, and branch U asks its own two questions before the
+  // channels question it borrows from branch B.
+  const deepDive = entries
+    .filter((e) => BRANCH_IDS.includes(e.id) && e.value.trim() !== "")
+    .map((e) => ({ label: e.label, value: e.value }));
+  return [...deepDive, ...coreSaleFacts(answers)];
+}
+
+/** The answer ids the sale facts already cover — Details prints the rest. */
+export const SALE_FACT_IDS = [
+  "activity",
+  "activity_other",
+  "team",
+  "sellsOnline",
+  "budget",
+  "start",
+  "tools",
+  "tools_other",
+  "site",
+  "C_url",
+  "E_url",
+  // The deep dive is promoted into the facts now, so the page and the e-mail
+  // must not print it a second time under "the rest of the check-up".
+  ...BRANCH_IDS,
+  ...BRANCH_IDS.map((id) => `${id}_other`),
+];
 
 /** Their own sentences: the magic wand first, then every free-text answer. */
 export function ownWords(answers: Record<string, unknown>): { label: string; text: string }[] {

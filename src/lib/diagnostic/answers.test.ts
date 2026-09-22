@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, answerEntries, heardAbout, ownWords, priceFitFor, proposedLabel, saleFacts } from "./answers.ts";
+import { LINE_LABEL, PRICE_FIT, STANDARD_PRICE, answerEntries, coreSaleFacts, heardAbout, ownWords, priceFitFor, proposedLabel, saleFacts } from "./answers.ts";
 
 // Two of the five real rows, as the database holds them (read-only fixtures):
 // the lead who tapped every chip and typed nothing, and the lead who typed.
@@ -34,28 +34,65 @@ test("the service names and the price bands are one table, not two", () => {
   assert.equal(LINE_LABEL.AUTO, "Process automation");
   assert.equal(LINE_LABEL.CRM, "Customer follow-up (CRM)");
   assert.equal(PRICE_FIT["1500-3500"], "€1,500-3,500 — quote €2,000-3,500");
-  assert.equal(STANDARD_PRICE, "not stated — quote the standard €1,500-3,500 range");
-  assert.equal(priceFitFor("unsure"), "not decided — quote the standard €1,500-3,500 range");
+  assert.equal(STANDARD_PRICE, "not stated - ask before quoting, do not name a band");
+  assert.equal(priceFitFor("unsure"), "not stated - ask before quoting, do not name a band");
   assert.equal(priceFitFor(null), STANDARD_PRICE);
 });
 
-test("saleFacts keeps the eight labels the lead e-mail prints, in order", () => {
-  const block = ROUTE.slice(ROUTE.indexOf("facts: ["), ROUTE.indexOf("propose: {"));
-  const inEmail = [...block.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(
-    saleFacts(JOJO_ANSWERS).map((f) => f.label),
-    inEmail,
-  );
-  assert.equal(inEmail.length, 8);
+test("a budget nobody gave can never print a figure, with no model involved", () => {
+  // DM-JED9Y's "1.500-3.500 EUR" did not come out of the model alone: this
+  // table ordered it too, and it reaches the lead e-mail and the lead page
+  // with nothing in between. 1,500-3,500 is not even one of our prices.
+  for (const budget of ["unsure", "", "   ", "nonsense"]) {
+    const line = priceFitFor(budget);
+    assert.ok(!/\d/.test(line), `priceFitFor(${JSON.stringify(budget)}) prints a figure: ${line}`);
+    assert.ok(!/[€$]|EUR|euros/i.test(line), `priceFitFor(${JSON.stringify(budget)}) prints a currency: ${line}`);
+    assert.match(line, /ask before quoting/);
+  }
+  // A band they DID tap still quotes against it: that figure is theirs.
+  assert.match(priceFitFor("3500-7000"), /€3,500-7,000/);
 });
 
-test("saleFacts reads the answers the old query never selected", () => {
+test("the sale facts keep the seven labels the lead e-mail prints, in order", () => {
+  const block = ROUTE.slice(ROUTE.indexOf("facts: ["), ROUTE.indexOf("propose: {"));
+  const inEmail = [...block.matchAll(/label: "([^"]+)"/g)].map((m) => m[1]);
+  // The route may either hold the same list (and this compares it word for
+  // word) or call the shared one, which is the same thing said once.
+  if (inEmail.length) {
+    assert.deepEqual(coreSaleFacts(JOJO_ANSWERS).map((f) => f.label), inEmail);
+    assert.equal(inEmail.length, 7, "'Who decides' is cut: 7 of 7 leads answered 'Moi seul(e)'");
+  } else {
+    assert.match(block, /saleFacts\(/);
+  }
+  // Whatever the e-mail does, the page's list ENDS with those same seven.
+  const onPage = saleFacts(JOJO_ANSWERS).map((f) => f.label);
+  assert.deepEqual(onPage.slice(-7), coreSaleFacts(JOJO_ANSWERS).map((f) => f.label));
+  assert.equal(onPage.includes("Who decides"), false);
+});
+
+test("what they told us goes wrong comes before the demographic chips", () => {
+  // Michel's whole sale is in the deep dive: the customer information is in
+  // spreadsheets and everyone keeps their own copy. It used to sit at the
+  // bottom of the page under a 1,900-character mailto.
   const facts = saleFacts(MICHEL_ANSWERS);
-  assert.deepEqual(facts[0], { label: "What they do", value: "Other (tell us) — Entretien piscine" });
+  assert.equal(facts[0]?.label, "Where is customer information kept today?");
+  assert.equal(facts[0]?.value, "Spreadsheets");
+  assert.equal(facts[1]?.label, "What does that cost you in practice?");
+  assert.equal(facts[1]?.value, "Everyone keeps their own info");
+  assert.ok(facts.findIndex((f) => f.label === "Where is customer information kept today?") < facts.findIndex((f) => f.label === "Size"));
+  // A lead with no deep dive on file still starts at the demographics.
+  assert.equal(saleFacts({ team: "solo" })[0]?.label, "What they do");
+});
+
+test("the sale facts read the answers the old query never selected", () => {
+  const facts = coreSaleFacts(MICHEL_ANSWERS);
+  // Their trade, not the chip we offered them: "Other (tell us) - Entretien
+  // piscine" made Radu read our word before Michel's.
+  assert.deepEqual(facts[0], { label: "What they do", value: "Entretien piscine" });
   assert.deepEqual(facts[1], { label: "Size", value: "6–20" });
-  assert.deepEqual(facts[3], { label: "Budget", value: "Not sure yet" });
+  assert.deepEqual(facts[3], { label: "Budget", value: "No idea yet, tell me what it costs" });
   assert.deepEqual(facts[4], { label: "Wants to start", value: "As soon as possible" });
-  assert.deepEqual(facts[7], { label: "Website", value: "not given" });
+  assert.deepEqual(facts[6], { label: "Website", value: "not given" });
 });
 
 test("an unanswered question reads the e-mail's word, never a dash", () => {
@@ -72,24 +109,34 @@ test("answerEntries turns the branch answers into English", () => {
   assert.equal(pains?.value, "Customer info is scattered: quotes and follow-ups get forgotten");
   const where = entries.find((e) => e.id === "D_where");
   assert.ok(where && where.value.length > 0 && where.value !== "spreadsheets");
-  const other = entries.find((e) => e.id === "activity_other");
-  assert.equal(other?.label, "What does your business do? (other)");
-  assert.equal(other?.freeText, true);
+  // "Autre (précisez)" plus "Entretien piscine" is ONE answer, and the answer
+  // is the trade they typed. The separate "(other)" row is gone with it.
+  const activity = entries.find((e) => e.id === "activity");
+  assert.equal(activity?.value, "Entretien piscine");
+  assert.equal(entries.some((e) => e.id === "activity_other"), false);
+  // An "other" box with no chip behind it (a stale row) is still printed.
+  const orphan = answerEntries({ activity_other: "Travail social" });
+  assert.equal(orphan[0]?.label, "What does your business do? (other)");
+  assert.equal(orphan[0]?.freeText, true);
+  // And the chip is still the chip when they typed nothing in its box.
+  assert.equal(answerEntries({ activity: "other" })[0]?.value, "Other (tell us)");
 });
 
-test("ownWords quotes the magic wand first, and is empty for the lead who typed nothing", () => {
+test("ownWords holds their sentence, not their trade", () => {
   assert.deepEqual(ownWords(JOJO_ANSWERS), []);
   const words = ownWords(MICHEL_ANSWERS);
   assert.equal(words[0]?.label, "The chore they want gone");
   assert.equal(words[0]?.text, "Répondre aux mêmes questions WhatsApp");
-  assert.equal(words[1]?.text, "Entretien piscine");
+  // "Entretien piscine" is what he does, not something he wants gone: it is a
+  // fact now, printed as his trade, and "their own words" holds one sentence.
+  assert.equal(words.length, 1);
 });
 
 test("proposedLabel and priceFitFor speak the e-mail's words", () => {
   assert.equal(proposedLabel("AUTO+CRM"), "Process automation + Customer follow-up (CRM)");
   assert.equal(proposedLabel("-"), "");
   assert.equal(priceFitFor("1500-3500"), "€1,500-3,500 — quote €2,000-3,500");
-  assert.equal(priceFitFor(""), "not stated — quote the standard €1,500-3,500 range");
+  assert.equal(priceFitFor(""), "not stated - ask before quoting, do not name a band");
 });
 
 test("heardAbout carries the id, its English label and the other box", () => {
