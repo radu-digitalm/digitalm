@@ -44,6 +44,12 @@
 // And the counting is narrow on purpose: a bare run of digits is a price only
 // when something beside it says so. "Microsoft 365" is what a lead's own tool
 // chip hands the model, and calling it money cost a correct proposal draft.
+// Narrow, not blind: a price word beside a figure wins over every exemption
+// ("le tarif est 2025" is a price, not a date), a range is a PAIR and never
+// runs into the next one ("800 a 1 200 EUR et 2 a 3 jours" is one price and
+// one timeline), and for the lead we cannot quote at all the count widens to
+// every bare figure, where a false positive costs a draft we wrote ourselves
+// and a true one would have put a number we invented on their screen.
 //
 // WHICH MODEL RUNS THIS. `OPENAI_MODEL_TRIAGE`, beside the two names its
 // siblings already use (`OPENAI_MODEL_CHAT` in the chat route,
@@ -99,7 +105,11 @@ const BANDS: Record<string, { label: string; min: number; max: number }> = {
   "<1500": { label: "under 1,500 EUR", min: 0, max: 1500 },
   "1500-3500": { label: "1,500-3,500 EUR", min: 1500, max: 3500 },
   "3500-7000": { label: "3,500-7,000 EUR", min: 3500, max: 7000 },
-  "7000+": { label: "7,000 EUR and up", min: 7000, max: Number.POSITIVE_INFINITY },
+  // "and up" is what the chip says, not a blank cheque: with no ceiling here
+  // the guard switched itself off above the floor, and "Comptez 120 000 EUR"
+  // reached the draft and the results screen unread. Twice the floor is the
+  // most any quote of ours can honestly be against a 7,000+ band.
+  "7000+": { label: "7,000 EUR and up", min: 7000, max: 14000 },
 };
 
 /** The band they tapped, or null. "unsure" is NOT a budget. */
@@ -519,6 +529,30 @@ const PRICE_WORD =
 const PRICE_BEFORE = 32;
 const PRICE_AFTER = 24;
 
+// What a bare number is counting when it is not counting euros. Only read in
+// strict mode, where a figure with no price word beside it is still a price:
+// "200 clients", "150 factures par mois", "365 jours" are their facts.
+const NON_MONEY_UNIT =
+  /^ {0,2}(?:%|jours?|jrs?|semaines?|mois|heures?|min\b|ans?|ann[ée]es?|days?|weeks?|months?|hours?|minutes?|years?|clients?|contacts?|commandes?|orders?|factures?|devis|produits?|articles?|r[ée]f[ée]rences?|items?|messages?|mails?|e-?mails?|appels?|calls?|personnes?|people|employ[ée]s?|salari[ée]s?|visiteurs?|leads?|pages?|photos?|fois|times)/i;
+
+// The names our own chips hand the model, digits and all. Whoever ticks the
+// `microsoft` tool chip has "Microsoft 365" read out in their answers, and
+// reading that as a price threw away a correct, price-free draft on 2 of the
+// 5 real check-ups. A name keeps its number in strict mode too.
+const NAME_BEFORE =
+  /(?:microsoft|office|windows|dynamics|sage|zoho|google|shopify|presta\w*|woo\w*|wordpress|sap|ciel|ebp|quickbooks|sheets|excel) $/i;
+
+// What makes a number in the 1900-2099 range a date rather than a round price.
+// Strict mode needs this both ways round: "depuis 2019" is a date, and "une
+// premiere etape a 2000" is 2,000 euros of work nobody was quoted.
+const DATE_BEFORE = /(?:^|[^\p{L}\d])(?:en|depuis|since|in|d[èe]s|avant|apr[èe]s|before|after|ann[ée]e|year|©) $/iu;
+
+/** True when a bare number is counted by something that is not money. */
+function countedContext(masked: string, start: number, end: number): boolean {
+  const before = masked.slice(Math.max(0, start - 24), start);
+  return NON_MONEY_UNIT.test(masked.slice(end, end + 24)) || NAME_BEFORE.test(before) || DATE_BEFORE.test(before);
+}
+
 /** True when the text around a bare number says that the number is a price. */
 function pricedContext(masked: string, start: number, end: number): boolean {
   return (
@@ -545,16 +579,48 @@ function maskUrls(s: string): string {
 }
 
 /**
+ * Half a band on screen is worse than none, so a plain number tied to a money
+ * one by a range word is pulled in: "800 et 1 200", "de 1,5 a 3,5k".
+ *
+ * A range is a PAIR. The end being pulled in may not be the far side of a
+ * second range, or one join runs straight into the next: in "800 a 1 200 EUR
+ * et 2 a 3 jours" - the shape the prompt asks for, a grid price and its
+ * timeline - "et" pulled the 2 in, then "a" pulled the 3 in, and a note whose
+ * only price was our own published one was judged unsellable. It cost a
+ * needless retry, a "[price removed]" stamp on a price we do sell, the correct
+ * priced draft thrown away for the questions-only fallback, and "jours" left
+ * standing alone in Radu's subject line.
+ */
+function joinRanges(hits: NumberHit[], masked: string): void {
+  const joined = (i: number, j: number): boolean =>
+    i >= 0 && j < hits.length && RANGE_BETWEEN.test(masked.slice(hits[i]!.end, hits[j]!.start));
+  for (let i = 0; i < hits.length - 1; i++) {
+    const a = hits[i]!, b = hits[i + 1]!;
+    if (a.money === b.money || !joined(i, i + 1)) continue;
+    // Pulling forwards ("800" into "800 et 1 200"): the number being pulled in
+    // must not already belong to a range on its other side. Same backwards.
+    if (a.money ? joined(i + 1, i + 2) : joined(i - 1, i)) continue;
+    a.money = true;
+    b.money = true;
+  }
+}
+
+/**
  * Every number in the text, with a verdict on each.
  *
  * Money is: anything with a currency or a "k" after it, any thousands-grouped
- * number, and a bare run of three or more digits WITH a price word beside it.
- * NOT money: "2 a 3 jours", "30 minutes", "24 h sur 24", a bare year,
- * "Microsoft 365". A plain number tied to a money one by a range word
- * ("de 1,5 a 3,5k", "800 et 1 200") is pulled in, because half a range on
- * screen is worse than none.
+ * number, and a bare run of three or more digits with a price word beside it.
+ * NOT money: "2 a 3 jours", "30 minutes", "24 h sur 24", "Microsoft 365", and
+ * "en 2019". A year shape is no exemption by itself: "le tarif est 2025" is a
+ * price, and reading it as a date is how a figure nobody stated reached a lead
+ * we had just decided we could not quote.
+ *
+ * `strict` is the lead we cannot quote at all: there every bare run of three
+ * or more digits is a price unless something else is plainly counting it - a
+ * unit, a name, a date word - and a false positive costs no more than the
+ * draft we write ourselves.
  */
-function scanNumbers(masked: string): NumberHit[] {
+function scanNumbers(masked: string, strict: boolean): NumberHit[] {
   const hits: NumberHit[] = [];
   NUMBER_RE.lastIndex = 0;
   for (let m = NUMBER_RE.exec(masked); m; m = NUMBER_RE.exec(masked)) {
@@ -562,28 +628,21 @@ function scanNumbers(masked: string): NumberHit[] {
     const unit = UNIT_RE.exec(masked.slice(m.index + raw.length))?.[0] ?? "";
     const grouped = /[ .,]\d{3}/.test(raw);
     const digits = raw.replace(/\D/g, "").length;
-    const yearLike = !unit && !grouped && /^(?:19|20)\d{2}$/.test(raw);
     const end = m.index + raw.length + unit.length;
-    hits.push({
-      start: m.index,
-      end,
-      money: !!unit || grouped || (!yearLike && digits >= 3 && pricedContext(masked, m.index, end)),
-      value: valueOf(raw, unit),
-    });
+    const bare = !unit && !grouped && digits >= 3;
+    const money =
+      !!unit ||
+      grouped ||
+      (bare && (pricedContext(masked, m.index, end) || (strict && !countedContext(masked, m.index, end))));
+    hits.push({ start: m.index, end, money, value: valueOf(raw, unit) });
   }
-  for (let i = 0; i < hits.length - 1; i++) {
-    const a = hits[i]!, b = hits[i + 1]!;
-    if (a.money === b.money) continue;
-    if (!RANGE_BETWEEN.test(masked.slice(a.end, b.start))) continue;
-    a.money = true;
-    b.money = true;
-  }
+  joinRanges(hits, masked);
   return hits;
 }
 
 /** Money hits merged across their range words, so a whole band is one span. */
-function moneySpans(masked: string): { start: number; end: number }[] {
-  const hits = scanNumbers(masked).filter((h) => h.money);
+function moneySpans(masked: string, strict: boolean): { start: number; end: number }[] {
+  const hits = scanNumbers(masked, strict).filter((h) => h.money);
   const spans: { start: number; end: number }[] = [];
   for (const h of hits) {
     const last = spans[spans.length - 1];
@@ -597,16 +656,16 @@ function moneySpans(masked: string): { start: number; end: number }[] {
  * The money in a string, as the reader sees it: "1 500 a 3 500 EUR" is one
  * token, not two. Empty means nobody can read a price out of this text.
  */
-export function moneyTokens(s: string): string[] {
+export function moneyTokens(s: string, strict = false): string[] {
   const norm = (s ?? "").replace(THIN_SPACES, " ");
   const masked = maskUrls(norm);
-  return moneySpans(masked).map((sp) => norm.slice(sp.start, sp.end).trim());
+  return moneySpans(masked, strict).map((sp) => norm.slice(sp.start, sp.end).trim());
 }
 
 /** Every figure the text names, for the "is this one of our prices?" test. */
-export function moneyFigures(s: string): number[] {
+export function moneyFigures(s: string, strict = false): number[] {
   const masked = maskUrls((s ?? "").replace(THIN_SPACES, " "));
-  return scanNumbers(masked).filter((h) => h.money && Number.isFinite(h.value)).map((h) => h.value);
+  return scanNumbers(masked, strict).filter((h) => h.money && Number.isFinite(h.value)).map((h) => h.value);
 }
 
 /** Leftover punctuation from a removed price, tidied away. */
@@ -620,17 +679,26 @@ function tidy(s: string): string {
     .trim();
 }
 
+// What joins a price to the thing after it and means nothing once the price is
+// gone: "notre forfait est a 800 a 1 200 EUR et 2 a 3 jours" must not tidy up
+// into "...est et 2 a 3 jours". Only in front of a figure, and only when the
+// price is being removed rather than marked.
+const PRICE_JOIN_AFTER = /^\s*(?:et|and|ou|or)\s+(?=\d)/i;
+
 // The words that only exist to introduce a price, and mean nothing once it is
 // gone. The real subject line for DM-M9EZ7 came out as "...dès que possible,
 // <, under 1,500 EUR", and "un site a moins de 1 500 EUR" came out as "un site
 // a". No false information, but it reads as broken, and Radu reads it daily.
+// (A word boundary is ASCII-only in JavaScript, so `\b` never matched before
+// an accented "a grave": "est a 1 200 EUR" tidied up and "est à 1 200 EUR"
+// left "est à" standing in front of nothing.)
 const PRICE_LEAD_IN =
-  /(?:[<>~=]\s*|\b(?:[àa]|de|du|des|d'|environ|autour de|moins de|plus de|partir de|pr[èe]s de|jusqu'[àa]|from|to|under|over|about|around|at|up to|at least|starting at)\s+)+$/i;
+  /(?:[<>~=]\s*|(?<![\p{L}\d])(?:[àa]|de|du|des|d'|environ|autour de|moins de|plus de|partir de|pr[èe]s de|jusqu'[àa]|from|to|under|over|about|around|at|up to|at least|starting at)\s+)+$/iu;
 
 /** The same text with every price taken out (and, optionally, marked). */
-export function stripMoney(s: string, replacement = ""): string {
+export function stripMoney(s: string, replacement = "", strict = false): string {
   const norm = (s ?? "").replace(THIN_SPACES, " ");
-  const spans = moneySpans(maskUrls(norm));
+  const spans = moneySpans(maskUrls(norm), strict);
   let out = "";
   let last = 0;
   for (const sp of spans) {
@@ -639,6 +707,8 @@ export function stripMoney(s: string, replacement = ""): string {
     // reads as a sentence, so a marked removal keeps its preposition.
     out += (replacement ? head : head.replace(PRICE_LEAD_IN, "")) + replacement;
     last = sp.end;
+    const join = replacement ? null : PRICE_JOIN_AFTER.exec(norm.slice(last));
+    if (join) last += join[0].length;
   }
   return tidy(out + norm.slice(last));
 }
@@ -668,11 +738,16 @@ function dropEmptyBudget(head: string): string {
  * was none. A subject can then only ever carry a number this person chose.
  * (Accents are fine here: this is written after the model call, for Radu's
  * inbox, not for the prompt.)
+ *
+ * The strip is the strict one for every lead, thin or not, because the rule on
+ * this one field is absolute: the schema says "NEVER a price, a budget or any
+ * figure", and 90 characters of summary cost nothing if a bare number counting
+ * something else goes with them.
  */
 export function buildSubject(summary: string, lead: TriageLead, locale: "en" | "fr"): string {
   const band = bandOf(lead.budgetId);
   const tail = band ? (lead.budget?.trim() || band.label) : NO_BUDGET_TAIL[locale];
-  const head = dropEmptyBudget(stripMoney(sanitizeLeadText(summary ?? "").replace(/[\r\n]+/g, " ")));
+  const head = dropEmptyBudget(stripMoney(sanitizeLeadText(summary ?? "").replace(/[\r\n]+/g, " "), "", true));
   if (!head) return tail.slice(0, SUBJECT_MAX);
   const room = SUBJECT_MAX - tail.length - 2;
   const cut = head.length > room ? tidy(head.slice(0, Math.max(0, room))) : head;
@@ -716,7 +791,10 @@ export function signalOf(answers: Record<string, unknown>, scoring: Scoring): Si
   const missing: string[] = [];
   // "I do not have one yet" is an answer; an empty box is not.
   if (!val("company") && val("companyNone") !== "none") missing.push(MISSING.company);
-  if (!val("phone")) missing.push(MISSING.phone);
+  // A number we cannot dial is not a number on file: the 18 Sep lead posted
+  // "15817015976" and the e-mail printed "(not dialable as stored)" while this
+  // checklist told Radu the phone number was there.
+  if (!/\d/.test(val("phone"))) missing.push(MISSING.phone);
   if (!val("site") && !val("C_url") && !val("E_url")) missing.push(MISSING.website);
   if (!declaredBudget(val("budget"))) missing.push(MISSING.budget);
   const pains = list("pains");
@@ -860,11 +938,11 @@ const GENERIC_QUESTIONS = {
  * autour de 1 500 a 3 500 EUR ?" was printed to the one lead we had just
  * decided we could not quote.
  */
-export function fallbackDraft(lead: TriageLead, callQuestions: string[], locale: "en" | "fr"): string {
+export function fallbackDraft(lead: TriageLead, callQuestions: string[], locale: "en" | "fr", strict = false): string {
   const name = sanitizeLeadText(lead.firstName ?? "").trim() || (locale === "fr" ? "bonjour" : "there");
   const asked = callQuestions
     .map((q) => sanitizeLeadText(q).replace(/[\r\n]+/g, " ").trim())
-    .filter((q) => q.length > 0 && moneyTokens(q).length === 0)
+    .filter((q) => q.length > 0 && moneyTokens(q, strict).length === 0)
     .slice(0, 3);
   // One usable question of theirs beats two of ours, so the generics top the
   // list up to two rather than replacing it.
@@ -874,7 +952,10 @@ export function fallbackDraft(lead: TriageLead, callQuestions: string[], locale:
     picked.push(g);
   }
   const questions = picked.map((q, i) => `${i + 1}. ${q}`);
-  const magic = stripMoney(sanitizeLeadText(lead.magic ?? "").replace(/[\r\n]+/g, " ").trim());
+  // Their own sentence is cleaned the same way the rest of the draft is judged:
+  // this draft is the one that has to pass, and quoting them back a figure the
+  // guard then refuses leaves Radu with no draft at all.
+  const magic = stripMoney(sanitizeLeadText(lead.magic ?? "").replace(/[\r\n]+/g, " ").trim(), "", strict);
   if (locale === "fr") {
     return [
       "Objet : Quelques questions avant de vous proposer quoi que ce soit",
@@ -922,7 +1003,7 @@ export function fallbackDraft(lead: TriageLead, callQuestions: string[], locale:
  * unread, and 2 of the 5 real leads sat entirely outside the guard.
  */
 function disallowedIn(s: string, lead: TriageLead, signal: Signal): number[] {
-  const figures = moneyFigures(s);
+  const figures = moneyFigures(s, signal.thin);
   if (signal.thin) return figures; // not one price is allowed
   const band = bandOf(lead.budgetId);
   return figures.filter((f) => !ALLOWED_FIGURES.has(f) && !(band && f >= band.min && f <= band.max));
@@ -963,7 +1044,13 @@ export function checkTriage(t: Triage, lead: TriageLead, signal: Signal): string
   return problems;
 }
 
-const PRICES_REMOVED = "Prices that are not on our grid were removed from this note. Ask before quoting. ";
+// Which rule fired, in the words of the rule that fired: for a thin lead no
+// price at all was allowed, not merely one that is off the grid, and telling
+// Radu otherwise teaches him a rule we do not have.
+const PRICES_REMOVED = {
+  thin: "No price could be quoted for this lead at all, so the figures were removed from this note. Ask before quoting. ",
+  grid: "Prices that are not on our grid were removed from this note. Ask before quoting. ",
+} as const;
 
 // What the visitor reads when the model would not stop naming a price. This
 // paragraph sits on the results screen immediately above the booking button,
@@ -988,10 +1075,10 @@ export function finalizeTriage(t: Triage, lead: TriageLead, signal: Signal, loca
   // gets his note with the figures marked as removed, and the results screen
   // gets a short sentence that promises nothing.
   let replyDraft = disallowedIn(t.replyDraft, lead, signal).length
-    ? fallbackDraft(lead, t.callQuestions, locale)
+    ? fallbackDraft(lead, t.callQuestions, locale, signal.thin)
     : t.replyDraft;
   let noteForRadu = disallowedIn(t.noteForRadu, lead, signal).length
-    ? PRICES_REMOVED + stripMoney(t.noteForRadu, "[price removed]")
+    ? (signal.thin ? PRICES_REMOVED.thin : PRICES_REMOVED.grid) + stripMoney(t.noteForRadu, "[price removed]", signal.thin)
     : t.noteForRadu;
   let clientRationale = disallowedIn(t.clientRationale, lead, signal).length
     ? SAFE_RATIONALE[locale]
@@ -1002,7 +1089,7 @@ export function finalizeTriage(t: Triage, lead: TriageLead, signal: Signal, loca
   // that interpolates text the model wrote (the call questions): a price in
   // question 1 used to be printed, in full, to the one lead we had just
   // decided we could not quote.
-  if (disallowedIn(noteForRadu, lead, signal).length) noteForRadu = stripMoney(noteForRadu, "[price removed]");
+  if (disallowedIn(noteForRadu, lead, signal).length) noteForRadu = stripMoney(noteForRadu, "[price removed]", signal.thin);
   if (disallowedIn(clientRationale, lead, signal).length) clientRationale = SAFE_RATIONALE[locale];
   // A draft Radu has to proofread is worse than no draft, because he will
   // eventually stop proofreading. No draft says so in the e-mail instead.

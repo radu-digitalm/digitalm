@@ -611,6 +611,10 @@ test("signalOf lists the facts that are not on file, the phone number included",
     "hours unknown",
     "just exploring",
   ]);
+  // A number nobody can dial is not a number on file: the lead e-mail prints
+  // "(not dialable as stored)" under the same value.
+  const rubbish = signalOf({ ...REAL["DM-JED9Y"], phone: "n/a" }, scoringOf(REAL["DM-JED9Y"]!));
+  assert.ok(rubbish.missing.includes("no phone number"));
   // A number on file is not missing; a declared band is not missing.
   assert.ok(!signalFor("DM-8FPFT").missing.includes("no phone number"));
   assert.ok(!signalFor("DM-8FPFT").missing.includes("no budget given"));
@@ -708,7 +712,9 @@ test("a thin lead cannot be told that anything fits, whatever the model says", (
   assert.deepEqual(moneyTokens(out.subjectSummary), []);
   assert.deepEqual(moneyTokens(out.replyDraft), []);
   assert.deepEqual(moneyTokens(out.noteForRadu), []);
-  assert.match(out.noteForRadu, /^Prices that are not on our grid were removed/);
+  // No price at all was allowed for this lead, not merely one off the grid:
+  // the note names the rule that actually fired.
+  assert.match(out.noteForRadu, /^No price could be quoted for this lead at all/);
   // The checklist is ours; the model's line is added after it, never instead.
   assert.match(out.unknowns, /^no business name; no phone number; no website or page to look at; no budget given; main problem not named; hours unknown; just exploring; /);
   assert.match(out.unknowns, /no company name, no website$/);
@@ -913,7 +919,7 @@ test("one bad field is not a reason to throw the other two away", () => {
   const out = finalizeTriage(notePriced, LEAD_THIN, signal, "fr");
   assert.equal(out.replyDraft, notePriced.replyDraft, "a price-free draft is kept");
   assert.equal(out.clientRationale, notePriced.clientRationale, "a price-free paragraph is kept");
-  assert.match(out.noteForRadu, /^Prices that are not on our grid were removed/);
+  assert.match(out.noteForRadu, /^No price could be quoted for this lead at all/);
   assert.deepEqual(moneyTokens(out.noteForRadu), []);
 });
 
@@ -949,6 +955,129 @@ test("a product name is not a price, so a correct proposal is not thrown away", 
   const out = finalizeTriage(good, lead, signal, "fr");
   assert.equal(out.replyDraft, good.replyDraft, "a price-free proposal draft is kept exactly as written");
   assert.equal(out.noteForRadu, good.noteForRadu, "the note is not stamped with a removal that never happened");
+});
+
+test("a timeline beside a price is not a price", () => {
+  // The prompt asks for offer phases "each with a plain title and a timeline",
+  // next to a grid line that reads "800-1,200 EUR, 2-3 days". The model wrote
+  // exactly that, and the range-join pulled "et 2 a 3 jours" in as the other
+  // half of the price: our own published forfait was judged a figure we do not
+  // sell. It cost a needless retry, a "[price removed]" stamp on a price we do
+  // sell, the correct priced draft thrown away for the questions-only
+  // fallback, and "jours" left standing alone in Radu's subject line.
+  assert.deepEqual(moneyFigures("Notre forfait standard est a 800 a 1 200 EUR et 2 a 3 jours de mise en place."), [800, 1200]);
+  assert.deepEqual(moneyFigures("Le forfait est a 500 EUR et 1 a 3 jours de travail."), [500]);
+  assert.deepEqual(moneyFigures("2 a 3 jours et 800 a 1 200 EUR"), [800, 1200]);
+  // The half-range the join exists for is still pulled in.
+  assert.deepEqual(moneyFigures("800 et 1 200"), [800, 1200]);
+  assert.deepEqual(moneyTokens("de 1,5 a 3,5k"), ["1,5 a 3,5k"]);
+
+  const signal = signalFor("DM-BSRA8"); // not thin, no budget declared
+  const michel: TriageLead = { firstName: "Michel", budgetId: "unsure", answers: "" };
+  const priced: Triage = {
+    ...MODEL_ANSWER,
+    subjectSummary: "suivi client et relances, des que possible, 800 a 1 200 EUR et 2 a 3 jours",
+    noteForRadu: "Notre forfait standard est a 800 a 1 200 EUR et 2 a 3 jours de mise en place.",
+    clientRationale: "Vous repondez souvent aux memes questions.",
+    replyDraft: "Objet : Suivi client\n\nBonjour Michel,\n\nNotre forfait standard est a 800 a 1 200 EUR et 2 a 3 jours de mise en place.\n\nRadu, Digital M",
+  };
+  assert.deepEqual(checkTriage(priced, michel, signal), [], "our own grid price, with its own timeline beside it");
+  const out = finalizeTriage(priced, michel, signal, "fr");
+  assert.equal(out.replyDraft, priced.replyDraft, "the priced draft is kept, not replaced by the fallback");
+  assert.equal(out.noteForRadu, priced.noteForRadu, "the note is not stamped with a removal that never happened");
+  // The subject keeps the timing and loses only the price.
+  assert.ok(out.subjectSummary.includes("2 a 3 jours"), out.subjectSummary);
+  assert.deepEqual(moneyTokens(out.subjectSummary, true), []);
+  // And a price that really is removed does not leave its conjunction behind.
+  assert.equal(
+    stripMoney("Notre forfait standard est a 800 a 1 200 EUR et 2 a 3 jours de mise en place."),
+    "Notre forfait standard est 2 a 3 jours de mise en place.",
+  );
+});
+
+test("a figure in the year range is still a price when a price word names it", () => {
+  // The 1900-2099 exemption overrode the price-word rule, so 2,500 was caught
+  // and 2,000 was not, in the same sentence. On a thin lead, where not one
+  // figure is allowed, it reached the paragraph above the booking button with
+  // nothing at all to stop it.
+  assert.deepEqual(moneyFigures("Notre prix standard est de 2000 pour ce forfait"), [2000]);
+  assert.deepEqual(moneyFigures("le tarif est 2025"), [2025]);
+  assert.deepEqual(moneyFigures("Budget: 2000"), [2000]);
+  assert.deepEqual(moneyFigures("Comptez environ 1950."), [1950]);
+  // A date is still a date: nothing beside it says price.
+  assert.deepEqual(moneyFigures("en 2024 nous avons ouvert la boutique"), []);
+  assert.deepEqual(moneyFigures("nous existons depuis 2019"), []);
+
+  const signal = signalFor("DM-JED9Y"); // thin: not one price is allowed
+  const priced: Triage = {
+    ...MODEL_ANSWER,
+    noteForRadu: "Comptez environ 2000 pour demarrer.",
+    clientRationale: "Pour vous : comptez environ 2000 pour demarrer.",
+    replyDraft: "Objet : Votre check-up\n\nBonjour Alberto,\n\nComptez environ 2000 pour demarrer.\n\nRadu, Digital M",
+  };
+  assert.ok(checkTriage(priced, LEAD_THIN, signal).some((p) => /2000/.test(p)), "the guard never saw it");
+  const out = finalizeTriage(priced, LEAD_THIN, signal, "fr");
+  assert.match(out.clientRationale, /^Merci pour vos réponses\./);
+  assert.match(out.replyDraft, /^Objet : Quelques questions/);
+  assert.deepEqual(moneyTokens(out.replyDraft, true), []);
+});
+
+test("for the lead we cannot quote, a bare figure is a price too", () => {
+  // In thin mode the grid is not shown at all, so there is no "Microsoft 365"
+  // trade-off to make: every bare run of three digits is a price unless
+  // something else is plainly counting it, because the guarantee on this path
+  // is absolute and a false positive costs no more than the draft we write.
+  assert.deepEqual(moneyFigures("Je peux faire ca pour 1800."), [], "the propose path still needs a price word");
+  assert.deepEqual(moneyFigures("Je peux faire ca pour 1800.", true), [1800]);
+  assert.deepEqual(moneyFigures("Entre 2000 et 4000 pour ce projet.", true), [2000, 4000]);
+  assert.deepEqual(moneyFigures("Une premiere etape a 2000, puis 4000 pour la suite.", true), [2000, 4000]);
+  for (const s of [
+    "Vous utilisez Microsoft 365 tous les jours",
+    "environ 250 clients par mois",
+    "150 factures par mois",
+    "Depuis 2019 vous faites tout a la main",
+    "100 % de vos demandes",
+  ]) {
+    assert.deepEqual(moneyFigures(s, true), [], `read as a price: ${s}`);
+  }
+
+  const signal = signalFor("DM-JED9Y");
+  const bare: Triage = {
+    ...MODEL_ANSWER,
+    noteForRadu: "Rien de special a signaler.",
+    clientRationale: "Entre 2000 et 4000 pour ce projet.",
+    replyDraft: "Objet : Votre check-up\n\nBonjour Alberto,\n\nJe peux faire ca pour 1800.\n\nRadu, Digital M",
+  };
+  assert.ok(checkTriage(bare, LEAD_THIN, signal).length > 0);
+  const out = finalizeTriage(bare, LEAD_THIN, signal, "fr");
+  assert.match(out.clientRationale, /^Merci pour vos réponses\./);
+  assert.ok(!out.replyDraft.includes("1800"), out.replyDraft);
+  assert.match(out.replyDraft, /Bonjour Alberto,/, "the draft we write ourselves still greets him");
+  // Their own numbers are theirs: the draft quotes them back untouched.
+  const draft = fallbackDraft({ ...LEAD_THIN, magic: "Je relance 200 clients par mois" }, MODEL_ANSWER.callQuestions, "fr", true);
+  assert.match(draft, /Je relance 200 clients par mois/);
+});
+
+test("the top band is a band, not a blank cheque", () => {
+  const signal = signalFor("DM-8FPFT"); // not thin
+  const rich: TriageLead = { firstName: "Anaia", budgetId: "7000+", budget: "7,000 EUR and up", answers: "" };
+  const wild: Triage = {
+    ...MODEL_ANSWER,
+    subjectSummary: "site e-commerce, des que possible",
+    noteForRadu: "Comptez 120 000 EUR.",
+    clientRationale: "Vous voulez vendre en ligne.",
+    replyDraft: "Objet : Votre boutique\n\nBonjour Anaia,\n\nComptez 120 000 EUR.\n\nRadu, Digital M",
+  };
+  assert.ok(
+    checkTriage(wild, rich, signal).some((p) => /120000/.test(p)),
+    "an open-ended band used to switch the guard off entirely above its floor",
+  );
+  const fine: Triage = {
+    ...wild,
+    noteForRadu: "Comptez 8 000 a 12 000 EUR.",
+    replyDraft: "Objet : Votre boutique\n\nBonjour Anaia,\n\nComptez 8 000 a 12 000 EUR.\n\nRadu, Digital M",
+  };
+  assert.deepEqual(checkTriage(fine, rich, signal), [], "a quote against their own band is theirs to be given");
 });
 
 test("a declared band widens the figure guard, it never switches it off", () => {
